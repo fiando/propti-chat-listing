@@ -16,10 +16,10 @@ Globals:
         DYNAMODB_TRANSACTIONS_TABLE: !Ref TransactionsTable
         DYNAMODB_MODERATIONS_TABLE: !Ref ModerationsTable
         S3_MEDIA_BUCKET: !Ref MediaBucket
-        JWT_SECRET: !Sub "{{resolve:ssm:/propti/jwt-secret}}"
-        OPENAI_API_KEY: !Sub "{{resolve:ssm:/propti/openai-api-key}}"
-        GOOGLE_MAPS_API_KEY: !Sub "{{resolve:ssm:/propti/google-maps-api-key}}"
-        MIDTRANS_SERVER_KEY: !Sub "{{resolve:ssm:/propti/midtrans-server-key}}"
+        JWT_SECRET: !Sub "{{resolve:ssm-secure:/propti/jwt-secret}}"
+        OPENAI_API_KEY: !Sub "{{resolve:ssm-secure:/propti/openai-api-key}}"
+        GOOGLE_MAPS_API_KEY: !Sub "{{resolve:ssm-secure:/propti/google-maps-api-key}}"
+        MIDTRANS_SERVER_KEY: !Sub "{{resolve:ssm-secure:/propti/midtrans-server-key}}"
         MIDTRANS_ENV: !FindInMap [StageToMidtransEnv, !Ref Stage, env]
         LOG_LEVEL: info
   Api:
