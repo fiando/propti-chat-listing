@@ -1,0 +1,463 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Propti Real Estate Platform Backend
+
+Globals:
+  Function:
+    Runtime: provided.al2023
+    Architectures:
+      - arm64
+    Timeout: 30
+    MemorySize: 256
+    Environment:
+      Variables:
+        DYNAMODB_LISTINGS_TABLE: !Ref ListingsTable
+        DYNAMODB_USERS_TABLE: !Ref UsersTable
+        DYNAMODB_TRANSACTIONS_TABLE: !Ref TransactionsTable
+        DYNAMODB_MODERATIONS_TABLE: !Ref ModerationsTable
+        S3_MEDIA_BUCKET: !Ref MediaBucket
+        JWT_SECRET: !Sub "{{resolve:ssm-secure:/propti/jwt-secret}}"
+        OPENAI_API_KEY: !Sub "{{resolve:ssm-secure:/propti/openai-api-key}}"
+        GOOGLE_MAPS_API_KEY: !Sub "{{resolve:ssm-secure:/propti/google-maps-api-key}}"
+        MIDTRANS_SERVER_KEY: !Sub "{{resolve:ssm-secure:/propti/midtrans-server-key}}"
+        MIDTRANS_ENV: !FindInMap [StageToMidtransEnv, !Ref Stage, env]
+        LOG_LEVEL: info
+  Api:
+    Cors:
+      AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+      AllowHeaders: "'Content-Type,Authorization'"
+      AllowOrigin: "'*'"
+
+Mappings:
+  StageToMidtransEnv:
+    dev:
+      env: sandbox
+    staging:
+      env: sandbox
+    production:
+      env: production
+
+Parameters:
+  Stage:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, production]
+
+Resources:
+  # ──────────────────────────────────────────────────────────────
+  # API Gateway
+  # ──────────────────────────────────────────────────────────────
+  ProptiApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Stage
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization'"
+        AllowOrigin: "'*'"
+
+  # ──────────────────────────────────────────────────────────────
+  # Lambda Functions
+  # ──────────────────────────────────────────────────────────────
+  AuthFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+    Properties:
+      FunctionName: !Sub "propti-auth-${Stage}"
+      CodeUri: ./cmd/auth/
+      Handler: bootstrap
+      Description: Handles Google OAuth login and user profile management
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Events:
+        GoogleLogin:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /auth/google
+            Method: POST
+        GetUser:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /auth/user
+            Method: GET
+        UpdateUser:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /auth/user
+            Method: PUT
+        AuthOptions:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /auth/{proxy+}
+            Method: OPTIONS
+
+  ListingsFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+    Properties:
+      FunctionName: !Sub "propti-listings-${Stage}"
+      CodeUri: ./cmd/listings/
+      Handler: bootstrap
+      Description: Handles listing CRUD, search, text parsing, and media uploads
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Events:
+        CreateListing:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /listings
+            Method: POST
+        ListListings:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /listings
+            Method: GET
+        GetListing:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /listings/{id}
+            Method: GET
+        UpdateListing:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /listings/{id}
+            Method: PUT
+        DeleteListing:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /listings/{id}
+            Method: DELETE
+        ParseText:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /listings/parse-text
+            Method: POST
+        UploadURL:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /listings/{id}/upload-url
+            Method: POST
+        SearchNearby:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /search/nearby
+            Method: GET
+        LocationSuggestions:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /locations/suggestions
+            Method: GET
+        ListingsOptions:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /listings/{proxy+}
+            Method: OPTIONS
+
+  AIFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+    Properties:
+      FunctionName: !Sub "propti-ai-${Stage}"
+      CodeUri: ./cmd/ai/
+      Handler: bootstrap
+      Description: Handles premium subscriptions and featured listings via Midtrans
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Events:
+        PremiumUpgrade:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /premium/upgrade
+            Method: POST
+        FeatureListing:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /premium/feature-listing
+            Method: POST
+        PaymentCallback:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /premium/callback
+            Method: POST
+        PremiumOptions:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /premium/{proxy+}
+            Method: OPTIONS
+
+  # ──────────────────────────────────────────────────────────────
+  # IAM Role
+  # ──────────────────────────────────────────────────────────────
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "propti-lambda-role-${Stage}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: ProptiDynamoDBPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                Resource:
+                  - !GetAtt ListingsTable.Arn
+                  - !Sub "${ListingsTable.Arn}/index/*"
+                  - !GetAtt UsersTable.Arn
+                  - !Sub "${UsersTable.Arn}/index/*"
+                  - !GetAtt TransactionsTable.Arn
+                  - !Sub "${TransactionsTable.Arn}/index/*"
+                  - !GetAtt ModerationsTable.Arn
+                  - !Sub "${ModerationsTable.Arn}/index/*"
+        - PolicyName: ProptiS3Policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:ListBucket
+                Resource:
+                  - !GetAtt MediaBucket.Arn
+                  - !Sub "${MediaBucket.Arn}/*"
+        - PolicyName: ProptiSSMPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/propti/*"
+
+  # ──────────────────────────────────────────────────────────────
+  # DynamoDB Tables
+  # ──────────────────────────────────────────────────────────────
+  ListingsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "propti-listings-${Stage}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: listingId
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: listingId-index
+          KeySchema:
+            - AttributeName: listingId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: userId-createdAt-index
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "propti-users-${Stage}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: googleId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: googleId-index
+          KeySchema:
+            - AttributeName: googleId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  TransactionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "propti-transactions-${Stage}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: midtransOrderId
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: userId-createdAt-index
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: midtransOrderId-index
+          KeySchema:
+            - AttributeName: midtransOrderId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  ModerationsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "propti-moderations-${Stage}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: listingId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: listingId-index
+          KeySchema:
+            - AttributeName: listingId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  # ──────────────────────────────────────────────────────────────
+  # S3 Bucket for Media
+  # ──────────────────────────────────────────────────────────────
+  MediaBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "propti-media-${Stage}-${AWS::AccountId}"
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - "*"
+            AllowedMethods:
+              - GET
+              - PUT
+              - POST
+              - DELETE
+              - HEAD
+            AllowedOrigins:
+              - "*"
+            ExposedHeaders:
+              - ETag
+            MaxAge: 3600
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteIncompleteMultipartUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub "https://${ProptiApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}"
+    Export:
+      Name: !Sub "ProptiApiUrl-${Stage}"
+
+  ListingsTableName:
+    Description: DynamoDB listings table name
+    Value: !Ref ListingsTable
+
+  UsersTableName:
+    Description: DynamoDB users table name
+    Value: !Ref UsersTable
+
+  TransactionsTableName:
+    Description: DynamoDB transactions table name
+    Value: !Ref TransactionsTable
+
+  ModerationsTableName:
+    Description: DynamoDB moderations table name
+    Value: !Ref ModerationsTable
+
+  MediaBucketName:
+    Description: S3 media bucket name
+    Value: !Ref MediaBucket

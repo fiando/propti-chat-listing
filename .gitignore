@@ -1,0 +1,15 @@
+# Dependencies
+frontend/node_modules/
+backend/bin/
+
+# Build artifacts
+frontend/.next/
+frontend/out/
+
+# Environment files
+.env
+.env.local
+backend/.env
+
+# OS
+.DS_Store
