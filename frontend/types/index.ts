@@ -38,7 +38,7 @@ export interface Listing {
   title: string;
   description: string;
   price: number;
-  priceUnit: 'per_unit' | 'per_month' | 'negotiable';
+  priceUnit: 'total' | 'monthly' | 'yearly';
   listingType: ListingType;
   status: ListingStatus;
   propertyDetails: PropertyDetails;
@@ -71,6 +71,14 @@ export interface User {
   lastLoginAt: string;
 }
 
+export interface ParsedLocationSuggestion {
+  province: string;
+  city: string;
+  district: string;
+  normalizedAddress: string;
+  confidence: number;
+}
+
 export interface ParsedListing {
   title: string;
   description: string;
@@ -78,9 +86,15 @@ export interface ParsedListing {
   priceUnit: string;
   propertyDetails: PropertyDetails;
   address: string;
+  locationSuggestion?: ParsedLocationSuggestion;
   confidence: number;
   requiresManualReview: boolean;
   warnings: string[];
+}
+
+export interface LocationOption {
+  id: string;
+  name: string;
 }
 
 export interface SearchParams {
@@ -104,7 +118,7 @@ export interface CreateListingRequest {
   title: string;
   description: string;
   price: number;
-  priceUnit: 'per_unit' | 'per_month' | 'negotiable';
+  priceUnit: 'total' | 'monthly' | 'yearly';
   listingType: ListingType;
   propertyDetails: PropertyDetails;
   location: Location;

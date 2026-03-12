@@ -6,44 +6,31 @@ import { MessageCircle, PenLine, ArrowLeft } from 'lucide-react';
 import { TextParseForm } from '@/components/listings/TextParseForm';
 import { ListingForm } from '@/components/listings/ListingForm';
 import { useCreateListing } from '@/hooks/useListings';
-import type { ParsedListing, CreateListingRequest } from '@/types';
+import type { ParsedListing, CreateListingRequest, Location } from '@/types';
 import Link from 'next/link';
+import type { ListingFormValues } from '@/components/listings/ListingForm';
 
 type Step = 'choose' | 'parse' | 'form';
-
-interface FormData {
-  title: string;
-  description: string;
-  price: number;
-  priceUnit: 'per_unit' | 'per_month' | 'negotiable';
-  listingType: 'sell' | 'rent';
-  landArea?: number;
-  buildingArea?: number;
-  bedrooms: number;
-  bathrooms: number;
-  frontWidth?: number;
-  orientation?: string;
-  legalStatus?: string;
-  powerConsumption?: string;
-  amenities: string[];
-  address: string;
-  city: string;
-  district?: string;
-  images: string[];
-}
 
 export default function CreateListingPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>('choose');
   const [parsedData, setParsedData] = useState<ParsedListing | null>(null);
+  const [parsedLocation, setParsedLocation] = useState<Partial<Location> | null>(null);
   const { mutateAsync: createListing, isPending } = useCreateListing();
 
   const handleParsed = (result: ParsedListing) => {
     setParsedData(result);
+    setParsedLocation({
+      address: result.locationSuggestion?.normalizedAddress || result.address || '',
+      province: result.locationSuggestion?.province || '',
+      city: result.locationSuggestion?.city || '',
+      district: result.locationSuggestion?.district || '',
+    });
     setStep('form');
   };
 
-  const handleSubmit = async (data: FormData) => {
+  const handleSubmit = async (data: ListingFormValues) => {
     const payload: CreateListingRequest = {
       title: data.title,
       description: data.description,
@@ -63,6 +50,7 @@ export default function CreateListingPage() {
       },
       location: {
         address: data.address,
+        province: data.province,
         city: data.city,
         district: data.district,
       },
@@ -169,6 +157,7 @@ export default function CreateListingPage() {
       {step === 'form' && (
         <ListingForm
           initialData={parsedData || undefined}
+          initialLocation={parsedLocation || undefined}
           onSubmit={handleSubmit}
           isLoading={isPending}
           mode="create"

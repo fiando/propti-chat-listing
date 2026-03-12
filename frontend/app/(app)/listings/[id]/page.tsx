@@ -1,5 +1,6 @@
 'use client';
 
+import { use } from 'react';
 import { useListing } from '@/hooks/useListings';
 import { ListingDetail } from '@/components/listings/ListingDetail';
 import { useDeleteListing } from '@/hooks/useListings';
@@ -8,15 +9,16 @@ import { Loader2, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 
-export default function ListingDetailPage({ params }: { params: { id: string } }) {
-  const { data: listing, isLoading, error } = useListing(params.id);
+export default function ListingDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const { data: listing, isLoading, error } = useListing(id);
   const { mutateAsync: deleteListing, isPending: isDeleting } = useDeleteListing();
   const router = useRouter();
   const { data: session } = useSession();
 
   const handleDelete = async () => {
     if (!confirm('Yakin ingin menghapus iklan ini?')) return;
-    await deleteListing(params.id);
+    await deleteListing(id);
     router.push('/listings');
   };
 

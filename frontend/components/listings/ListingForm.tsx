@@ -4,21 +4,23 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Loader2, Plus, Minus } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
 import {
   LEGAL_STATUS_OPTIONS,
   ORIENTATION_OPTIONS,
   AMENITIES_OPTIONS,
-  INDONESIAN_CITIES,
   cn,
 } from '@/lib/utils';
-import type { ParsedListing, ListingType } from '@/types';
+import { getProvinceSuggestions, getCitySuggestions, getDistrictSuggestions } from '@/lib/api';
+import type { ParsedListing, Location, ListingType } from '@/types';
 import { ImageUpload } from './ImageUpload';
 
 const listingSchema = z.object({
   title: z.string().min(10, 'Judul minimal 10 karakter').max(200, 'Judul maksimal 200 karakter'),
   description: z.string().min(20, 'Deskripsi minimal 20 karakter'),
   price: z.number({ invalid_type_error: 'Harga harus berupa angka' }).positive('Harga harus lebih dari 0'),
-  priceUnit: z.enum(['per_unit', 'per_month', 'negotiable']),
+  priceUnit: z.enum(['total', 'monthly', 'yearly']),
   listingType: z.enum(['sell', 'rent']),
   landArea: z.number().min(0).optional(),
   buildingArea: z.number().min(0).optional(),
@@ -30,6 +32,7 @@ const listingSchema = z.object({
   powerConsumption: z.string().optional(),
   amenities: z.array(z.string()),
   address: z.string().min(5, 'Alamat harus diisi'),
+  province: z.string().min(1, 'Provinsi harus dipilih'),
   city: z.string().min(1, 'Kota harus dipilih'),
   district: z.string().optional(),
   images: z.array(z.string()),
@@ -41,6 +44,7 @@ export type { ListingFormValues };
 
 interface ListingFormProps {
   initialData?: Partial<ParsedListing>;
+  initialLocation?: Partial<Location>;
   listingId?: string;
   onSubmit: (data: ListingFormValues) => Promise<void>;
   isLoading?: boolean;
@@ -84,16 +88,21 @@ function CounterField({
 
 export function ListingForm({
   initialData,
+  initialLocation,
   listingId,
   onSubmit,
   isLoading = false,
   mode = 'create',
 }: ListingFormProps) {
+  const [selectedProvinceId, setSelectedProvinceId] = useState('');
+  const [selectedCityId, setSelectedCityId] = useState('');
+
   const {
     register,
     control,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<ListingFormValues>({
     resolver: zodResolver(listingSchema),
@@ -102,7 +111,7 @@ export function ListingForm({
       description: initialData?.description || '',
       price: initialData?.price || 0,
       priceUnit:
-        (initialData?.priceUnit as ListingFormValues['priceUnit']) || 'per_unit',
+        (initialData?.priceUnit as ListingFormValues['priceUnit']) || 'total',
       listingType: 'sell' as ListingType,
       landArea: initialData?.propertyDetails?.landArea || 0,
       buildingArea: initialData?.propertyDetails?.buildingArea || 0,
@@ -111,12 +120,50 @@ export function ListingForm({
       orientation: initialData?.propertyDetails?.orientation || '',
       legalStatus: initialData?.propertyDetails?.legalStatus || '',
       amenities: initialData?.propertyDetails?.amenities || [],
-      address: initialData?.address || '',
-      city: '',
-      district: '',
+      address: initialLocation?.address || initialData?.address || '',
+      province: initialLocation?.province || '',
+      city: initialLocation?.city || '',
+      district: initialLocation?.district || '',
       images: [],
     },
   });
+
+  const { data: provinces = [], isLoading: loadingProvinces } = useQuery({
+    queryKey: ['provinces'],
+    queryFn: () => getProvinceSuggestions(),
+  });
+
+  const { data: cities = [], isLoading: loadingCities } = useQuery({
+    queryKey: ['cities', selectedProvinceId],
+    queryFn: () => getCitySuggestions(selectedProvinceId),
+    enabled: !!selectedProvinceId,
+  });
+
+  const { data: districts = [], isLoading: loadingDistricts } = useQuery({
+    queryKey: ['districts', selectedCityId],
+    queryFn: () => getDistrictSuggestions(selectedCityId),
+    enabled: !!selectedCityId,
+  });
+
+  // Resolve initial province name to ID when provinces load
+  const initProvince = initialLocation?.province || '';
+  useEffect(() => {
+    if (!initProvince || !provinces.length || selectedProvinceId) return;
+    const match = provinces.find(
+      (p) => p.name.toLowerCase() === initProvince.toLowerCase()
+    );
+    if (match) setSelectedProvinceId(match.id);
+  }, [provinces, initProvince, selectedProvinceId]);
+
+  // Resolve initial city name to ID when cities load
+  const initCity = initialLocation?.city || '';
+  useEffect(() => {
+    if (!initCity || !cities.length || selectedCityId) return;
+    const match = cities.find(
+      (c) => c.name.toLowerCase() === initCity.toLowerCase()
+    );
+    if (match) setSelectedCityId(match.id);
+  }, [cities, initCity, selectedCityId]);
 
   const watchedAmenities = watch('amenities') || [];
 
@@ -206,9 +253,9 @@ export function ListingForm({
               control={control}
               render={({ field }) => (
                 <select {...field} className="input-field">
-                  <option value="per_unit">Harga Total</option>
-                  <option value="per_month">Per Bulan</option>
-                  <option value="negotiable">Nego</option>
+                  <option value="total">Harga Total</option>
+                  <option value="monthly">Per Bulan</option>
+                  <option value="yearly">Per Tahun</option>
                 </select>
               )}
             />
@@ -384,31 +431,114 @@ export function ListingForm({
           )}
         </div>
 
+        {/* Province */}
+        <div>
+          <label className="label">Provinsi *</label>
+          <Controller
+            name="province"
+            control={control}
+            render={({ field }) => (
+              <select
+                value={selectedProvinceId}
+                onChange={(e) => {
+                  const opt = provinces.find((p) => p.id === e.target.value);
+                  setSelectedProvinceId(e.target.value);
+                  setSelectedCityId('');
+                  field.onChange(opt?.name || '');
+                  setValue('city', '');
+                  setValue('district', '');
+                }}
+                className="input-field"
+                disabled={loadingProvinces}
+              >
+                <option value="">
+                  {loadingProvinces ? 'Memuat provinsi...' : 'Pilih provinsi'}
+                </option>
+                {provinces.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          />
+          {errors.province && (
+            <p className="text-red-500 text-xs mt-1">{errors.province.message}</p>
+          )}
+        </div>
+
         <div className="grid grid-cols-2 gap-4">
+          {/* City */}
           <div>
-            <label className="label">Kota *</label>
+            <label className="label">Kota / Kabupaten *</label>
             <Controller
               name="city"
               control={control}
               render={({ field }) => (
-                <select {...field} className="input-field">
-                  <option value="">Pilih kota</option>
-                  {INDONESIAN_CITIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
+                <select
+                  value={selectedCityId}
+                  onChange={(e) => {
+                    const opt = cities.find((c) => c.id === e.target.value);
+                    setSelectedCityId(e.target.value);
+                    field.onChange(opt?.name || '');
+                    setValue('district', '');
+                  }}
+                  className="input-field"
+                  disabled={!selectedProvinceId || loadingCities}
+                >
+                  <option value="">
+                    {!selectedProvinceId
+                      ? 'Pilih provinsi dulu'
+                      : loadingCities
+                      ? 'Memuat kota...'
+                      : 'Pilih kota'}
+                  </option>
+                  {cities.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
                     </option>
                   ))}
                 </select>
               )}
             />
-            {errors.city && <p className="text-red-500 text-xs mt-1">{errors.city.message}</p>}
+            {errors.city && (
+              <p className="text-red-500 text-xs mt-1">{errors.city.message}</p>
+            )}
           </div>
+
+          {/* District */}
           <div>
-            <label className="label">Kecamatan / Kelurahan</label>
-            <input
-              {...register('district')}
-              className="input-field"
-              placeholder="Beji"
+            <label className="label">Kecamatan</label>
+            <Controller
+              name="district"
+              control={control}
+              render={({ field }) => (
+                <select
+                  value={
+                    districts.find((d) => d.name === field.value)?.id ||
+                    (field.value && !districts.length ? field.value : '')
+                  }
+                  onChange={(e) => {
+                    const opt = districts.find((d) => d.id === e.target.value);
+                    field.onChange(opt?.name || e.target.value);
+                  }}
+                  className="input-field"
+                  disabled={!selectedCityId || loadingDistricts}
+                >
+                  <option value="">
+                    {!selectedCityId
+                      ? 'Pilih kota dulu'
+                      : loadingDistricts
+                      ? 'Memuat kecamatan...'
+                      : 'Pilih kecamatan (opsional)'}
+                  </option>
+                  {districts.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             />
           </div>
         </div>

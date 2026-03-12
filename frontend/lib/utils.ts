@@ -61,9 +61,9 @@ export const LISTING_TYPE_LABELS: Record<string, string> = {
 };
 
 export const PRICE_UNIT_LABELS: Record<string, string> = {
-  per_unit: 'Harga Total',
-  per_month: 'Per Bulan',
-  negotiable: 'Nego',
+  total: 'Harga Total',
+  monthly: 'Per Bulan',
+  yearly: 'Per Tahun',
 };
 
 export const LEGAL_STATUS_OPTIONS = [

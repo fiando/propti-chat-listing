@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { MessageCircle, Sparkles, Loader2, CheckCircle, AlertTriangle, ArrowRight, Edit } from 'lucide-react';
+import { MessageCircle, Sparkles, Loader2, CheckCircle, AlertTriangle, ArrowRight, Edit, MapPin } from 'lucide-react';
 import { parseListingText } from '@/lib/api';
 import type { ParsedListing } from '@/types';
 import { formatPrice } from '@/lib/utils';
@@ -77,7 +77,6 @@ export function TextParseForm({ onParsed, onManualFill }: TextParseFormProps) {
           )}
         </div>
 
-        {/* Character count */}
         <div className="flex items-center justify-between mt-2 text-xs text-gray-400">
           <span>{text.length} karakter</span>
           <button
@@ -97,12 +96,12 @@ export function TextParseForm({ onParsed, onManualFill }: TextParseFormProps) {
             {loading ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
-                AI sedang membaca iklanmu...
+                Sedang merapikan...
               </>
             ) : (
               <>
                 <Sparkles className="w-5 h-5" />
-                Parse dengan AI
+                Rapikan Otomatis
               </>
             )}
           </button>
@@ -122,8 +121,8 @@ export function TextParseForm({ onParsed, onManualFill }: TextParseFormProps) {
           <div className="w-16 h-16 bg-brand-light rounded-full flex items-center justify-center mx-auto mb-4">
             <Sparkles className="w-8 h-8 text-brand-primary animate-pulse" />
           </div>
-          <h3 className="font-semibold text-gray-900 mb-2">AI Sedang Bekerja...</h3>
-          <p className="text-gray-500 text-sm">Mengekstrak informasi dari teks iklanmu</p>
+          <h3 className="font-semibold text-gray-900 mb-2">Sedang merapikan detail dari chat Anda</h3>
+          <p className="text-gray-500 text-sm">Harap tunggu sebentar...</p>
           <div className="mt-4 flex justify-center gap-1">
             {[0, 1, 2].map((i) => (
               <div
@@ -158,7 +157,7 @@ export function TextParseForm({ onParsed, onManualFill }: TextParseFormProps) {
               <CheckCircle className="w-5 h-5 text-brand-primary" />
             </div>
             <div>
-              <h3 className="font-bold text-gray-900">Hasil Parse AI</h3>
+              <h3 className="font-bold text-gray-900">Hasil yang Terdeteksi</h3>
               <div className="flex items-center gap-2 mt-0.5">
                 <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden w-24">
                   <div
@@ -206,7 +205,7 @@ export function TextParseForm({ onParsed, onManualFill }: TextParseFormProps) {
                 label: 'Sertifikat',
                 value: result.propertyDetails?.legalStatus || '-',
               },
-              { label: 'Lokasi', value: result.address || '-' },
+              { label: 'Alamat', value: result.address || '-' },
             ].map(({ label, value }) => (
               <div key={label} className="bg-gray-50 rounded-xl p-3">
                 <div className="text-xs text-gray-500 mb-0.5">{label}</div>
@@ -214,6 +213,41 @@ export function TextParseForm({ onParsed, onManualFill }: TextParseFormProps) {
               </div>
             ))}
           </div>
+
+          {/* Location suggestion */}
+          {result.locationSuggestion && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
+              <p className="text-xs font-semibold text-blue-700 mb-2 flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5" />
+                Saran perbaikan lokasi
+              </p>
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                {result.locationSuggestion.province && (
+                  <div>
+                    <span className="text-blue-500">Provinsi</span>
+                    <p className="font-medium text-blue-900 mt-0.5">{result.locationSuggestion.province}</p>
+                  </div>
+                )}
+                {result.locationSuggestion.city && (
+                  <div>
+                    <span className="text-blue-500">Kota/Kab</span>
+                    <p className="font-medium text-blue-900 mt-0.5">{result.locationSuggestion.city}</p>
+                  </div>
+                )}
+                {result.locationSuggestion.district && (
+                  <div>
+                    <span className="text-blue-500">Kecamatan</span>
+                    <p className="font-medium text-blue-900 mt-0.5">{result.locationSuggestion.district}</p>
+                  </div>
+                )}
+              </div>
+              {result.locationSuggestion.normalizedAddress && (
+                <p className="text-xs text-blue-600 mt-2 border-t border-blue-200 pt-2">
+                  {result.locationSuggestion.normalizedAddress}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Warnings */}
           {result.warnings?.length > 0 && (
@@ -239,7 +273,7 @@ export function TextParseForm({ onParsed, onManualFill }: TextParseFormProps) {
               className="flex-1 flex items-center justify-center gap-2 btn-primary"
             >
               <CheckCircle className="w-4 h-4" />
-              Gunakan Hasil Ini
+              Gunakan hasil ini
               <ArrowRight className="w-4 h-4" />
             </button>
             <button
