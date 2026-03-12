@@ -20,7 +20,7 @@ import { formatPrice } from '@/lib/utils';
 import { ShieldIcon } from '@/components/icons/ShieldIcon';
 
 export const metadata: Metadata = {
-  title: 'Propti - Jual Beli Properti Semudah Chat WhatsApp',
+  title: 'Propti — Jual Properti Semudah Chat WhatsApp',
 };
 
 const MOCK_LISTINGS = [
@@ -259,20 +259,20 @@ export default function HomePage() {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm border border-white/20 text-white text-sm font-medium px-4 py-2 rounded-full mb-6">
             <span className="w-2 h-2 bg-[#25D366] rounded-full animate-pulse" />
-            Platform Properti #1 dengan AI Parsing
+            Cara tercepat owner & agen pasang listing properti
           </div>
 
           {/* Headline */}
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-white leading-tight mb-4 text-balance">
-            Jual Beli Properti
+            Jual properti
             <br />
-            <span className="text-brand-accent">Semudah Chat WhatsApp</span>
+            <span className="text-brand-accent">semudah chat.</span>
           </h1>
 
           {/* Sub-headline */}
           <p className="text-lg md:text-xl text-white/80 max-w-2xl mx-auto mb-10 text-balance">
-            Paste iklan propertimu dari WhatsApp, AI kami otomatis rapikan dalam hitungan detik.
-            Gratis untuk 3 listing pertama.
+            Paste detail properti dari WhatsApp, AI kami ubah jadi listing rapi, lengkap, dan siap
+            tayang — dalam hitungan detik. Gratis untuk 3 iklan pertama.
           </p>
 
           {/* CTAs */}
@@ -282,7 +282,7 @@ export default function HomePage() {
               className="group flex items-center justify-center gap-2 bg-white text-brand-primary font-bold px-8 py-4 rounded-2xl hover:bg-brand-light transition-all duration-200 shadow-xl hover:shadow-2xl hover:-translate-y-0.5 text-lg"
             >
               <MessageCircle className="w-5 h-5 text-[#25D366]" />
-              Pasang Iklan Gratis
+              Paste listing saya
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
             <Link

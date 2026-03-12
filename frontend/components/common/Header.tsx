@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ProptiLogo } from './ProptiLogo';
 
 export function Header() {
   const { data: session, status } = useSession();
@@ -26,11 +27,8 @@ export function Header() {
     <header className="sticky top-0 z-40 bg-white border-b border-gray-100 shadow-sm">
       <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 flex-shrink-0">
-          <div className="w-9 h-9 bg-gradient-hero rounded-xl flex items-center justify-center shadow-sm">
-            <Home className="w-5 h-5 text-white" />
-          </div>
-          <span className="text-xl font-black text-brand-primary">Propti</span>
+        <Link href="/" className="flex items-center flex-shrink-0" aria-label="Propti - Beranda">
+          <ProptiLogo size={36} showWordmark wordmarkColor="dark" />
         </Link>
 
         {/* Desktop nav */}
