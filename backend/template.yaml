@@ -16,10 +16,10 @@ Globals:
         DYNAMODB_TRANSACTIONS_TABLE: !Ref TransactionsTable
         DYNAMODB_MODERATIONS_TABLE: !Ref ModerationsTable
         S3_MEDIA_BUCKET: !Ref MediaBucket
-        JWT_SECRET: !Sub "{{resolve:ssm-secure:/propti/jwt-secret}}"
-        OPENAI_API_KEY: !Sub "{{resolve:ssm-secure:/propti/openai-api-key}}"
-        GOOGLE_MAPS_API_KEY: !Sub "{{resolve:ssm-secure:/propti/google-maps-api-key}}"
-        MIDTRANS_SERVER_KEY: !Sub "{{resolve:ssm-secure:/propti/midtrans-server-key}}"
+        JWT_SECRET: !Ref JWTSecret
+        OPENAI_API_KEY: !Ref OpenAIAPIKey
+        GOOGLE_MAPS_API_KEY: !Ref GoogleMapsAPIKey
+        MIDTRANS_SERVER_KEY: !Ref MidtransServerKey
         MIDTRANS_ENV: !FindInMap [StageToMidtransEnv, !Ref Stage, env]
         LOG_LEVEL: info
   Api:
@@ -35,13 +35,25 @@ Mappings:
     staging:
       env: sandbox
     production:
-      env: production
+      env: sandbox
 
 Parameters:
   Stage:
     Type: String
     Default: dev
     AllowedValues: [dev, staging, production]
+  JWTSecret:
+    Type: String
+    NoEcho: true
+  OpenAIAPIKey:
+    Type: String
+    NoEcho: true
+  GoogleMapsAPIKey:
+    Type: String
+    NoEcho: true
+  MidtransServerKey:
+    Type: String
+    NoEcho: true
 
 Resources:
   # ──────────────────────────────────────────────────────────────
@@ -148,6 +160,36 @@ Resources:
             RestApiId: !Ref ProptiApi
             Path: /listings/{id}/upload-url
             Method: POST
+        RootHealth:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /
+            Method: GET
+        MyListings:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /users/me/listings
+            Method: GET
+        SavedListings:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /users/me/saved
+            Method: GET
+        SaveListing:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /listings/{id}/save
+            Method: POST
+        UnsaveListing:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /listings/{id}/save
+            Method: DELETE
         SearchNearby:
           Type: Api
           Properties:
@@ -160,12 +202,24 @@ Resources:
             RestApiId: !Ref ProptiApi
             Path: /locations/suggestions
             Method: GET
-        ListingsOptions:
+        LocationProvinces:
           Type: Api
           Properties:
             RestApiId: !Ref ProptiApi
-            Path: /listings/{proxy+}
-            Method: OPTIONS
+            Path: /locations/provinces
+            Method: GET
+        LocationCities:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /locations/cities
+            Method: GET
+        LocationDistricts:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /locations/districts
+            Method: GET
 
   AIFunction:
     Type: AWS::Serverless::Function
@@ -254,16 +308,6 @@ Resources:
                 Resource:
                   - !GetAtt MediaBucket.Arn
                   - !Sub "${MediaBucket.Arn}/*"
-        - PolicyName: ProptiSSMPolicy
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - ssm:GetParameter
-                  - ssm:GetParameters
-                Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/propti/*"
-
   # ──────────────────────────────────────────────────────────────
   # DynamoDB Tables
   # ──────────────────────────────────────────────────────────────
