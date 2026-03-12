@@ -119,14 +119,23 @@ type ParseTextResponse struct {
 	Confidence         float64       `json:"confidence"`
 }
 
+type ParsedLocationSuggestion struct {
+	Province          string  `json:"province"`
+	City              string  `json:"city"`
+	District          string  `json:"district"`
+	NormalizedAddress string  `json:"normalizedAddress"`
+	Confidence        float64 `json:"confidence"`
+}
+
 type ParsedListing struct {
-	Title                string          `json:"title"`
-	Description          string          `json:"description"`
-	Price                float64         `json:"price"`
-	PriceUnit            string          `json:"priceUnit"`
-	PropertyDetails      PropertyDetails `json:"propertyDetails"`
-	Address              string          `json:"address"`
-	Confidence           float64         `json:"confidence"`
-	RequiresManualReview bool            `json:"requiresManualReview"`
-	Warnings             []string        `json:"warnings"`
+	Title                string                   `json:"title"`
+	Description          string                   `json:"description"`
+	Price                float64                  `json:"price"`
+	PriceUnit            string                   `json:"priceUnit"`
+	PropertyDetails      PropertyDetails          `json:"propertyDetails"`
+	Address              string                   `json:"address"`
+	LocationSuggestion   ParsedLocationSuggestion `json:"locationSuggestion"`
+	Confidence           float64                  `json:"confidence"`
+	RequiresManualReview bool                     `json:"requiresManualReview"`
+	Warnings             []string                 `json:"warnings"`
 }
