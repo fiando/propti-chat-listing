@@ -84,15 +84,7 @@ func NewAIService(apiKey string) *AIService {
 
 // ParseListingText sends raw Indonesian listing text to gpt-5-mini and returns structured data.
 func (s *AIService) ParseListingText(ctx context.Context, text string) (*models.ParsedListing, error) {
-	resp, err := s.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
-		Model: parserModel,
-		Messages: []openai.ChatCompletionMessage{
-			{Role: openai.ChatMessageRoleSystem, Content: parseSystemPrompt},
-			{Role: openai.ChatMessageRoleUser, Content: text},
-		},
-		Temperature:    0.1,
-		ResponseFormat: &openai.ChatCompletionResponseFormat{Type: openai.ChatCompletionResponseFormatTypeJSONObject},
-	})
+	resp, err := s.client.CreateChatCompletion(ctx, buildParseChatCompletionRequest(text))
 	if err != nil {
 		return nil, fmt.Errorf("openai parse request: %w", err)
 	}
@@ -107,6 +99,17 @@ func (s *AIService) ParseListingText(ctx context.Context, text string) (*models.
 		return nil, fmt.Errorf("unmarshal parsed listing: %w", err)
 	}
 	return &parsed, nil
+}
+
+func buildParseChatCompletionRequest(text string) openai.ChatCompletionRequest {
+	return openai.ChatCompletionRequest{
+		Model: parserModel,
+		Messages: []openai.ChatCompletionMessage{
+			{Role: openai.ChatMessageRoleSystem, Content: parseSystemPrompt},
+			{Role: openai.ChatMessageRoleUser, Content: text},
+		},
+		ResponseFormat: &openai.ChatCompletionResponseFormat{Type: openai.ChatCompletionResponseFormatTypeJSONObject},
+	}
 }
 
 // moderationResponse is the raw JSON structure returned by the moderation prompt.

@@ -4,8 +4,28 @@ import (
 	"encoding/json"
 	"testing"
 
+	openai "github.com/sashabaranov/go-openai"
+
 	"github.com/fiando/propti/backend/internal/models"
 )
+
+func TestBuildParseChatCompletionRequestUsesDefaultTemperatureForGPT5(t *testing.T) {
+	t.Parallel()
+
+	req := buildParseChatCompletionRequest("jual rumah depok")
+
+	if req.Model != parserModel {
+		t.Fatalf("expected parser model %q, got %q", parserModel, req.Model)
+	}
+
+	if req.Temperature != 0 {
+		t.Fatalf("expected parse request to omit temperature for GPT-5, got %v", req.Temperature)
+	}
+
+	if req.ResponseFormat == nil || req.ResponseFormat.Type != openai.ChatCompletionResponseFormatTypeJSONObject {
+		t.Fatalf("expected JSON response format, got %#v", req.ResponseFormat)
+	}
+}
 
 func TestParseListingTextSupportsLocationSuggestions(t *testing.T) {
 	t.Parallel()
