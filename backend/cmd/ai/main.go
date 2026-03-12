@@ -36,7 +36,7 @@ func main() {
 	}
 
 	mapsSvc := services.NewGoogleMapsServiceFromEnv()
-	listingSvc := services.NewListingService(listingRepo, userRepo, aiSvc, s3Svc, mapsSvc)
+	listingSvc := services.NewListingService(listingRepo, userRepo, aiSvc, s3Svc, mapsSvc, nil)
 
 	premiumHandler := handlers.NewPremiumHandler(userRepo, listingRepo, transactionRepo, listingSvc)
 	lambda.Start(premiumHandler.Handle)

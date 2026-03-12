@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"io"
 	"strings"
+
+	"github.com/fiando/propti/backend/internal/models"
 )
 
 type Province struct {
@@ -93,4 +95,78 @@ func (c *LocationCatalog) SearchDistricts(cityID, query string) []District {
 
 func (c *LocationCatalog) Provinces() []Province {
 	return c.provinces
+}
+
+// NormalizeSuggestion validates the AI-suggested province/city/district names
+// against the catalog and returns a scored ParsedLocationSuggestion.
+// Confidence is computed as the fraction of supplied, non-empty fields that
+// resolve to an authoritative catalog entry (each field contributes 1/3).
+func (c *LocationCatalog) NormalizeSuggestion(province, city, district string) models.ParsedLocationSuggestion {
+	suggestion := models.ParsedLocationSuggestion{
+		Province: province,
+		City:     city,
+		District: district,
+	}
+
+	var matchedProvince *Province
+	if province != "" {
+		for i, p := range c.provinces {
+			if strings.EqualFold(p.Name, province) ||
+				strings.Contains(strings.ToLower(p.Name), strings.ToLower(province)) {
+				matchedProvince = &c.provinces[i]
+				suggestion.Province = p.Name
+				break
+			}
+		}
+	}
+
+	var matchedCity *City
+	if city != "" && matchedProvince != nil {
+		for i, ct := range c.citiesByProvince[matchedProvince.ID] {
+			if strings.EqualFold(ct.Name, city) ||
+				strings.Contains(strings.ToLower(ct.Name), strings.ToLower(city)) {
+				matchedCity = &c.citiesByProvince[matchedProvince.ID][i]
+				suggestion.City = ct.Name
+				break
+			}
+		}
+	}
+
+	var matchedDistrict bool
+	if district != "" && matchedCity != nil {
+		for _, d := range c.districtsByCity[matchedCity.ID] {
+			if strings.EqualFold(d.Name, district) ||
+				strings.Contains(strings.ToLower(d.Name), strings.ToLower(district)) {
+				suggestion.District = d.Name
+				matchedDistrict = true
+				break
+			}
+		}
+	}
+
+	// Score: each non-empty field that resolves contributes 1/3 confidence.
+	var scored, total float64
+	if province != "" {
+		total++
+		if matchedProvince != nil {
+			scored++
+		}
+	}
+	if city != "" {
+		total++
+		if matchedCity != nil {
+			scored++
+		}
+	}
+	if district != "" {
+		total++
+		if matchedDistrict {
+			scored++
+		}
+	}
+
+	if total > 0 {
+		suggestion.Confidence = scored / total
+	}
+	return suggestion
 }

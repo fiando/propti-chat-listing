@@ -17,31 +17,59 @@ const (
 	freeTierMaxMedia            = 3
 )
 
+type listingStore interface {
+	Put(ctx context.Context, listing *models.Listing) error
+	GetByID(ctx context.Context, userID, listingID string) (*models.Listing, error)
+	GetByListingID(ctx context.Context, listingID string) (*models.Listing, error)
+	CountMonthlyByUserID(ctx context.Context, userID string) (int, error)
+	Delete(ctx context.Context, userID, listingID string) error
+	Scan(ctx context.Context, params *models.ListingSearchParams) ([]models.Listing, error)
+}
+
+type userStore interface {
+	GetByID(ctx context.Context, userID string) (*models.User, error)
+}
+
+type aiParseService interface {
+	ParseListingText(ctx context.Context, text string) (*models.ParsedListing, error)
+}
+
+type locationNormalizer interface {
+	NormalizeSuggestion(province, city, district string) models.ParsedLocationSuggestion
+}
+
 // ListingService orchestrates listing lifecycle operations.
 type ListingService struct {
-	listingRepo *repository.ListingRepo
-	userRepo    *repository.UserRepo
-	aiService   *AIService
-	s3Service   *S3Service
-	mapsService *GoogleMapsService
+	listingRepo     listingStore
+	userRepo        userStore
+	aiService       aiParseService
+	s3Service       *S3Service
+	mapsService     *GoogleMapsService
+	locationCatalog locationNormalizer
 }
 
 // NewListingService creates a fully-wired ListingService.
 func NewListingService(
-	listingRepo *repository.ListingRepo,
-	userRepo *repository.UserRepo,
-	aiService *AIService,
+	listingRepo listingStore,
+	userRepo userStore,
+	aiService aiParseService,
 	s3Service *S3Service,
 	mapsService *GoogleMapsService,
+	locationCatalog locationNormalizer,
 ) *ListingService {
 	return &ListingService{
-		listingRepo: listingRepo,
-		userRepo:    userRepo,
-		aiService:   aiService,
-		s3Service:   s3Service,
-		mapsService: mapsService,
+		listingRepo:     listingRepo,
+		userRepo:        userRepo,
+		aiService:       aiService,
+		s3Service:       s3Service,
+		mapsService:     mapsService,
+		locationCatalog: locationCatalog,
 	}
 }
+
+// ensure concrete repository types satisfy the service interfaces.
+var _ listingStore = (*repository.ListingRepo)(nil)
+var _ userStore = (*repository.UserRepo)(nil)
 
 // CreateListing validates limits and persists a new listing.
 func (s *ListingService) CreateListing(ctx context.Context, userID string, req *models.CreateListingRequest) (*models.Listing, error) {
@@ -308,7 +336,8 @@ func (s *ListingService) FeatureListing(ctx context.Context, userID, listingID, 
 	return nil
 }
 
-// ParseListingText delegates to the AI service.
+// ParseListingText delegates to the AI service and enriches the result with
+// validated location suggestions from the catalog.
 func (s *ListingService) ParseListingText(ctx context.Context, text string) (*models.ParseTextResponse, error) {
 	if s.aiService == nil {
 		return nil, utils.NewAppError(503, "AI service unavailable")
@@ -318,6 +347,20 @@ func (s *ListingService) ParseListingText(ctx context.Context, text string) (*mo
 	if err != nil {
 		utils.LogError("parse listing text", err)
 		return nil, utils.ErrInternal
+	}
+
+	if s.locationCatalog != nil {
+		suggestion := s.locationCatalog.NormalizeSuggestion(
+			parsed.LocationSuggestion.Province,
+			parsed.LocationSuggestion.City,
+			parsed.LocationSuggestion.District,
+		)
+		suggestion.NormalizedAddress = parsed.LocationSuggestion.NormalizedAddress
+		parsed.LocationSuggestion = suggestion
+	}
+
+	if parsed.LocationSuggestion.Confidence < 0.7 {
+		parsed.RequiresManualReview = true
 	}
 
 	return &models.ParseTextResponse{

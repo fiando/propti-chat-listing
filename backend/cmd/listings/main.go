@@ -43,7 +43,7 @@ func main() {
 		utils.LogError("init location catalog", err)
 		panic(err)
 	}
-	listingSvc := services.NewListingService(listingRepo, userRepo, aiSvc, s3Svc, mapsSvc)
+	listingSvc := services.NewListingService(listingRepo, userRepo, aiSvc, s3Svc, mapsSvc, locationCatalog)
 
 	listingHandler := handlers.NewListingHandler(listingSvc, userRepo)
 	searchHandler := handlers.NewSearchHandler(listingRepo, mapsSvc, locationCatalog)
