@@ -49,6 +49,32 @@ func TestSearchHandlerReturnsCitiesFromLocalCatalog(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected 200, got %d", resp.StatusCode)
 	}
+
+	var body map[string]any
+	if err := json.Unmarshal([]byte(resp.Body), &body); err != nil {
+		t.Fatalf("invalid JSON response: %v", err)
+	}
+	if _, ok := body["cities"]; !ok {
+		t.Fatal("response missing 'cities' key")
+	}
+}
+
+func TestSearchHandlerCitiesMissingProvinceId(t *testing.T) {
+	t.Parallel()
+
+	handler := NewSearchHandler(nil, nil, &fakeLocationCatalogService{})
+
+	resp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod:            http.MethodGet,
+		Path:                  "/locations/cities",
+		QueryStringParameters: map[string]string{"q": "dep"},
+	})
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", resp.StatusCode)
+	}
 }
 
 func TestSearchHandlerReturnsProvincesFromLocalCatalog(t *testing.T) {
@@ -97,6 +123,32 @@ func TestSearchHandlerReturnsDistrictsFromLocalCatalog(t *testing.T) {
 	}
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected 200, got %d", resp.StatusCode)
+	}
+
+	var body map[string]any
+	if err := json.Unmarshal([]byte(resp.Body), &body); err != nil {
+		t.Fatalf("invalid JSON response: %v", err)
+	}
+	if _, ok := body["districts"]; !ok {
+		t.Fatal("response missing 'districts' key")
+	}
+}
+
+func TestSearchHandlerDistrictsMissingCityId(t *testing.T) {
+	t.Parallel()
+
+	handler := NewSearchHandler(nil, nil, &fakeLocationCatalogService{})
+
+	resp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod:            http.MethodGet,
+		Path:                  "/locations/districts",
+		QueryStringParameters: map[string]string{"q": "bej"},
+	})
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", resp.StatusCode)
 	}
 }
 

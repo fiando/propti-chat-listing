@@ -127,6 +127,7 @@ func (h *SearchHandler) provinceSuggestions(_ context.Context, req events.APIGat
 	if h.locationCatalog == nil {
 		return jsonResponse(http.StatusServiceUnavailable, utils.MarshalErrorResponse(utils.NewAppError(503, "location catalog unavailable"))), nil
 	}
+	// q may be empty — returns all provinces, useful for initial dropdown population.
 	provinces := h.locationCatalog.SearchProvinces(req.QueryStringParameters["q"])
 	body, _ := json.Marshal(map[string]any{"provinces": provinces})
 	return jsonResponse(http.StatusOK, string(body)), nil
@@ -136,7 +137,12 @@ func (h *SearchHandler) citySuggestions(_ context.Context, req events.APIGateway
 	if h.locationCatalog == nil {
 		return jsonResponse(http.StatusServiceUnavailable, utils.MarshalErrorResponse(utils.NewAppError(503, "location catalog unavailable"))), nil
 	}
-	cities := h.locationCatalog.SearchCities(req.QueryStringParameters["provinceId"], req.QueryStringParameters["q"])
+	provinceID := req.QueryStringParameters["provinceId"]
+	if provinceID == "" {
+		return jsonResponse(http.StatusBadRequest, utils.MarshalErrorResponse(utils.NewAppError(400, "provinceId is required"))), nil
+	}
+	// q may be empty — returns all cities for the province, useful for initial dropdown population.
+	cities := h.locationCatalog.SearchCities(provinceID, req.QueryStringParameters["q"])
 	body, _ := json.Marshal(map[string]any{"cities": cities})
 	return jsonResponse(http.StatusOK, string(body)), nil
 }
@@ -145,7 +151,12 @@ func (h *SearchHandler) districtSuggestions(_ context.Context, req events.APIGat
 	if h.locationCatalog == nil {
 		return jsonResponse(http.StatusServiceUnavailable, utils.MarshalErrorResponse(utils.NewAppError(503, "location catalog unavailable"))), nil
 	}
-	districts := h.locationCatalog.SearchDistricts(req.QueryStringParameters["cityId"], req.QueryStringParameters["q"])
+	cityID := req.QueryStringParameters["cityId"]
+	if cityID == "" {
+		return jsonResponse(http.StatusBadRequest, utils.MarshalErrorResponse(utils.NewAppError(400, "cityId is required"))), nil
+	}
+	// q may be empty — returns all districts for the city, useful for initial dropdown population.
+	districts := h.locationCatalog.SearchDistricts(cityID, req.QueryStringParameters["q"])
 	body, _ := json.Marshal(map[string]any{"districts": districts})
 	return jsonResponse(http.StatusOK, string(body)), nil
 }
