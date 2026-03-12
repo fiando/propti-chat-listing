@@ -5,6 +5,7 @@ backend/bin/
 # Build artifacts
 frontend/.next/
 frontend/out/
+frontend/tsconfig.tsbuildinfo
 .worktrees/
 
 # Environment files
