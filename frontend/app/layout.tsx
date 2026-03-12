@@ -11,7 +11,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Propti — Jual Properti Semudah Chat WhatsApp',
+    default: 'Propti — Jual Beli Properti Semudah Chat WhatsApp',
     template: '%s | Propti',
   },
   description:
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     locale: 'id_ID',
     url: 'https://propti.id',
     siteName: 'Propti',
-    title: 'Propti — Jual Properti Semudah Chat WhatsApp',
+    title: 'Propti — Jual Beli Properti Semudah Chat WhatsApp',
     description:
       'Paste iklan dari WhatsApp, AI kami ubah jadi listing properti rapi dan siap tayang. Gratis untuk 3 iklan pertama.',
     images: [
@@ -47,7 +47,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Propti — Jual Properti Semudah Chat WhatsApp',
+    title: 'Propti — Jual Beli Properti Semudah Chat WhatsApp',
     description:
       'Paste iklan dari WhatsApp, AI kami ubah jadi listing properti rapi dan siap tayang.',
     images: ['/og-image.png'],

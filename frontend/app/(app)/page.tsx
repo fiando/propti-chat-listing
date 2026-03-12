@@ -20,7 +20,7 @@ import { formatPrice } from '@/lib/utils';
 import { ShieldIcon } from '@/components/icons/ShieldIcon';
 
 export const metadata: Metadata = {
-  title: 'Propti — Jual Properti Semudah Chat WhatsApp',
+  title: 'Propti — Jual Beli Properti Semudah Chat WhatsApp',
 };
 
 const MOCK_LISTINGS = [
@@ -264,9 +264,9 @@ export default function HomePage() {
 
           {/* Headline */}
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-white leading-tight mb-4 text-balance">
-            Jual properti
+            Jual Beli Properti
             <br />
-            <span className="text-brand-accent">semudah chat.</span>
+            <span className="text-brand-accent">Semudah Chat WhatsApp</span>
           </h1>
 
           {/* Sub-headline */}
