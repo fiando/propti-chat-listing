@@ -1,9 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"os"
-	"bytes"
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/fiando/propti/backend/internal/data"

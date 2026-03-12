@@ -91,3 +91,81 @@ func TestLocationCatalogEmptyResultsSerializeAsArray(t *testing.T) {
 		}
 	}
 }
+
+func TestNormalizeSuggestionExactPreferredOverSubstring(t *testing.T) {
+	t.Parallel()
+
+	catalog, err := NewLocationCatalogFromReader(strings.NewReader(`{
+"provinces":[
+{"id":"51","name":"Bali"},
+{"id":"52","name":"Nusa Tenggara Barat"}
+],
+"cities":[],
+"districts":[]
+}`))
+	if err != nil {
+		t.Fatalf("NewLocationCatalogFromReader returned error: %v", err)
+	}
+
+	result := catalog.NormalizeSuggestion("Bali", "", "")
+	if result.Province != "Bali" {
+		t.Fatalf("expected exact match 'Bali', got %q", result.Province)
+	}
+	if result.Confidence < 0.99 {
+		t.Fatalf("expected confidence=1.0 for exact match, got %v", result.Confidence)
+	}
+}
+
+func TestNormalizeSuggestionShortFragmentNotMatched(t *testing.T) {
+	t.Parallel()
+
+	catalog, err := NewLocationCatalogFromReader(strings.NewReader(`{
+"provinces":[{"id":"32","name":"Jawa Barat"}],
+"cities":[{"id":"3276","provinceId":"32","name":"Depok"}],
+"districts":[]
+}`))
+	if err != nil {
+		t.Fatalf("NewLocationCatalogFromReader returned error: %v", err)
+	}
+
+	// "De" is too short for substring matching and must not match "Depok".
+	result := catalog.NormalizeSuggestion("Jawa Barat", "De", "")
+	if result.City == "Depok" {
+		t.Fatalf("short fragment 'De' must not match 'Depok' via substring, got city %q", result.City)
+	}
+	// Only province contributed to confidence.
+	if result.Confidence > 0.51 {
+		t.Fatalf("expected confidence ~0.5 (province only), got %v", result.Confidence)
+	}
+}
+
+func TestNormalizeSuggestionCityResolvesWhenProvinceUnmatched(t *testing.T) {
+	t.Parallel()
+
+	catalog, err := NewLocationCatalogFromReader(strings.NewReader(`{
+"provinces":[{"id":"32","name":"Jawa Barat"}],
+"cities":[{"id":"3276","provinceId":"32","name":"Depok"}],
+"districts":[{"id":"3276010","cityId":"3276","name":"Beji"}]
+}`))
+	if err != nil {
+		t.Fatalf("NewLocationCatalogFromReader returned error: %v", err)
+	}
+
+	// Province is wrong, but city and district are valid.
+	result := catalog.NormalizeSuggestion("Unknown Province", "Depok", "Beji")
+	if result.City != "Depok" {
+		t.Fatalf("expected city='Depok' via broad fallback, got %q", result.City)
+	}
+	if result.District != "Beji" {
+		t.Fatalf("expected district='Beji', got %q", result.District)
+	}
+	// Province inferred from city should update the display field.
+	if result.Province != "Jawa Barat" {
+		t.Fatalf("expected province inferred as 'Jawa Barat', got %q", result.Province)
+	}
+	// Province input didn't resolve directly: confidence = city + district = 2/3.
+	const want = 2.0 / 3.0
+	if result.Confidence < want-0.01 || result.Confidence > want+0.01 {
+		t.Fatalf("expected confidence ~%.4f, got %v", want, result.Confidence)
+	}
+}

@@ -42,12 +42,6 @@ type LocationNormalizer interface {
 	NormalizeSuggestion(province, city, district string) models.ParsedLocationSuggestion
 }
 
-// keep unexported aliases so internal tests that use lowercase names continue to compile.
-type listingStore = ListingStore
-type userStore = UserStore
-type aiParseService = AIParseService
-type locationNormalizer = LocationNormalizer
-
 // ListingService orchestrates listing lifecycle operations.
 type ListingService struct {
 	listingRepo     ListingStore
@@ -133,25 +127,25 @@ func (s *ListingService) CreateListing(ctx context.Context, userID string, req *
 	now := time.Now().UTC()
 
 	listing := &models.Listing{
-		PK:              fmt.Sprintf("%s#%s", userID, listingID),
-		SK:              listingID,
-		ListingID:       listingID,
-		UserID:          userID,
-		Title:           req.Title,
-		Description:     req.Description,
-		Price:           req.Price,
-		PriceUnit:       req.PriceUnit,
-		ListingType:     req.ListingType,
-		Status:          models.ListingStatusActive,
-		PropertyDetails: req.PropertyDetails,
-		Location:        req.Location,
-		Images:          req.Images,
-		Videos:          req.Videos,
-		ImageCount:      len(req.Images),
-		PremiumFeatures: models.PremiumFeatures{IsPremium: isPremium},
+		PK:               fmt.Sprintf("%s#%s", userID, listingID),
+		SK:               listingID,
+		ListingID:        listingID,
+		UserID:           userID,
+		Title:            req.Title,
+		Description:      req.Description,
+		Price:            req.Price,
+		PriceUnit:        req.PriceUnit,
+		ListingType:      req.ListingType,
+		Status:           models.ListingStatusActive,
+		PropertyDetails:  req.PropertyDetails,
+		Location:         req.Location,
+		Images:           req.Images,
+		Videos:           req.Videos,
+		ImageCount:       len(req.Images),
+		PremiumFeatures:  models.PremiumFeatures{IsPremium: isPremium},
 		ModerationStatus: models.ModerationStatusPending,
-		CreatedAt:       now,
-		UpdatedAt:       now,
+		CreatedAt:        now,
+		UpdatedAt:        now,
 	}
 
 	if err := s.listingRepo.Put(ctx, listing); err != nil {
@@ -365,6 +359,8 @@ func (s *ListingService) ParseListingText(ctx context.Context, text string) (*mo
 			parsed.LocationSuggestion.City,
 			parsed.LocationSuggestion.District,
 		)
+		// NormalizedAddress from the AI is intentionally preserved; catalog
+		// normalization only updates the structured Province/City/District fields.
 		suggestion.NormalizedAddress = parsed.LocationSuggestion.NormalizedAddress
 		parsed.LocationSuggestion = suggestion
 	}
@@ -373,6 +369,9 @@ func (s *ListingService) ParseListingText(ctx context.Context, text string) (*mo
 		parsed.RequiresManualReview = true
 	}
 
+	// Confidence mirrors the AI's overall parse confidence; RequiresCorrection
+	// can additionally be driven by low location-validation confidence
+	// independently of the AI score.
 	return &models.ParseTextResponse{
 		Parsed:             *parsed,
 		RequiresCorrection: parsed.RequiresManualReview,

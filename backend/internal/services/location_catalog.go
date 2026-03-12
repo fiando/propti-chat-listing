@@ -60,6 +60,29 @@ func NewLocationCatalogFromReader(r io.Reader) (*LocationCatalog, error) {
 	}, nil
 }
 
+// minSubstringLen is the minimum query length required for substring-based
+// matching. Shorter fragments risk false positives (e.g. "De" → "Depok").
+const minSubstringLen = 3
+
+// findCityInList returns the first city whose name matches query using an
+// exact case-insensitive comparison, falling back to substring search only
+// when the query meets the minimum specificity threshold.
+func findCityInList(cities []City, query string) *City {
+	for i := range cities {
+		if strings.EqualFold(cities[i].Name, query) {
+			return &cities[i]
+		}
+	}
+	if len(query) >= minSubstringLen {
+		for i := range cities {
+			if strings.Contains(strings.ToLower(cities[i].Name), strings.ToLower(query)) {
+				return &cities[i]
+			}
+		}
+	}
+	return nil
+}
+
 func (c *LocationCatalog) SearchProvinces(query string) []Province {
 	q := strings.ToLower(query)
 	results := []Province{}
@@ -101,6 +124,10 @@ func (c *LocationCatalog) Provinces() []Province {
 // against the catalog and returns a scored ParsedLocationSuggestion.
 // Confidence is computed as the fraction of supplied, non-empty fields that
 // resolve to an authoritative catalog entry (each field contributes 1/3).
+//
+// If province does not match, city resolution is still attempted across all
+// provinces so that a single bad province input does not zero out the entire
+// confidence score.
 func (c *LocationCatalog) NormalizeSuggestion(province, city, district string) models.ParsedLocationSuggestion {
 	suggestion := models.ParsedLocationSuggestion{
 		Province: province,
@@ -108,43 +135,80 @@ func (c *LocationCatalog) NormalizeSuggestion(province, city, district string) m
 		District: district,
 	}
 
+	// --- province resolution (exact first, substring fallback) ---
 	var matchedProvince *Province
 	if province != "" {
-		for i, p := range c.provinces {
-			if strings.EqualFold(p.Name, province) ||
-				strings.Contains(strings.ToLower(p.Name), strings.ToLower(province)) {
+		for i := range c.provinces {
+			if strings.EqualFold(c.provinces[i].Name, province) {
 				matchedProvince = &c.provinces[i]
-				suggestion.Province = p.Name
+				suggestion.Province = c.provinces[i].Name
 				break
+			}
+		}
+		if matchedProvince == nil && len(province) >= minSubstringLen {
+			for i := range c.provinces {
+				if strings.Contains(strings.ToLower(c.provinces[i].Name), strings.ToLower(province)) {
+					matchedProvince = &c.provinces[i]
+					suggestion.Province = c.provinces[i].Name
+					break
+				}
 			}
 		}
 	}
 
+	// --- city resolution ---
+	// Try within the matched province first; if still unresolved, broaden to
+	// all provinces so a wrong/missing province doesn't block city resolution.
 	var matchedCity *City
-	if city != "" && matchedProvince != nil {
-		for i, ct := range c.citiesByProvince[matchedProvince.ID] {
-			if strings.EqualFold(ct.Name, city) ||
-				strings.Contains(strings.ToLower(ct.Name), strings.ToLower(city)) {
-				matchedCity = &c.citiesByProvince[matchedProvince.ID][i]
-				suggestion.City = ct.Name
-				break
+	if city != "" {
+		if matchedProvince != nil {
+			matchedCity = findCityInList(c.citiesByProvince[matchedProvince.ID], city)
+		}
+		if matchedCity == nil {
+			for _, cities := range c.citiesByProvince {
+				if ct := findCityInList(cities, city); ct != nil {
+					matchedCity = ct
+					// When province was not directly matched, infer it from the city.
+					if matchedProvince == nil {
+						for i := range c.provinces {
+							if c.provinces[i].ID == matchedCity.ProvinceID {
+								suggestion.Province = c.provinces[i].Name
+								break
+							}
+						}
+					}
+					break
+				}
 			}
+		}
+		if matchedCity != nil {
+			suggestion.City = matchedCity.Name
 		}
 	}
 
+	// --- district resolution (exact first, substring fallback) ---
 	var matchedDistrict bool
 	if district != "" && matchedCity != nil {
-		for _, d := range c.districtsByCity[matchedCity.ID] {
-			if strings.EqualFold(d.Name, district) ||
-				strings.Contains(strings.ToLower(d.Name), strings.ToLower(district)) {
+		districts := c.districtsByCity[matchedCity.ID]
+		for _, d := range districts {
+			if strings.EqualFold(d.Name, district) {
 				suggestion.District = d.Name
 				matchedDistrict = true
 				break
 			}
 		}
+		if !matchedDistrict && len(district) >= minSubstringLen {
+			for _, d := range districts {
+				if strings.Contains(strings.ToLower(d.Name), strings.ToLower(district)) {
+					suggestion.District = d.Name
+					matchedDistrict = true
+					break
+				}
+			}
+		}
 	}
 
-	// Score: each non-empty field that resolves contributes 1/3 confidence.
+	// Score: each non-empty input field that resolves contributes 1/3 confidence.
 	var scored, total float64
 	if province != "" {
 		total++
