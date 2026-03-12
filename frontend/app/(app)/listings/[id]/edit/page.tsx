@@ -1,39 +1,21 @@
 'use client';
 
+import { use } from 'react';
 import { useListing, useUpdateListing } from '@/hooks/useListings';
 import { ListingForm } from '@/components/listings/ListingForm';
 import { useRouter } from 'next/navigation';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import type { CreateListingRequest } from '@/types';
+import type { ListingFormValues } from '@/components/listings/ListingForm';
 
-interface FormData {
-  title: string;
-  description: string;
-  price: number;
-  priceUnit: 'per_unit' | 'per_month' | 'negotiable';
-  listingType: 'sell' | 'rent';
-  landArea?: number;
-  buildingArea?: number;
-  bedrooms: number;
-  bathrooms: number;
-  frontWidth?: number;
-  orientation?: string;
-  legalStatus?: string;
-  powerConsumption?: string;
-  amenities: string[];
-  address: string;
-  city: string;
-  district?: string;
-  images: string[];
-}
-
-export default function EditListingPage({ params }: { params: { id: string } }) {
-  const { data: listing, isLoading } = useListing(params.id);
-  const { mutateAsync: updateListing, isPending } = useUpdateListing(params.id);
+export default function EditListingPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = use(params);
+  const { data: listing, isLoading } = useListing(resolvedParams.id);
+  const { mutateAsync: updateListing, isPending } = useUpdateListing(resolvedParams.id);
   const router = useRouter();
 
-  const handleSubmit = async (data: FormData) => {
+  const handleSubmit = async (data: ListingFormValues) => {
     const payload: Partial<CreateListingRequest> = {
       title: data.title,
       description: data.description,
@@ -53,13 +35,14 @@ export default function EditListingPage({ params }: { params: { id: string } }) 
       },
       location: {
         address: data.address,
+        province: data.province,
         city: data.city,
         district: data.district,
       },
       images: data.images,
     };
     await updateListing(payload);
-    router.push(`/listings/${params.id}`);
+    router.push(`/listings/${resolvedParams.id}`);
   };
 
   if (isLoading) {
@@ -87,15 +70,24 @@ export default function EditListingPage({ params }: { params: { id: string } }) 
     description: listing.description,
     price: listing.price,
     priceUnit: listing.priceUnit,
+    listingType: listing.listingType,
     propertyDetails: listing.propertyDetails,
     address: listing.location?.address || '',
+    images: listing.images || [],
+  };
+
+  const initialLocation = {
+    address: listing.location?.address || '',
+    province: listing.location?.province || '',
+    city: listing.location?.city || '',
+    district: listing.location?.district || '',
   };
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       <div className="flex items-center gap-3 mb-8">
         <Link
-          href={`/listings/${params.id}`}
+          href={`/listings/${resolvedParams.id}`}
           className="flex items-center gap-2 text-gray-500 hover:text-gray-700 text-sm font-medium"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -105,8 +97,9 @@ export default function EditListingPage({ params }: { params: { id: string } }) 
       </div>
 
       <ListingForm
-        initialData={initialData as Partial<import('@/types').ParsedListing>}
-        listingId={params.id}
+        initialData={initialData}
+        initialLocation={initialLocation}
+        listingId={resolvedParams.id}
         onSubmit={handleSubmit}
         isLoading={isPending}
         mode="edit"

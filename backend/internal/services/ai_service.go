@@ -31,8 +31,15 @@ Extract the following fields from the text and return ONLY valid JSON:
     "powerConsumption": "string - e.g. 1300W/2200W",
     "amenities": ["array of amenities"]
   },
-  "address": "string - full address extracted from text",
-  "confidence": number between 0.0 and 1.0 indicating parse confidence,
+  "address": "string - raw address text exactly as found in the listing, do not normalize",
+  "locationSuggestion": {
+    "province": "string - suggested province name, leave empty if uncertain",
+    "city": "string - suggested city/kabupaten name, leave empty if uncertain",
+    "district": "string - suggested kecamatan/district name, leave empty if uncertain",
+    "normalizedAddress": "string - best-effort normalized full address, leave empty if uncertain",
+    "confidence": number between 0.0 and 1.0 indicating location suggestion confidence
+  },
+  "confidence": number between 0.0 and 1.0 indicating overall parse confidence,
   "requiresManualReview": boolean - true if critical info is missing or ambiguous,
   "warnings": ["array of warning strings for missing or ambiguous fields"]
 }
@@ -41,6 +48,8 @@ Rules:
 - Convert price shorthand: 1M/1 juta = 1000000, 1 miliar/1M (if context says miliar) = 1000000000
 - If bedrooms/bathrooms use KT/KM notation: KT = kamar tidur (bedrooms), KM = kamar mandi (bathrooms)
 - LT = luas tanah (land area), LB = luas bangunan (building area)
+- Keep "address" as the raw extracted text from the listing without any normalization
+- For "locationSuggestion", infer province/city/district from context clues; leave fields empty rather than guessing
 - If a field cannot be determined, use null for numbers, empty string for strings, empty array for arrays
 - Set requiresManualReview to true if price, address, or property type cannot be determined
 - Return ONLY the JSON object, no markdown, no explanation`
@@ -60,6 +69,9 @@ Respond ONLY with valid JSON:
   "flags": ["array of specific issues found"]
 }`
 
+const parserModel = "gpt-5-mini"
+const moderationModel = "gpt-4o-mini"
+
 // AIService calls the OpenAI API for listing text parsing and content moderation.
 type AIService struct {
 	client *openai.Client
@@ -70,10 +82,10 @@ func NewAIService(apiKey string) *AIService {
 	return &AIService{client: openai.NewClient(apiKey)}
 }
 
-// ParseListingText sends raw Indonesian listing text to GPT-4o-mini and returns structured data.
+// ParseListingText sends raw Indonesian listing text to gpt-5-mini and returns structured data.
 func (s *AIService) ParseListingText(ctx context.Context, text string) (*models.ParsedListing, error) {
 	resp, err := s.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
-		Model: openai.GPT4oMini,
+		Model: parserModel,
 		Messages: []openai.ChatCompletionMessage{
 			{Role: openai.ChatMessageRoleSystem, Content: parseSystemPrompt},
 			{Role: openai.ChatMessageRoleUser, Content: text},
@@ -109,7 +121,7 @@ func (s *AIService) ModerateContent(ctx context.Context, title, description stri
 	input := fmt.Sprintf("Title: %s\n\nDescription: %s", title, description)
 
 	resp, err := s.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
-		Model: openai.GPT4oMini,
+		Model: moderationModel,
 		Messages: []openai.ChatCompletionMessage{
 			{Role: openai.ChatMessageRoleSystem, Content: moderationSystemPrompt},
 			{Role: openai.ChatMessageRoleUser, Content: input},

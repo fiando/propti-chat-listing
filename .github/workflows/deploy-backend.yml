@@ -63,10 +63,10 @@ jobs:
             --no-fail-on-empty-changeset \
             --stack-name propti-backend \
             --region ap-southeast-1 \
+            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
             --parameter-overrides \
-              Environment=production \
+              Stage=production \
               JWTSecret=${{ secrets.JWT_SECRET }} \
               OpenAIAPIKey=${{ secrets.OPENAI_API_KEY }} \
-              GoogleClientID=${{ secrets.GOOGLE_CLIENT_ID }} \
-              MidtransServerKey=${{ secrets.MIDTRANS_SERVER_KEY }} \
-              GoogleMapsAPIKey=${{ secrets.GOOGLE_MAPS_API_KEY }}
+              GoogleMapsAPIKey=${{ secrets.GOOGLE_MAPS_API_KEY }} \
+              MidtransServerKey=${{ secrets.MIDTRANS_SERVER_KEY }}

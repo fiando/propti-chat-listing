@@ -10,6 +10,7 @@ import type {
   FeatureListingRequest,
   PaymentResponse,
   LocationSuggestion,
+  LocationOption,
 } from '@/types';
 
 const apiClient = axios.create({
@@ -48,8 +49,12 @@ apiClient.interceptors.response.use(
 );
 
 export async function parseListingText(text: string): Promise<ParsedListing> {
-  const response = await apiClient.post<ParsedListing>('/listings/parse', { text });
-  return response.data;
+  const response = await apiClient.post<{
+    parsed: ParsedListing;
+    requiresCorrection: boolean;
+    confidence: number;
+  }>('/listings/parse-text', { text });
+  return response.data.parsed;
 }
 
 export async function createListing(data: CreateListingRequest): Promise<Listing> {
@@ -143,6 +148,33 @@ export async function getLocationSuggestions(
     params: { q: query },
   });
   return response.data;
+}
+
+export async function getProvinceSuggestions(q?: string): Promise<LocationOption[]> {
+  const response = await apiClient.get<{ provinces: LocationOption[] }>('/locations/provinces', {
+    params: { q },
+  });
+  return response.data.provinces;
+}
+
+export async function getCitySuggestions(
+  provinceId: string,
+  q?: string
+): Promise<LocationOption[]> {
+  const response = await apiClient.get<{ cities: LocationOption[] }>('/locations/cities', {
+    params: { provinceId, q },
+  });
+  return response.data.cities;
+}
+
+export async function getDistrictSuggestions(
+  cityId: string,
+  q?: string
+): Promise<LocationOption[]> {
+  const response = await apiClient.get<{ districts: LocationOption[] }>('/locations/districts', {
+    params: { cityId, q },
+  });
+  return response.data.districts;
 }
 
 export default apiClient;

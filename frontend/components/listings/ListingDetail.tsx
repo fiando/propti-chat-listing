@@ -149,7 +149,7 @@ export function ListingDetail({ listing, isOwner = false, onDelete }: ListingDet
                 </div>
                 <div className="flex items-baseline gap-2">
                   <span className="text-3xl font-black text-brand-primary">{priceLabel}</span>
-                  {listing.priceUnit !== 'per_unit' && (
+                  {listing.priceUnit !== 'total' && (
                     <span className="text-gray-500 text-sm">{priceUnit}</span>
                   )}
                 </div>

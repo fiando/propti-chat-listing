@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"os"
 
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/fiando/propti/backend/internal/data"
 	"github.com/fiando/propti/backend/internal/handlers"
 	"github.com/fiando/propti/backend/internal/repository"
 	"github.com/fiando/propti/backend/internal/services"
@@ -36,10 +38,15 @@ func main() {
 
 	mapsSvc := services.NewGoogleMapsServiceFromEnv()
 
-	listingSvc := services.NewListingService(listingRepo, userRepo, aiSvc, s3Svc, mapsSvc)
+	locationCatalog, err := services.NewLocationCatalogFromReader(bytes.NewReader(data.IndonesiaLocationsJSON))
+	if err != nil {
+		utils.LogError("init location catalog", err)
+		panic(err)
+	}
+	listingSvc := services.NewListingService(listingRepo, userRepo, aiSvc, s3Svc, mapsSvc, locationCatalog)
 
 	listingHandler := handlers.NewListingHandler(listingSvc, userRepo)
-	searchHandler := handlers.NewSearchHandler(listingRepo, mapsSvc)
+	searchHandler := handlers.NewSearchHandler(listingRepo, mapsSvc, locationCatalog)
 
 	// Route /search/* and /locations/* to searchHandler; all others to listingHandler.
 	lambda.Start(func(ctx context.Context, req interface{}) (interface{}, error) {

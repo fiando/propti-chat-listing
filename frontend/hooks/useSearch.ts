@@ -9,6 +9,7 @@ import type { SearchParams } from '@/types';
 function parseSearchParams(searchParams: URLSearchParams): SearchParams {
   return {
     q: searchParams.get('q') || undefined,
+    province: searchParams.get('province') || undefined,
     city: searchParams.get('city') || undefined,
     listingType: (searchParams.get('listingType') as SearchParams['listingType']) || undefined,
     priceMin: searchParams.get('priceMin')

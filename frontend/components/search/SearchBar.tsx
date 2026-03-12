@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Search, SlidersHorizontal, X, ChevronDown } from 'lucide-react';
-import { INDONESIAN_CITIES, cn } from '@/lib/utils';
+import { cn } from '@/lib/utils';
+import { getCitySuggestions, getProvinceSuggestions } from '@/lib/api';
 import type { SearchParams } from '@/types';
 
 interface SearchBarProps {
@@ -12,13 +14,45 @@ interface SearchBarProps {
 
 export function SearchBar({ initialParams = {}, onSearch }: SearchBarProps) {
   const [q, setQ] = useState(initialParams.q || '');
+  const [province, setProvince] = useState(initialParams.province || '');
   const [city, setCity] = useState(initialParams.city || '');
   const [listingType, setListingType] = useState(initialParams.listingType || '');
   const [showFilters, setShowFilters] = useState(false);
+  const [selectedProvinceId, setSelectedProvinceId] = useState('');
+
+  const { data: provinces = [], isLoading: loadingProvinces } = useQuery({
+    queryKey: ['search-provinces'],
+    queryFn: () => getProvinceSuggestions(),
+    staleTime: Infinity,
+  });
+
+  const { data: cities = [], isLoading: loadingCities } = useQuery({
+    queryKey: ['search-cities', selectedProvinceId],
+    queryFn: () => getCitySuggestions(selectedProvinceId),
+    enabled: !!selectedProvinceId,
+    staleTime: Infinity,
+  });
+
+  useEffect(() => {
+    if (!province || !provinces.length || selectedProvinceId) return;
+    const match = provinces.find((item) => item.name.toLowerCase() === province.toLowerCase());
+    if (match) {
+      setSelectedProvinceId(match.id);
+    }
+  }, [province, provinces, selectedProvinceId]);
+
+  useEffect(() => {
+    setQ(initialParams.q || '');
+    setProvince(initialParams.province || '');
+    setCity(initialParams.city || '');
+    setListingType(initialParams.listingType || '');
+    setSelectedProvinceId('');
+  }, [initialParams.city, initialParams.listingType, initialParams.province, initialParams.q]);
 
   const handleSearch = () => {
     onSearch({
       q: q || undefined,
+      province: province || undefined,
       city: city || undefined,
       listingType: (listingType as SearchParams['listingType']) || undefined,
     });
@@ -30,12 +64,14 @@ export function SearchBar({ initialParams = {}, onSearch }: SearchBarProps) {
 
   const clearFilters = () => {
     setQ('');
+    setProvince('');
     setCity('');
     setListingType('');
+    setSelectedProvinceId('');
     onSearch({});
   };
 
-  const hasFilters = q || city || listingType;
+  const hasFilters = q || province || city || listingType;
 
   return (
     <div className="bg-white rounded-2xl shadow-card border border-gray-100 p-4">
@@ -79,7 +115,33 @@ export function SearchBar({ initialParams = {}, onSearch }: SearchBarProps) {
 
       {/* Expanded filters */}
       {showFilters && (
-        <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-1 sm:grid-cols-4 gap-3">
+          {/* Province */}
+          <div className="relative">
+            <label className="label text-xs">Provinsi</label>
+            <div className="relative">
+              <select
+                value={selectedProvinceId}
+                onChange={(e) => {
+                  const selectedId = e.target.value;
+                  const selectedProvince = provinces.find((item) => item.id === selectedId);
+                  setSelectedProvinceId(selectedId);
+                  setProvince(selectedProvince?.name || '');
+                  setCity('');
+                }}
+                className="input-field appearance-none pr-8 text-sm"
+              >
+                <option value="">{loadingProvinces ? 'Memuat provinsi...' : 'Semua Provinsi'}</option>
+                {provinces.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
+
           {/* City */}
           <div className="relative">
             <label className="label text-xs">Kota</label>
@@ -87,12 +149,19 @@ export function SearchBar({ initialParams = {}, onSearch }: SearchBarProps) {
               <select
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
-                className="input-field appearance-none pr-8 text-sm"
+                disabled={!selectedProvinceId}
+                className="input-field appearance-none pr-8 text-sm disabled:bg-gray-50 disabled:text-gray-400"
               >
-                <option value="">Semua Kota</option>
-                {INDONESIAN_CITIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
+                <option value="">
+                  {!selectedProvinceId
+                    ? 'Pilih provinsi dulu'
+                    : loadingCities
+                    ? 'Memuat kota...'
+                    : 'Semua Kota'}
+                </option>
+                {cities.map((item) => (
+                  <option key={item.id} value={item.name}>
+                    {item.name}
                   </option>
                 ))}
               </select>
