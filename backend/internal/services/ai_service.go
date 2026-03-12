@@ -69,6 +69,8 @@ Respond ONLY with valid JSON:
   "flags": ["array of specific issues found"]
 }`
 
+const parserModel = "gpt-5-mini"
+
 // AIService calls the OpenAI API for listing text parsing and content moderation.
 type AIService struct {
 	client *openai.Client
@@ -82,7 +84,7 @@ func NewAIService(apiKey string) *AIService {
 // ParseListingText sends raw Indonesian listing text to gpt-5-mini and returns structured data.
 func (s *AIService) ParseListingText(ctx context.Context, text string) (*models.ParsedListing, error) {
 	resp, err := s.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
-		Model: "gpt-5-mini",
+		Model: parserModel,
 		Messages: []openai.ChatCompletionMessage{
 			{Role: openai.ChatMessageRoleSystem, Content: parseSystemPrompt},
 			{Role: openai.ChatMessageRoleUser, Content: text},

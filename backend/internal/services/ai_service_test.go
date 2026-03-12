@@ -21,7 +21,8 @@ func TestParseListingTextSupportsLocationSuggestions(t *testing.T) {
 			"province":"Jawa Barat",
 			"city":"Depok",
 			"district":"Beji",
-			"normalizedAddress":"Jalan Margonda Raya, Beji, Depok"
+			"normalizedAddress":"Jalan Margonda Raya, Beji, Depok",
+			"confidence":0.88
 		},
 		"confidence":0.92,
 		"requiresManualReview":false,
@@ -35,5 +36,9 @@ func TestParseListingTextSupportsLocationSuggestions(t *testing.T) {
 
 	if parsed.LocationSuggestion.City != "Depok" {
 		t.Fatalf("expected suggested city Depok, got %q", parsed.LocationSuggestion.City)
+	}
+
+	if parsed.LocationSuggestion.Confidence != 0.88 {
+		t.Fatalf("expected locationSuggestion.confidence 0.88, got %v", parsed.LocationSuggestion.Confidence)
 	}
 }
