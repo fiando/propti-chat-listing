@@ -23,11 +23,12 @@ export function TextParseForm({ onParsed, onManualFill }: TextParseFormProps) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ParsedListing | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const locationSuggestion = result?.locationSuggestion;
   const hasLocationSuggestion =
-    !!result?.locationSuggestion?.province ||
-    !!result?.locationSuggestion?.city ||
-    !!result?.locationSuggestion?.district ||
-    !!result?.locationSuggestion?.normalizedAddress;
+    !!locationSuggestion?.province ||
+    !!locationSuggestion?.city ||
+    !!locationSuggestion?.district ||
+    !!locationSuggestion?.normalizedAddress;
 
   const handleParse = async () => {
     if (!text.trim()) return;
@@ -227,28 +228,28 @@ export function TextParseForm({ onParsed, onManualFill }: TextParseFormProps) {
                 Saran perbaikan lokasi
               </p>
               <div className="grid grid-cols-3 gap-2 text-xs">
-                {result.locationSuggestion.province && (
+                {locationSuggestion?.province && (
                   <div>
                     <span className="text-blue-500">Provinsi</span>
-                    <p className="font-medium text-blue-900 mt-0.5">{result.locationSuggestion.province}</p>
+                    <p className="font-medium text-blue-900 mt-0.5">{locationSuggestion.province}</p>
                   </div>
                 )}
-                {result.locationSuggestion.city && (
+                {locationSuggestion?.city && (
                   <div>
                     <span className="text-blue-500">Kota/Kab</span>
-                    <p className="font-medium text-blue-900 mt-0.5">{result.locationSuggestion.city}</p>
+                    <p className="font-medium text-blue-900 mt-0.5">{locationSuggestion.city}</p>
                   </div>
                 )}
-                {result.locationSuggestion.district && (
+                {locationSuggestion?.district && (
                   <div>
                     <span className="text-blue-500">Kecamatan</span>
-                    <p className="font-medium text-blue-900 mt-0.5">{result.locationSuggestion.district}</p>
+                    <p className="font-medium text-blue-900 mt-0.5">{locationSuggestion.district}</p>
                   </div>
                 )}
               </div>
-              {result.locationSuggestion.normalizedAddress && (
+              {locationSuggestion?.normalizedAddress && (
                 <p className="text-xs text-blue-600 mt-2 border-t border-blue-200 pt-2">
-                  {result.locationSuggestion.normalizedAddress}
+                  {locationSuggestion.normalizedAddress}
                 </p>
               )}
             </div>
