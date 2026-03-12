@@ -15,6 +15,8 @@ import (
 const (
 	freeTierMaxListingsPerMonth = 1
 	freeTierMaxMedia            = 3
+
+	minLocationConfidence = 0.7
 )
 
 // ListingStore is the storage interface for listing persistence.
@@ -365,7 +367,7 @@ func (s *ListingService) ParseListingText(ctx context.Context, text string) (*mo
 		parsed.LocationSuggestion = suggestion
 	}
 
-	if parsed.LocationSuggestion.Confidence < 0.7 {
+	if parsed.LocationSuggestion.Confidence < minLocationConfidence {
 		parsed.RequiresManualReview = true
 	}
 

@@ -168,8 +168,8 @@ func (c *LocationCatalog) NormalizeSuggestion(province, city, district string) m
 			matchedCity = findCityInList(c.citiesByProvince[matchedProvince.ID], city)
 		}
 		if matchedCity == nil {
-			for _, cities := range c.citiesByProvince {
-				if ct := findCityInList(cities, city); ct != nil {
+			for _, prov := range c.provinces {
+				if ct := findCityInList(c.citiesByProvince[prov.ID], city); ct != nil {
 					matchedCity = ct
 					// If the city belongs to a different province than the AI
 					// supplied (whether province was unmatched or mismatched),
