@@ -70,6 +70,7 @@ Respond ONLY with valid JSON:
 }`
 
 const parserModel = "gpt-5-mini"
+const moderationModel = "gpt-4o-mini"
 
 // AIService calls the OpenAI API for listing text parsing and content moderation.
 type AIService struct {
@@ -120,7 +121,7 @@ func (s *AIService) ModerateContent(ctx context.Context, title, description stri
 	input := fmt.Sprintf("Title: %s\n\nDescription: %s", title, description)
 
 	resp, err := s.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
-		Model: openai.GPT4oMini,
+		Model: moderationModel,
 		Messages: []openai.ChatCompletionMessage{
 			{Role: openai.ChatMessageRoleSystem, Content: moderationSystemPrompt},
 			{Role: openai.ChatMessageRoleUser, Content: input},
