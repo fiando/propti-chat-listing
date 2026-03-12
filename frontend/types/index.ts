@@ -95,10 +95,12 @@ export interface ParsedListing {
 export interface LocationOption {
   id: string;
   name: string;
+  parentId?: string;
 }
 
 export interface SearchParams {
   q?: string;
+  province?: string;
   city?: string;
   priceMin?: number;
   priceMax?: number;

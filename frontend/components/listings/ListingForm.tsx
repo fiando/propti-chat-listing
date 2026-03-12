@@ -134,18 +134,21 @@ export function ListingForm({
   const { data: provinces = [], isLoading: loadingProvinces } = useQuery({
     queryKey: ['provinces'],
     queryFn: () => getProvinceSuggestions(),
+    staleTime: Infinity,
   });
 
   const { data: cities = [], isLoading: loadingCities } = useQuery({
     queryKey: ['cities', selectedProvinceId],
     queryFn: () => getCitySuggestions(selectedProvinceId),
     enabled: !!selectedProvinceId,
+    staleTime: Infinity,
   });
 
   const { data: districts = [], isLoading: loadingDistricts } = useQuery({
     queryKey: ['districts', selectedCityId],
     queryFn: () => getDistrictSuggestions(selectedCityId),
     enabled: !!selectedCityId,
+    staleTime: Infinity,
   });
 
   // Resolve initial province name to ID when provinces load
@@ -518,8 +521,9 @@ export function ListingForm({
               render={({ field }) => (
                 <select
                   value={
-                    districts.find((d) => d.name === field.value)?.id ||
-                    (field.value && !districts.length ? field.value : '')
+                    loadingDistricts
+                      ? ''
+                      : districts.find((d) => d.name === field.value)?.id || ''
                   }
                   onChange={(e) => {
                     const opt = districts.find((d) => d.id === e.target.value);

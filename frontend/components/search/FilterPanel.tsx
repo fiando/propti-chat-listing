@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
-import { INDONESIAN_CITIES, cn, formatPrice } from '@/lib/utils';
+import { cn } from '@/lib/utils';
+import { getCitySuggestions, getProvinceSuggestions } from '@/lib/api';
 import type { SearchParams } from '@/types';
 
 interface FilterPanelProps {
@@ -49,12 +51,42 @@ function FilterSection({
 }
 
 export function FilterPanel({ params, onChange }: FilterPanelProps) {
+  const [selectedProvinceId, setSelectedProvinceId] = useState('');
+
+  const { data: provinces = [], isLoading: loadingProvinces } = useQuery({
+    queryKey: ['filter-provinces'],
+    queryFn: () => getProvinceSuggestions(),
+    staleTime: Infinity,
+  });
+
+  const { data: cities = [], isLoading: loadingCities } = useQuery({
+    queryKey: ['filter-cities', selectedProvinceId],
+    queryFn: () => getCitySuggestions(selectedProvinceId),
+    enabled: !!selectedProvinceId,
+    staleTime: Infinity,
+  });
+
+  useEffect(() => {
+    if (!params.province || !provinces.length) {
+      setSelectedProvinceId('');
+      return;
+    }
+
+    const match = provinces.find((item) => item.name.toLowerCase() === params.province?.toLowerCase());
+    setSelectedProvinceId(match?.id || '');
+  }, [params.province, provinces]);
+
   const handleReset = () => {
     onChange({ q: params.q });
   };
 
   const hasActiveFilters =
-    params.city || params.priceMin || params.priceMax || params.bedrooms || params.listingType;
+    params.province ||
+    params.city ||
+    params.priceMin ||
+    params.priceMax ||
+    params.bedrooms ||
+    params.listingType;
 
   return (
     <div className="card p-5">
@@ -102,31 +134,62 @@ export function FilterPanel({ params, onChange }: FilterPanelProps) {
         </div>
       </FilterSection>
 
+      {/* Province */}
+      <FilterSection title="Provinsi">
+        <div className="relative">
+          <select
+            value={selectedProvinceId}
+            onChange={(e) => {
+              const nextProvinceId = e.target.value;
+              const province = provinces.find((item) => item.id === nextProvinceId);
+              setSelectedProvinceId(nextProvinceId);
+              onChange({
+                ...params,
+                province: province?.name || undefined,
+                city: undefined,
+              });
+            }}
+            className="input-field appearance-none pr-8 text-sm"
+          >
+            <option value="">{loadingProvinces ? 'Memuat provinsi...' : 'Semua Provinsi'}</option>
+            {provinces.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+        </div>
+      </FilterSection>
+
       {/* City */}
       <FilterSection title="Kota">
-        <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-          <label className="flex items-center gap-2.5 cursor-pointer group">
-            <input
-              type="radio"
-              name="city"
-              checked={!params.city}
-              onChange={() => onChange({ ...params, city: undefined })}
-              className="accent-brand-primary w-4 h-4"
-            />
-            <span className="text-sm text-gray-700">Semua Kota</span>
-          </label>
-          {INDONESIAN_CITIES.map((city) => (
-            <label key={city} className="flex items-center gap-2.5 cursor-pointer group">
-              <input
-                type="radio"
-                name="city"
-                checked={params.city === city}
-                onChange={() => onChange({ ...params, city })}
-                className="accent-brand-primary w-4 h-4"
-              />
-              <span className="text-sm text-gray-700 group-hover:text-gray-900">{city}</span>
-            </label>
-          ))}
+        <div className="relative">
+          <select
+            value={params.city || ''}
+            onChange={(e) =>
+              onChange({
+                ...params,
+                city: e.target.value || undefined,
+              })
+            }
+            disabled={!selectedProvinceId}
+            className="input-field appearance-none pr-8 text-sm disabled:bg-gray-50 disabled:text-gray-400"
+          >
+            <option value="">
+              {!selectedProvinceId
+                ? 'Pilih provinsi dulu'
+                : loadingCities
+                ? 'Memuat kota...'
+                : 'Semua Kota'}
+            </option>
+            {cities.map((item) => (
+              <option key={item.id} value={item.name}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
         </div>
       </FilterSection>
 
