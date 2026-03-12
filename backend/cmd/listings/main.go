@@ -43,12 +43,10 @@ func main() {
 		utils.LogError("init location catalog", err)
 		panic(err)
 	}
-	_ = locationCatalog
-
 	listingSvc := services.NewListingService(listingRepo, userRepo, aiSvc, s3Svc, mapsSvc)
 
 	listingHandler := handlers.NewListingHandler(listingSvc, userRepo)
-	searchHandler := handlers.NewSearchHandler(listingRepo, mapsSvc)
+	searchHandler := handlers.NewSearchHandler(listingRepo, mapsSvc, locationCatalog)
 
 	// Route /search/* and /locations/* to searchHandler; all others to listingHandler.
 	lambda.Start(func(ctx context.Context, req interface{}) (interface{}, error) {

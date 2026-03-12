@@ -15,15 +15,17 @@ import (
 
 // SearchHandler handles nearby search and location autocomplete.
 type SearchHandler struct {
-	listingRepo *repository.ListingRepo
-	mapsService *services.GoogleMapsService
+	listingRepo     *repository.ListingRepo
+	mapsService     *services.GoogleMapsService
+	locationCatalog *services.LocationCatalog
 }
 
 // NewSearchHandler creates a SearchHandler.
-func NewSearchHandler(listingRepo *repository.ListingRepo, mapsService *services.GoogleMapsService) *SearchHandler {
+func NewSearchHandler(listingRepo *repository.ListingRepo, mapsService *services.GoogleMapsService, locationCatalog *services.LocationCatalog) *SearchHandler {
 	return &SearchHandler{
-		listingRepo: listingRepo,
-		mapsService: mapsService,
+		listingRepo:     listingRepo,
+		mapsService:     mapsService,
+		locationCatalog: locationCatalog,
 	}
 }
 
