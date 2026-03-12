@@ -43,7 +43,10 @@ type ListingFormValues = z.infer<typeof listingSchema>;
 export type { ListingFormValues };
 
 interface ListingFormProps {
-  initialData?: Partial<ParsedListing>;
+  initialData?: Partial<ParsedListing> & {
+    listingType?: ListingType;
+    images?: string[];
+  };
   initialLocation?: Partial<Location>;
   listingId?: string;
   onSubmit: (data: ListingFormValues) => Promise<void>;
@@ -112,7 +115,7 @@ export function ListingForm({
       price: initialData?.price || 0,
       priceUnit:
         (initialData?.priceUnit as ListingFormValues['priceUnit']) || 'total',
-      listingType: 'sell' as ListingType,
+      listingType: initialData?.listingType || ('sell' as ListingType),
       landArea: initialData?.propertyDetails?.landArea || 0,
       buildingArea: initialData?.propertyDetails?.buildingArea || 0,
       bedrooms: initialData?.propertyDetails?.bedrooms || 0,
@@ -124,7 +127,7 @@ export function ListingForm({
       province: initialLocation?.province || '',
       city: initialLocation?.city || '',
       district: initialLocation?.district || '',
-      images: [],
+      images: initialData?.images || [],
     },
   });
 

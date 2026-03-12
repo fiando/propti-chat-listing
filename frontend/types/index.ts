@@ -72,11 +72,11 @@ export interface User {
 }
 
 export interface ParsedLocationSuggestion {
-  province: string;
-  city: string;
-  district: string;
-  normalizedAddress: string;
-  confidence: number;
+  province?: string;
+  city?: string;
+  district?: string;
+  normalizedAddress?: string;
+  confidence?: number;
 }
 
 export interface ParsedListing {

@@ -39,6 +39,7 @@ export default function EditListingPage({ params }: { params: Promise<{ id: stri
         city: data.city,
         district: data.district,
       },
+      images: data.images,
     };
     await updateListing(payload);
     router.push(`/listings/${resolvedParams.id}`);
@@ -69,8 +70,10 @@ export default function EditListingPage({ params }: { params: Promise<{ id: stri
     description: listing.description,
     price: listing.price,
     priceUnit: listing.priceUnit,
+    listingType: listing.listingType,
     propertyDetails: listing.propertyDetails,
     address: listing.location?.address || '',
+    images: listing.images || [],
   };
 
   const initialLocation = {
