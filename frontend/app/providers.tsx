@@ -21,8 +21,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
       <QueryClientProvider client={queryClient}>
-        {children}
-        <Toaster />
+        <Toaster>{children}</Toaster>
       </QueryClientProvider>
     </SessionProvider>
   );

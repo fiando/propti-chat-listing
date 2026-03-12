@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-import { MessageCircle, Sparkles, Loader2, CheckCircle, AlertTriangle, ArrowRight, Edit, MapPin } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { MessageCircle, Sparkles, Loader2, CheckCircle, AlertTriangle, ArrowRight, Edit, MapPin, ClipboardPaste } from 'lucide-react';
 import { parseListingText } from '@/lib/api';
 import type { ParsedListing } from '@/types';
 import { formatPrice } from '@/lib/utils';
+import { useToast } from '@/app/toaster';
 
 const EXAMPLE_TEXT = `Dijual rumah 2 lantai, 3KT 2KM
 LT 120m2 LB 90m2 SHM
@@ -23,6 +24,8 @@ export function TextParseForm({ onParsed, onManualFill }: TextParseFormProps) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ParsedListing | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const resultRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
   const locationSuggestion = result?.locationSuggestion;
   const hasLocationSuggestion =
     !!locationSuggestion?.province ||
@@ -39,10 +42,24 @@ export function TextParseForm({ onParsed, onManualFill }: TextParseFormProps) {
     try {
       const parsed = await parseListingText(text);
       setResult(parsed);
+      toast('AI selesai memproses! Gulir ke bawah untuk melihat hasilnya.', 'success');
+      // Small delay so the result card renders before scrolling into view
+      setTimeout(() => {
+        resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal memproses teks. Silakan coba lagi.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePaste = async () => {
+    try {
+      const clipboardText = await navigator.clipboard.readText();
+      if (clipboardText) setText(clipboardText);
+    } catch {
+      toast('Tidak dapat mengakses clipboard. Tempel teks secara manual.', 'warning');
     }
   };
 
@@ -84,7 +101,18 @@ export function TextParseForm({ onParsed, onManualFill }: TextParseFormProps) {
         </div>
 
         <div className="flex items-center justify-between mt-2 text-xs text-gray-400">
-          <span>{text.length} karakter</span>
+          <div className="flex items-center gap-3">
+            <span>{text.length} karakter</span>
+            <button
+              type="button"
+              onClick={handlePaste}
+              disabled={loading}
+              className="flex items-center gap-1 text-[#25D366] hover:text-[#1da851] font-medium transition-colors disabled:opacity-50"
+            >
+              <ClipboardPaste className="w-3.5 h-3.5" />
+              Tempel
+            </button>
+          </div>
           <button
             onClick={() => setText(EXAMPLE_TEXT)}
             className="text-brand-secondary hover:text-brand-primary transition-colors"
@@ -156,7 +184,7 @@ export function TextParseForm({ onParsed, onManualFill }: TextParseFormProps) {
 
       {/* Result */}
       {result && !loading && (
-        <div className="card p-6 border-2 border-brand-accent/40">
+        <div ref={resultRef} className="card p-6 border-2 border-brand-accent/40">
           {/* Header */}
           <div className="flex items-center gap-3 mb-5">
             <div className="w-10 h-10 bg-brand-light rounded-xl flex items-center justify-center">
