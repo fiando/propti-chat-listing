@@ -25,6 +25,35 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: Validate required frontend secrets
+        env:
+          NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL }}
+          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
+        run: |
+          required_vars=(
+            NEXTAUTH_URL
+            NEXTAUTH_SECRET
+            GOOGLE_CLIENT_ID
+            GOOGLE_CLIENT_SECRET
+            NEXT_PUBLIC_API_URL
+            NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+          )
+
+          for var_name in "${required_vars[@]}"; do
+            if [ -z "${!var_name}" ]; then
+              echo "Missing required frontend secret: ${var_name}" >&2
+              exit 1
+            fi
+          done
+
+      - name: Verify deploy workflow config
+        working-directory: frontend
+        run: npm run test:deploy-config
+
       - name: Lint
         working-directory: frontend
         run: npm run lint
@@ -32,6 +61,10 @@ jobs:
       - name: Build
         working-directory: frontend
         env:
+          NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL }}
+          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
           NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
         run: npm run build
@@ -43,4 +76,17 @@ jobs:
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
           working-directory: frontend
-          vercel-args: '--prod'
+          vercel-args: >-
+            --prod
+            --env NEXTAUTH_URL="${{ secrets.NEXTAUTH_URL }}"
+            --env NEXTAUTH_SECRET="${{ secrets.NEXTAUTH_SECRET }}"
+            --env GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}"
+            --env GOOGLE_CLIENT_SECRET="${{ secrets.GOOGLE_CLIENT_SECRET }}"
+            --env NEXT_PUBLIC_API_URL="${{ secrets.NEXT_PUBLIC_API_URL }}"
+            --env NEXT_PUBLIC_GOOGLE_MAPS_API_KEY="${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}"
+            --build-env NEXTAUTH_URL="${{ secrets.NEXTAUTH_URL }}"
+            --build-env NEXTAUTH_SECRET="${{ secrets.NEXTAUTH_SECRET }}"
+            --build-env GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}"
+            --build-env GOOGLE_CLIENT_SECRET="${{ secrets.GOOGLE_CLIENT_SECRET }}"
+            --build-env NEXT_PUBLIC_API_URL="${{ secrets.NEXT_PUBLIC_API_URL }}"
+            --build-env NEXT_PUBLIC_GOOGLE_MAPS_API_KEY="${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}"

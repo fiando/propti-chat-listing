@@ -73,6 +73,10 @@ Use this URL as `NEXT_PUBLIC_API_URL` in your frontend.
 | `VERCEL_TOKEN` | Vercel API token |
 | `VERCEL_ORG_ID` | Vercel organization ID |
 | `VERCEL_PROJECT_ID` | Vercel project ID |
+| `NEXTAUTH_URL` | Production frontend URL for NextAuth |
+| `NEXTAUTH_SECRET` | NextAuth signing secret used by the session endpoint |
+| `GOOGLE_CLIENT_ID` | Google OAuth web client ID |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth web client secret |
 | `NEXT_PUBLIC_API_URL` | Backend API URL |
 | `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Google Maps API key |
 
@@ -86,6 +90,17 @@ GOOGLE_CLIENT_ID=xxx.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-google-client-secret
 NEXT_PUBLIC_API_URL=https://api.propti.id/v1
 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=AIza...
+```
+
+Also set the same auth values as GitHub Actions production secrets. The deploy workflow now validates and injects:
+
+```
+NEXTAUTH_URL
+NEXTAUTH_SECRET
+GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_SECRET
+NEXT_PUBLIC_API_URL
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 ```
 
 ### Manual Deployment
