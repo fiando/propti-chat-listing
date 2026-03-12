@@ -23,6 +23,11 @@ export function TextParseForm({ onParsed, onManualFill }: TextParseFormProps) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ParsedListing | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const hasLocationSuggestion =
+    !!result?.locationSuggestion?.province ||
+    !!result?.locationSuggestion?.city ||
+    !!result?.locationSuggestion?.district ||
+    !!result?.locationSuggestion?.normalizedAddress;
 
   const handleParse = async () => {
     if (!text.trim()) return;
@@ -215,7 +220,7 @@ export function TextParseForm({ onParsed, onManualFill }: TextParseFormProps) {
           </div>
 
           {/* Location suggestion */}
-          {result.locationSuggestion && (
+          {hasLocationSuggestion && (
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
               <p className="text-xs font-semibold text-blue-700 mb-2 flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5" />
