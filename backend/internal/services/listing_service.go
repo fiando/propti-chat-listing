@@ -17,7 +17,8 @@ const (
 	freeTierMaxMedia            = 3
 )
 
-type listingStore interface {
+// ListingStore is the storage interface for listing persistence.
+type ListingStore interface {
 	Put(ctx context.Context, listing *models.Listing) error
 	GetByID(ctx context.Context, userID, listingID string) (*models.Listing, error)
 	GetByListingID(ctx context.Context, listingID string) (*models.Listing, error)
@@ -26,36 +27,45 @@ type listingStore interface {
 	Scan(ctx context.Context, params *models.ListingSearchParams) ([]models.Listing, error)
 }
 
-type userStore interface {
+// UserStore is the storage interface for user persistence.
+type UserStore interface {
 	GetByID(ctx context.Context, userID string) (*models.User, error)
 }
 
-type aiParseService interface {
+// AIParseService is the interface for AI-based listing text parsing.
+type AIParseService interface {
 	ParseListingText(ctx context.Context, text string) (*models.ParsedListing, error)
 }
 
-type locationNormalizer interface {
+// LocationNormalizer validates and normalizes AI-suggested location data against a catalog.
+type LocationNormalizer interface {
 	NormalizeSuggestion(province, city, district string) models.ParsedLocationSuggestion
 }
 
+// keep unexported aliases so internal tests that use lowercase names continue to compile.
+type listingStore = ListingStore
+type userStore = UserStore
+type aiParseService = AIParseService
+type locationNormalizer = LocationNormalizer
+
 // ListingService orchestrates listing lifecycle operations.
 type ListingService struct {
-	listingRepo     listingStore
-	userRepo        userStore
-	aiService       aiParseService
+	listingRepo     ListingStore
+	userRepo        UserStore
+	aiService       AIParseService
 	s3Service       *S3Service
 	mapsService     *GoogleMapsService
-	locationCatalog locationNormalizer
+	locationCatalog LocationNormalizer
 }
 
 // NewListingService creates a fully-wired ListingService.
 func NewListingService(
-	listingRepo listingStore,
-	userRepo userStore,
-	aiService aiParseService,
+	listingRepo ListingStore,
+	userRepo UserStore,
+	aiService AIParseService,
 	s3Service *S3Service,
 	mapsService *GoogleMapsService,
-	locationCatalog locationNormalizer,
+	locationCatalog LocationNormalizer,
 ) *ListingService {
 	return &ListingService{
 		listingRepo:     listingRepo,
@@ -68,8 +78,8 @@ func NewListingService(
 }
 
 // ensure concrete repository types satisfy the service interfaces.
-var _ listingStore = (*repository.ListingRepo)(nil)
-var _ userStore = (*repository.UserRepo)(nil)
+var _ ListingStore = (*repository.ListingRepo)(nil)
+var _ UserStore = (*repository.UserRepo)(nil)
 
 // CreateListing validates limits and persists a new listing.
 func (s *ListingService) CreateListing(ctx context.Context, userID string, req *models.CreateListingRequest) (*models.Listing, error) {
