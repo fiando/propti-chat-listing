@@ -36,26 +36,37 @@ type LocationCatalog struct {
 }
 
 func NewLocationCatalogFromReader(r io.Reader) (*LocationCatalog, error) {
-	var data locationData
-	if err := json.NewDecoder(r).Decode(&data); err != nil {
+	var raw locationData
+	if err := json.NewDecoder(r).Decode(&raw); err != nil {
 		return nil, err
 	}
 
-	citiesByProvince := make(map[string][]City, len(data.Cities))
-	for _, c := range data.Cities {
+	citiesByProvince := make(map[string][]City, len(raw.Provinces))
+	for _, c := range raw.Cities {
 		citiesByProvince[c.ProvinceID] = append(citiesByProvince[c.ProvinceID], c)
 	}
 
-	districtsByCity := make(map[string][]District, len(data.Districts))
-	for _, d := range data.Districts {
+	districtsByCity := make(map[string][]District, len(raw.Cities))
+	for _, d := range raw.Districts {
 		districtsByCity[d.CityID] = append(districtsByCity[d.CityID], d)
 	}
 
 	return &LocationCatalog{
-		provinces:        data.Provinces,
+		provinces:        raw.Provinces,
 		citiesByProvince: citiesByProvince,
 		districtsByCity:  districtsByCity,
 	}, nil
+}
+
+func (c *LocationCatalog) SearchProvinces(query string) []Province {
+	q := strings.ToLower(query)
+	var results []Province
+	for _, p := range c.provinces {
+		if strings.Contains(strings.ToLower(p.Name), q) {
+			results = append(results, p)
+		}
+	}
+	return results
 }
 
 func (c *LocationCatalog) SearchCities(provinceID, query string) []City {

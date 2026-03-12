@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"os"
-	"strings"
+	"bytes"
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/fiando/propti/backend/internal/data"
@@ -38,7 +38,7 @@ func main() {
 
 	mapsSvc := services.NewGoogleMapsServiceFromEnv()
 
-	locationCatalog, err := services.NewLocationCatalogFromReader(strings.NewReader(data.IndonesiaLocationsJSON))
+	locationCatalog, err := services.NewLocationCatalogFromReader(bytes.NewReader(data.IndonesiaLocationsJSON))
 	if err != nil {
 		utils.LogError("init location catalog", err)
 		panic(err)
