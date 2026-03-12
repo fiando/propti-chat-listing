@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -58,4 +59,35 @@ func TestLocationCatalogSearchProvinces(t *testing.T) {
 	if len(results) != 0 {
 		t.Fatalf("expected no results for 'xyz', got %#v", results)
 	}
+}
+
+func TestLocationCatalogEmptyResultsSerializeAsArray(t *testing.T) {
+t.Parallel()
+
+catalog, err := NewLocationCatalogFromReader(strings.NewReader(`{
+"provinces":[{"id":"32","name":"Jawa Barat"}],
+"cities":[{"id":"3276","provinceId":"32","name":"Depok"}],
+"districts":[{"id":"3276010","cityId":"3276","name":"Beji"}]
+}`))
+if err != nil {
+t.Fatalf("NewLocationCatalogFromReader returned error: %v", err)
+}
+
+provinces := catalog.SearchProvinces("nomatch")
+cities := catalog.SearchCities("32", "nomatch")
+districts := catalog.SearchDistricts("3276", "nomatch")
+
+for name, v := range map[string]any{
+"provinces": provinces,
+"cities":    cities,
+"districts": districts,
+} {
+b, err := json.Marshal(v)
+if err != nil {
+t.Fatalf("json.Marshal(%s) error: %v", name, err)
+}
+if string(b) != "[]" {
+t.Errorf("%s: expected JSON `[]`, got `%s`", name, b)
+}
+}
 }

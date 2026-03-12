@@ -60,7 +60,7 @@ func NewLocationCatalogFromReader(r io.Reader) (*LocationCatalog, error) {
 
 func (c *LocationCatalog) SearchProvinces(query string) []Province {
 	q := strings.ToLower(query)
-	var results []Province
+	results := []Province{}
 	for _, p := range c.provinces {
 		if strings.Contains(strings.ToLower(p.Name), q) {
 			results = append(results, p)
@@ -71,7 +71,7 @@ func (c *LocationCatalog) SearchProvinces(query string) []Province {
 
 func (c *LocationCatalog) SearchCities(provinceID, query string) []City {
 	q := strings.ToLower(query)
-	var results []City
+	results := []City{}
 	for _, city := range c.citiesByProvince[provinceID] {
 		if strings.Contains(strings.ToLower(city.Name), q) {
 			results = append(results, city)
@@ -82,7 +82,7 @@ func (c *LocationCatalog) SearchCities(provinceID, query string) []City {
 
 func (c *LocationCatalog) SearchDistricts(cityID, query string) []District {
 	q := strings.ToLower(query)
-	var results []District
+	results := []District{}
 	for _, d := range c.districtsByCity[cityID] {
 		if strings.Contains(strings.ToLower(d.Name), q) {
 			results = append(results, d)
