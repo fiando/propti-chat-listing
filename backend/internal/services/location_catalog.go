@@ -63,6 +63,7 @@ func NewLocationCatalogFromReader(r io.Reader) (*LocationCatalog, error) {
 // minSubstringLen is the minimum query length required for substring-based
 // matching. Shorter fragments risk false positives (e.g. "De" → "Depok").
 const minSubstringLen = 3
+const maxLocationResults = 20
 
 // findCityInList returns the first city whose name matches query using an
 // exact case-insensitive comparison, falling back to substring search only
@@ -89,6 +90,9 @@ func (c *LocationCatalog) SearchProvinces(query string) []Province {
 	for _, p := range c.provinces {
 		if strings.Contains(strings.ToLower(p.Name), q) {
 			results = append(results, p)
+			if len(results) == maxLocationResults {
+				break
+			}
 		}
 	}
 	return results
@@ -100,6 +104,9 @@ func (c *LocationCatalog) SearchCities(provinceID, query string) []City {
 	for _, city := range c.citiesByProvince[provinceID] {
 		if strings.Contains(strings.ToLower(city.Name), q) {
 			results = append(results, city)
+			if len(results) == maxLocationResults {
+				break
+			}
 		}
 	}
 	return results
@@ -111,6 +118,9 @@ func (c *LocationCatalog) SearchDistricts(cityID, query string) []District {
 	for _, d := range c.districtsByCity[cityID] {
 		if strings.Contains(strings.ToLower(d.Name), q) {
 			results = append(results, d)
+			if len(results) == maxLocationResults {
+				break
+			}
 		}
 	}
 	return results

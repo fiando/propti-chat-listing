@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"errors"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -10,9 +12,16 @@ import (
 
 // --- fakes ---
 
-type fakeListingStore struct{}
+type fakeListingStore struct {
+	putCalls    int
+	lastListing *models.Listing
+}
 
-func (f *fakeListingStore) Put(ctx context.Context, listing *models.Listing) error { return nil }
+func (f *fakeListingStore) Put(ctx context.Context, listing *models.Listing) error {
+	f.putCalls++
+	f.lastListing = listing
+	return nil
+}
 func (f *fakeListingStore) GetByID(ctx context.Context, userID, listingID string) (*models.Listing, error) {
 	return nil, nil
 }
@@ -44,7 +53,72 @@ func (f *fakeAIService) ParseListingText(ctx context.Context, text string) (*mod
 	return f.parseResult, f.err
 }
 
+type countingRoundTripper struct {
+	calls int
+}
+
+func (c *countingRoundTripper) RoundTrip(*http.Request) (*http.Response, error) {
+	c.calls++
+	return nil, errors.New("unexpected outbound maps request")
+}
+
 // --- tests ---
+
+func TestCreateListingDoesNotGeocodeDuringSubmit(t *testing.T) {
+	ctx := context.Background()
+	store := &fakeListingStore{}
+	transport := &countingRoundTripper{}
+
+	service := NewListingService(
+		store,
+		&fakeUserStore{
+			user: &models.User{
+				UserID: "user-1",
+				Subscription: models.Subscription{
+					Tier: models.SubscriptionPremium,
+				},
+			},
+		},
+		nil,
+		nil,
+		&GoogleMapsService{
+			client: &http.Client{Transport: transport},
+		},
+		nil,
+	)
+
+	listing, err := service.CreateListing(ctx, "user-1", &models.CreateListingRequest{
+		Title:       "Rumah minimalis dekat tol Depok",
+		Description: "Rumah siap huni dengan akses cepat ke tol dan stasiun.",
+		Price:       850000000,
+		PriceUnit:   "total",
+		ListingType: models.ListingTypeSell,
+		Location: models.Location{
+			Address:  "Jl. Margonda Raya No. 1",
+			Province: "Jawa Barat",
+			City:     "Depok",
+			District: "Beji",
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateListing returned error: %v", err)
+	}
+	if transport.calls != 0 {
+		t.Fatalf("expected create listing to avoid outbound geocoding, got %d call(s)", transport.calls)
+	}
+	if store.putCalls != 1 {
+		t.Fatalf("expected listing to be persisted once, got %d", store.putCalls)
+	}
+	if store.lastListing == nil {
+		t.Fatalf("expected persisted listing to be captured")
+	}
+	if store.lastListing.Location.City != "Depok" {
+		t.Fatalf("expected location city to be preserved, got %q", store.lastListing.Location.City)
+	}
+	if listing.Location.Latitude != 0 || listing.Location.Longitude != 0 {
+		t.Fatalf("expected submit path to leave coordinates untouched, got lat=%v lng=%v", listing.Location.Latitude, listing.Location.Longitude)
+	}
+}
 
 func TestParseListingTextReturnsLocationSuggestionsWithoutAutoFinalizing(t *testing.T) {
 	ctx := context.Background()

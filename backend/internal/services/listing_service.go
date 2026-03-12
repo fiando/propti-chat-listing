@@ -107,24 +107,6 @@ func (s *ListingService) CreateListing(ctx context.Context, userID string, req *
 		return nil, utils.WrapError(utils.ErrBadRequest, err)
 	}
 
-	// Enrich location with coordinates if needed.
-	if req.Location.Latitude == 0 && req.Location.Longitude == 0 && req.Location.Address != "" {
-		if geocoded, err := s.mapsService.GeocodeAddress(ctx, req.Location.Address); err == nil {
-			req.Location.Latitude = geocoded.Latitude
-			req.Location.Longitude = geocoded.Longitude
-			req.Location.GooglePlaceID = geocoded.PlaceID
-			if req.Location.Province == "" {
-				req.Location.Province = geocoded.Province
-			}
-			if req.Location.City == "" {
-				req.Location.City = geocoded.City
-			}
-			if req.Location.District == "" {
-				req.Location.District = geocoded.District
-			}
-		}
-	}
-
 	listingID := uuid.NewString()
 	now := time.Now().UTC()
 

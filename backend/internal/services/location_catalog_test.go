@@ -2,6 +2,7 @@ package services
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -58,6 +59,43 @@ func TestLocationCatalogSearchProvinces(t *testing.T) {
 	results = catalog.SearchProvinces("xyz")
 	if len(results) != 0 {
 		t.Fatalf("expected no results for 'xyz', got %#v", results)
+	}
+}
+
+func TestLocationCatalogSearchCapsResultWindows(t *testing.T) {
+	t.Parallel()
+
+	var provinceEntries []string
+	var cityEntries []string
+	var districtEntries []string
+	for i := 1; i <= 25; i++ {
+		provinceEntries = append(provinceEntries, fmt.Sprintf(`{"id":"p%02d","name":"Provinsi %02d"}`, i, i))
+		cityEntries = append(cityEntries, fmt.Sprintf(`{"id":"c%02d","provinceId":"p01","name":"Kota %02d"}`, i, i))
+		districtEntries = append(districtEntries, fmt.Sprintf(`{"id":"d%02d","cityId":"c01","name":"Kecamatan %02d"}`, i, i))
+	}
+
+	catalog, err := NewLocationCatalogFromReader(strings.NewReader(fmt.Sprintf(`{
+		"provinces":[%s],
+		"cities":[%s],
+		"districts":[%s]
+	}`, strings.Join(provinceEntries, ","), strings.Join(cityEntries, ","), strings.Join(districtEntries, ","))))
+	if err != nil {
+		t.Fatalf("NewLocationCatalogFromReader returned error: %v", err)
+	}
+
+	provinces := catalog.SearchProvinces("provinsi")
+	if len(provinces) != 20 {
+		t.Fatalf("expected capped province results of 20, got %d", len(provinces))
+	}
+
+	cities := catalog.SearchCities("p01", "kota")
+	if len(cities) != 20 {
+		t.Fatalf("expected capped city results of 20, got %d", len(cities))
+	}
+
+	districts := catalog.SearchDistricts("c01", "kecamatan")
+	if len(districts) != 20 {
+		t.Fatalf("expected capped district results of 20, got %d", len(districts))
 	}
 }
 

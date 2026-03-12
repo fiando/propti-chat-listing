@@ -99,6 +99,9 @@ export function ListingForm({
 }: ListingFormProps) {
   const [selectedProvinceId, setSelectedProvinceId] = useState('');
   const [selectedCityId, setSelectedCityId] = useState('');
+  const [provinceQuery, setProvinceQuery] = useState('');
+  const [cityQuery, setCityQuery] = useState('');
+  const [districtQuery, setDistrictQuery] = useState('');
 
   const {
     register,
@@ -132,21 +135,21 @@ export function ListingForm({
   });
 
   const { data: provinces = [], isLoading: loadingProvinces } = useQuery({
-    queryKey: ['provinces'],
-    queryFn: () => getProvinceSuggestions(),
+    queryKey: ['provinces', provinceQuery],
+    queryFn: () => getProvinceSuggestions(provinceQuery || undefined),
     staleTime: Infinity,
   });
 
   const { data: cities = [], isLoading: loadingCities } = useQuery({
-    queryKey: ['cities', selectedProvinceId],
-    queryFn: () => getCitySuggestions(selectedProvinceId),
+    queryKey: ['cities', selectedProvinceId, cityQuery],
+    queryFn: () => getCitySuggestions(selectedProvinceId, cityQuery || undefined),
     enabled: !!selectedProvinceId,
     staleTime: Infinity,
   });
 
   const { data: districts = [], isLoading: loadingDistricts } = useQuery({
-    queryKey: ['districts', selectedCityId],
-    queryFn: () => getDistrictSuggestions(selectedCityId),
+    queryKey: ['districts', selectedCityId, districtQuery],
+    queryFn: () => getDistrictSuggestions(selectedCityId, districtQuery || undefined),
     enabled: !!selectedCityId,
     staleTime: Infinity,
   });
@@ -440,6 +443,12 @@ export function ListingForm({
         {/* Province */}
         <div>
           <label className="label">Provinsi *</label>
+          <input
+            value={provinceQuery}
+            onChange={(e) => setProvinceQuery(e.target.value)}
+            className="input-field mb-2"
+            placeholder="Cari provinsi..."
+          />
           <Controller
             name="province"
             control={control}
@@ -450,6 +459,8 @@ export function ListingForm({
                   const opt = provinces.find((p) => p.id === e.target.value);
                   setSelectedProvinceId(e.target.value);
                   setSelectedCityId('');
+                  setCityQuery('');
+                  setDistrictQuery('');
                   field.onChange(opt?.name || '');
                   setValue('city', '');
                   setValue('district', '');
@@ -477,6 +488,13 @@ export function ListingForm({
           {/* City */}
           <div>
             <label className="label">Kota / Kabupaten *</label>
+            <input
+              value={cityQuery}
+              onChange={(e) => setCityQuery(e.target.value)}
+              className="input-field mb-2"
+              placeholder={!selectedProvinceId ? 'Pilih provinsi dulu' : 'Cari kota / kabupaten...'}
+              disabled={!selectedProvinceId}
+            />
             <Controller
               name="city"
               control={control}
@@ -486,6 +504,7 @@ export function ListingForm({
                   onChange={(e) => {
                     const opt = cities.find((c) => c.id === e.target.value);
                     setSelectedCityId(e.target.value);
+                    setDistrictQuery('');
                     field.onChange(opt?.name || '');
                     setValue('district', '');
                   }}
@@ -515,6 +534,13 @@ export function ListingForm({
           {/* District */}
           <div>
             <label className="label">Kecamatan</label>
+            <input
+              value={districtQuery}
+              onChange={(e) => setDistrictQuery(e.target.value)}
+              className="input-field mb-2"
+              placeholder={!selectedCityId ? 'Pilih kota dulu' : 'Cari kecamatan...'}
+              disabled={!selectedCityId}
+            />
             <Controller
               name="district"
               control={control}
