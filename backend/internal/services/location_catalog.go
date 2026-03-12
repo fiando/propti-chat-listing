@@ -125,9 +125,12 @@ func (c *LocationCatalog) Provinces() []Province {
 // Confidence is computed as the fraction of supplied, non-empty fields that
 // resolve to an authoritative catalog entry (each field contributes 1/3).
 //
-// If province does not match, city resolution is still attempted across all
-// provinces so that a single bad province input does not zero out the entire
-// confidence score.
+// City resolution first targets the matched province; if unsuccessful it falls
+// back to a broad search across all provinces.  When the broad search locates a
+// city whose province differs from what the AI supplied, the province field is
+// corrected to the city's actual province and the original AI province no longer
+// contributes to the confidence score — preventing an inflated score from a
+// wrong-province/right-city pair.
 func (c *LocationCatalog) NormalizeSuggestion(province, city, district string) models.ParsedLocationSuggestion {
 	suggestion := models.ParsedLocationSuggestion{
 		Province: province,
@@ -168,8 +171,13 @@ func (c *LocationCatalog) NormalizeSuggestion(province, city, district string) m
 			for _, cities := range c.citiesByProvince {
 				if ct := findCityInList(cities, city); ct != nil {
 					matchedCity = ct
-					// When province was not directly matched, infer it from the city.
-					if matchedProvince == nil {
+					// If the city belongs to a different province than the AI
+					// supplied (whether province was unmatched or mismatched),
+					// correct the province field to the city's actual province
+					// and clear matchedProvince so the wrong AI province does
+					// not inflate the confidence score.
+					if matchedProvince == nil || matchedCity.ProvinceID != matchedProvince.ID {
+						matchedProvince = nil
 						for i := range c.provinces {
 							if c.provinces[i].ID == matchedCity.ProvinceID {
 								suggestion.Province = c.provinces[i].Name

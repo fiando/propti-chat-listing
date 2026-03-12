@@ -139,6 +139,44 @@ func TestNormalizeSuggestionShortFragmentNotMatched(t *testing.T) {
 	}
 }
 
+// TestNormalizeSuggestionWrongProvinceRightCity is the regression test for the
+// broad city fallback: when the AI supplies a province that exists in the
+// catalog but the requested city belongs to a *different* province, the
+// suggestion must carry the city's actual province (not the AI's wrong one) and
+// the confidence must not be inflated by counting the wrong province as a hit.
+func TestNormalizeSuggestionWrongProvinceRightCity(t *testing.T) {
+	t.Parallel()
+
+	catalog, err := NewLocationCatalogFromReader(strings.NewReader(`{
+"provinces":[
+	{"id":"32","name":"Jawa Barat"},
+	{"id":"33","name":"Jawa Tengah"}
+],
+"cities":[
+	{"id":"3276","provinceId":"32","name":"Depok"},
+	{"id":"3374","provinceId":"33","name":"Semarang"}
+],
+"districts":[]
+}`))
+	if err != nil {
+		t.Fatalf("NewLocationCatalogFromReader returned error: %v", err)
+	}
+
+	// AI gave Jawa Tengah as province, but Depok is in Jawa Barat.
+	result := catalog.NormalizeSuggestion("Jawa Tengah", "Depok", "")
+	if result.Province != "Jawa Barat" {
+		t.Fatalf("expected province corrected to 'Jawa Barat', got %q", result.Province)
+	}
+	if result.City != "Depok" {
+		t.Fatalf("expected city='Depok', got %q", result.City)
+	}
+	// Province was wrong; only city resolved → confidence = 1/2.
+	const want = 1.0 / 2.0
+	if result.Confidence < want-0.01 || result.Confidence > want+0.01 {
+		t.Fatalf("expected confidence ~%.4f, got %v", want, result.Confidence)
+	}
+}
+
 func TestNormalizeSuggestionCityResolvesWhenProvinceUnmatched(t *testing.T) {
 	t.Parallel()
 
