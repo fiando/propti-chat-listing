@@ -5,6 +5,7 @@ backend/bin/
 # Build artifacts
 frontend/.next/
 frontend/out/
+.worktrees/
 
 # Environment files
 .env
