@@ -6,6 +6,7 @@ import { MessageCircle, PenLine, ArrowLeft } from 'lucide-react';
 import { TextParseForm } from '@/components/listings/TextParseForm';
 import { ListingForm } from '@/components/listings/ListingForm';
 import { useCreateListing } from '@/hooks/useListings';
+import { useAuth } from '@/hooks/useAuth';
 import type { ParsedListing, CreateListingRequest, Location } from '@/types';
 import Link from 'next/link';
 import type { ListingFormValues } from '@/components/listings/ListingForm';
@@ -18,6 +19,7 @@ export default function CreateListingPage() {
   const [parsedData, setParsedData] = useState<ParsedListing | null>(null);
   const [parsedLocation, setParsedLocation] = useState<Partial<Location> | null>(null);
   const { mutateAsync: createListing, isPending } = useCreateListing();
+  const { isPremium } = useAuth();
 
   const handleParsed = (result: ParsedListing) => {
     setParsedData(result);
@@ -161,6 +163,7 @@ export default function CreateListingPage() {
           onSubmit={handleSubmit}
           isLoading={isPending}
           mode="create"
+          isPremium={isPremium}
         />
       )}
     </div>

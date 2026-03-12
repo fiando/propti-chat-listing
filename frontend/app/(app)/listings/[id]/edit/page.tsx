@@ -3,6 +3,7 @@
 import { use } from 'react';
 import { useListing, useUpdateListing } from '@/hooks/useListings';
 import { ListingForm } from '@/components/listings/ListingForm';
+import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
@@ -14,6 +15,7 @@ export default function EditListingPage({ params }: { params: Promise<{ id: stri
   const { data: listing, isLoading } = useListing(resolvedParams.id);
   const { mutateAsync: updateListing, isPending } = useUpdateListing(resolvedParams.id);
   const router = useRouter();
+  const { isPremium } = useAuth();
 
   const handleSubmit = async (data: ListingFormValues) => {
     const payload: Partial<CreateListingRequest> = {
@@ -103,6 +105,7 @@ export default function EditListingPage({ params }: { params: Promise<{ id: stri
         onSubmit={handleSubmit}
         isLoading={isPending}
         mode="edit"
+        isPremium={isPremium}
       />
     </div>
   );
