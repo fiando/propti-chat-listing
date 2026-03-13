@@ -11,7 +11,13 @@ frontend/tsconfig.tsbuildinfo
 # Environment files
 .env
 .env.local
+.env.production
+.env.development
+frontend/.env.production
+frontend/.env.development
 backend/.env
+backend/.env.production
+backend/.env.development
 
 # OS
 .DS_Store

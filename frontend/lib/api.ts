@@ -12,6 +12,7 @@ import type {
   LocationSuggestion,
   LocationOption,
 } from '@/types';
+import { getBackendAuthHeader, getBackendProfilePath } from '@/lib/backend-auth';
 
 const apiClient = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'https://api.propti.id/v1',
@@ -25,8 +26,9 @@ apiClient.interceptors.request.use(async (config) => {
   const session = await getSession();
   if (session?.user) {
     const token = (session as { accessToken?: string }).accessToken;
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    const authHeader = getBackendAuthHeader({ backendAccessToken: token });
+    if (authHeader) {
+      config.headers.Authorization = authHeader;
     }
   }
   return config;
@@ -108,7 +110,7 @@ export async function upgradePremium(): Promise<PaymentResponse> {
 }
 
 export async function getProfile(): Promise<User> {
-  const response = await apiClient.get<User>('/users/me');
+  const response = await apiClient.get<User>(getBackendProfilePath());
   return response.data;
 }
 
