@@ -26,7 +26,10 @@ const listingSchema = z.object({
   buildingArea: z.number().min(0).optional(),
   bedrooms: z.number().min(0).int(),
   bathrooms: z.number().min(0).int(),
-  frontWidth: z.number().min(0).optional(),
+  frontWidth: z.preprocess(
+    (val) => (typeof val === 'number' && isNaN(val) ? undefined : val),
+    z.number().min(0).optional()
+  ),
   orientation: z.string().optional(),
   legalStatus: z.string().optional(),
   powerConsumption: z.string().optional(),
@@ -136,45 +139,58 @@ export function ListingForm({
     },
   });
 
-  const { data: provinces = [], isLoading: loadingProvinces } = useQuery({
-    queryKey: ['provinces', provinceQuery],
-    queryFn: () => getProvinceSuggestions(provinceQuery || undefined),
+  const { data: allProvinces = [], isLoading: loadingProvinces } = useQuery({
+    queryKey: ['provinces'],
+    queryFn: () => getProvinceSuggestions(),
     staleTime: Infinity,
   });
 
-  const { data: cities = [], isLoading: loadingCities } = useQuery({
-    queryKey: ['cities', selectedProvinceId, cityQuery],
-    queryFn: () => getCitySuggestions(selectedProvinceId, cityQuery || undefined),
+  const { data: allCities = [], isLoading: loadingCities } = useQuery({
+    queryKey: ['cities', selectedProvinceId],
+    queryFn: () => getCitySuggestions(selectedProvinceId),
     enabled: !!selectedProvinceId,
     staleTime: Infinity,
   });
 
-  const { data: districts = [], isLoading: loadingDistricts } = useQuery({
-    queryKey: ['districts', selectedCityId, districtQuery],
-    queryFn: () => getDistrictSuggestions(selectedCityId, districtQuery || undefined),
+  const { data: allDistricts = [], isLoading: loadingDistricts } = useQuery({
+    queryKey: ['districts', selectedCityId],
+    queryFn: () => getDistrictSuggestions(selectedCityId),
     enabled: !!selectedCityId,
     staleTime: Infinity,
   });
 
+  // Client-side filtering based on search queries
+  const provinces = provinceQuery
+    ? allProvinces.filter((p) => p.name.toLowerCase().includes(provinceQuery.toLowerCase()))
+    : allProvinces;
+
+  const cities = cityQuery
+    ? allCities.filter((c) => c.name.toLowerCase().includes(cityQuery.toLowerCase()))
+    : allCities;
+
+  const districts = districtQuery
+    ? allDistricts.filter((d) => d.name.toLowerCase().includes(districtQuery.toLowerCase()))
+    : allDistricts;
+
   // Resolve initial province name to ID when provinces load
   const initProvince = initialLocation?.province || '';
   useEffect(() => {
-    if (!initProvince || !provinces.length || selectedProvinceId) return;
-    const match = provinces.find(
+    if (!initProvince || !allProvinces.length || selectedProvinceId) return;
+    const match = allProvinces.find(
       (p) => p.name.toLowerCase() === initProvince.toLowerCase()
     );
     if (match) setSelectedProvinceId(match.id);
-  }, [provinces, initProvince, selectedProvinceId]);
+  }, [allProvinces, initProvince, selectedProvinceId]);
 
   // Resolve initial city name to ID when cities load
   const initCity = initialLocation?.city || '';
   useEffect(() => {
-    if (!initCity || !cities.length || selectedCityId) return;
-    const match = cities.find(
+    if (!initCity || !allCities.length || selectedCityId) return;
+    const match = allCities.find(
       (c) => c.name.toLowerCase() === initCity.toLowerCase()
     );
     if (match) setSelectedCityId(match.id);
-  }, [cities, initCity, selectedCityId]);
+  }, [allCities, initCity, selectedCityId]);
 
   const watchedAmenities = watch('amenities') || [];
 
@@ -326,7 +342,7 @@ export function ListingForm({
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="label">Lebar Muka (m)</label>
+            <label className="label">Lebar Muka (m) <span className="text-gray-400 font-normal">(opsional)</span></label>
             <input
               {...register('frontWidth', { valueAsNumber: true })}
               type="number"

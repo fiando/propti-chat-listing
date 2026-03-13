@@ -42,6 +42,12 @@ Parameters:
     Type: String
     Default: dev
     AllowedValues: [dev, staging, production]
+  ApiCustomDomainName:
+    Type: String
+    Default: ""
+  ApiCustomDomainCertificateArn:
+    Type: String
+    Default: ""
   JWTSecret:
     Type: String
     NoEcho: true
@@ -54,6 +60,11 @@ Parameters:
   MidtransServerKey:
     Type: String
     NoEcho: true
+
+Conditions:
+  HasApiCustomDomain: !And
+    - !Not [!Equals [!Ref ApiCustomDomainName, ""]]
+    - !Not [!Equals [!Ref ApiCustomDomainCertificateArn, ""]]
 
 Resources:
   # ──────────────────────────────────────────────────────────────
@@ -479,6 +490,25 @@ Resources:
       VersioningConfiguration:
         Status: Enabled
 
+  ApiCustomDomain:
+    Type: AWS::ApiGateway::DomainName
+    Condition: HasApiCustomDomain
+    Properties:
+      DomainName: !Ref ApiCustomDomainName
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      RegionalCertificateArn: !Ref ApiCustomDomainCertificateArn
+      SecurityPolicy: TLS_1_2
+
+  ApiCustomDomainMapping:
+    Type: AWS::ApiGateway::BasePathMapping
+    Condition: HasApiCustomDomain
+    Properties:
+      DomainName: !Ref ApiCustomDomain
+      RestApiId: !Ref ProptiApi
+      Stage: !Ref Stage
+
 Outputs:
   ApiUrl:
     Description: API Gateway endpoint URL
@@ -505,3 +535,18 @@ Outputs:
   MediaBucketName:
     Description: S3 media bucket name
     Value: !Ref MediaBucket
+
+  ApiCustomDomainUrl:
+    Condition: HasApiCustomDomain
+    Description: Custom domain URL for the API
+    Value: !Sub "https://${ApiCustomDomainName}"
+
+  ApiCustomDomainRegionalName:
+    Condition: HasApiCustomDomain
+    Description: Regional API Gateway domain target for DNS
+    Value: !GetAtt ApiCustomDomain.RegionalDomainName
+
+  ApiCustomDomainHostedZoneId:
+    Condition: HasApiCustomDomain
+    Description: Hosted zone ID for API Gateway regional custom domain alias
+    Value: !GetAtt ApiCustomDomain.RegionalHostedZoneId

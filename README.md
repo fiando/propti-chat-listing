@@ -70,6 +70,7 @@ npm run dev
 
 - **Backend**: AWS Lambda via SAM (`sam deploy`)
 - **Frontend**: Vercel (auto-deploy on push to main)
+- **Backend custom domain**: `api.propti.id` can be managed from `backend/template.yaml` using API Gateway custom domain resources and an ACM certificate ARN in `ap-southeast-1`. After deploy, point DNS to the stack output `ApiCustomDomainRegionalName`.
 
 ## Tech Stack
 

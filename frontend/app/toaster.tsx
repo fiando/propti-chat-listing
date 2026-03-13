@@ -24,7 +24,7 @@ export function useToast() {
   return context;
 }
 
-export function Toaster() {
+export function Toaster({ children }: React.PropsWithChildren) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const removeToast = useCallback((id: string) => {
@@ -46,6 +46,7 @@ export function Toaster() {
 
   return (
     <ToastContext.Provider value={{ toast }}>
+      {children}
       <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
         {toasts.map((t) => (
           <div
