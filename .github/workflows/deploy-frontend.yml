@@ -31,16 +31,12 @@ jobs:
           NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
-          NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
         run: |
           required_vars=(
             NEXTAUTH_URL
             NEXTAUTH_SECRET
             GOOGLE_CLIENT_ID
             GOOGLE_CLIENT_SECRET
-            NEXT_PUBLIC_API_URL
-            NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
           )
 
           for var_name in "${required_vars[@]}"; do
@@ -82,11 +78,7 @@ jobs:
             --env NEXTAUTH_SECRET="${{ secrets.NEXTAUTH_SECRET }}"
             --env GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}"
             --env GOOGLE_CLIENT_SECRET="${{ secrets.GOOGLE_CLIENT_SECRET }}"
-            --env NEXT_PUBLIC_API_URL="${{ secrets.NEXT_PUBLIC_API_URL }}"
-            --env NEXT_PUBLIC_GOOGLE_MAPS_API_KEY="${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}"
             --build-env NEXTAUTH_URL="${{ secrets.NEXTAUTH_URL }}"
             --build-env NEXTAUTH_SECRET="${{ secrets.NEXTAUTH_SECRET }}"
             --build-env GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}"
             --build-env GOOGLE_CLIENT_SECRET="${{ secrets.GOOGLE_CLIENT_SECRET }}"
-            --build-env NEXT_PUBLIC_API_URL="${{ secrets.NEXT_PUBLIC_API_URL }}"
-            --build-env NEXT_PUBLIC_GOOGLE_MAPS_API_KEY="${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}"
