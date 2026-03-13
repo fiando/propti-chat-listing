@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { Home, Facebook, Instagram, Twitter } from 'lucide-react';
+import { Facebook, Instagram, Twitter } from 'lucide-react';
+import { ProptiLogo } from './ProptiLogo';
 
 const FOOTER_LINKS = {
   Produk: [
@@ -29,11 +30,8 @@ export function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
-                <Home className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-xl font-black">Propti</span>
+            <div className="mb-4">
+              <ProptiLogo size={36} showWordmark wordmarkColor="white" />
             </div>
             <p className="text-white/60 text-sm leading-relaxed mb-6">
               Jual beli properti semudah chat WhatsApp. AI kami otomatis rapikan iklanmu.
