@@ -11,9 +11,6 @@ const FOOTER_LINKS = {
   ],
   Perusahaan: [
     { label: 'Tentang Kami', href: '/about' },
-    { label: 'Blog', href: '/blog' },
-    { label: 'Karir', href: '/careers' },
-    { label: 'Press', href: '/press' },
   ],
   Bantuan: [
     { label: 'FAQ', href: '/faq' },

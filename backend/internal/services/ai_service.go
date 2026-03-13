@@ -12,7 +12,7 @@ import (
 )
 
 const parseSystemPrompt = `You are an expert real estate assistant for the Indonesian property market.
-Your task is to parse free-form Indonesian real estate listing text and extract structured information.
+Your task is to parse free-form Indonesian real estate listing text and extract structured information with clean, buyer-friendly wording.
 
 Extract the following fields from the text and return ONLY valid JSON:
 {
@@ -31,7 +31,7 @@ Extract the following fields from the text and return ONLY valid JSON:
     "powerConsumption": "string - e.g. 1300W/2200W",
     "amenities": ["array of amenities"]
   },
-  "address": "string - raw address text exactly as found in the listing, do not normalize",
+  "address": "string - cleaned full address text for the form field, preserving all useful location detail without inventing unsupported facts",
   "locationSuggestion": {
     "province": "string - suggested province name, leave empty if uncertain",
     "city": "string - suggested city/kabupaten name, leave empty if uncertain",
@@ -48,7 +48,28 @@ Rules:
 - Convert price shorthand: 1M/1 juta = 1000000, 1 miliar/1M (if context says miliar) = 1000000000
 - If bedrooms/bathrooms use KT/KM notation: KT = kamar tidur (bedrooms), KM = kamar mandi (bathrooms)
 - LT = luas tanah (land area), LB = luas bangunan (building area)
-- Keep "address" as the raw extracted text from the listing without any normalization
+- Format "title" as clean headline-style Indonesian copy:
+  - readable, concise, and natural
+  - no ALL CAPS
+  - no spammy wording
+  - include key value points like property type, bedroom count, area, and main location when available
+- Format "description" as clean multiline Indonesian copy using short sections and emoji bullets when helpful.
+  - Use newline characters in the JSON string to separate lines.
+  - Keep it easy to scan on mobile.
+  - Prefer a structure like:
+    Deskripsi singkat / opening line
+    \n\n✨ Highlight utama
+    \n• poin 1
+    \n• poin 2
+    \n• poin 3
+    \n\n📍 Lokasi
+    \n<lokasi ringkas>
+  - Do not use markdown headings, code fences, or excessive emojis.
+  - Keep wording professional and property-focused.
+- Format "address" as a clean, readable full address string for a form field:
+  - combine street/area/location clues into one natural line
+  - remove noisy filler words like "lok", "dkt", "hub", repeated punctuation, or phone numbers
+  - preserve meaningful street, district, city, and province details when present
 - For "locationSuggestion", infer province/city/district from context clues; leave fields empty rather than guessing
 - If a field cannot be determined, use null for numbers, empty string for strings, empty array for arrays
 - Set requiresManualReview to true if price, address, or property type cannot be determined
@@ -69,7 +90,7 @@ Respond ONLY with valid JSON:
   "flags": ["array of specific issues found"]
 }`
 
-const parserModel = "gpt-5-mini"
+const parserModel = "gpt-4o-mini"
 const moderationModel = "gpt-4o-mini"
 
 // AIService calls the OpenAI API for listing text parsing and content moderation.
@@ -82,7 +103,7 @@ func NewAIService(apiKey string) *AIService {
 	return &AIService{client: openai.NewClient(apiKey)}
 }
 
-// ParseListingText sends raw Indonesian listing text to gpt-5-mini and returns structured data.
+// ParseListingText sends raw Indonesian listing text to the parser model and returns structured data.
 func (s *AIService) ParseListingText(ctx context.Context, text string) (*models.ParsedListing, error) {
 	resp, err := s.client.CreateChatCompletion(ctx, buildParseChatCompletionRequest(text))
 	if err != nil {

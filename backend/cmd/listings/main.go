@@ -31,7 +31,7 @@ func main() {
 		panic(err)
 	}
 
-	var aiSvc *services.AIService
+	var aiSvc services.AIParseService
 	if key := os.Getenv("OPENAI_API_KEY"); key != "" {
 		aiSvc = services.NewAIService(key)
 	}

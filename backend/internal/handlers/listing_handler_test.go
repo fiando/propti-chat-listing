@@ -14,13 +14,51 @@ import (
 
 // --- fakes ---
 
-type fakeListingStore struct{}
+type fakeListingStore struct {
+	byUserID    map[string][]models.Listing
+	byListingID map[string]*models.Listing
+}
 
-func (f *fakeListingStore) Put(_ context.Context, _ *models.Listing) error { return nil }
-func (f *fakeListingStore) GetByID(_ context.Context, _, _ string) (*models.Listing, error) {
+func (f *fakeListingStore) Put(_ context.Context, listing *models.Listing) error {
+	if f.byListingID == nil {
+		f.byListingID = map[string]*models.Listing{}
+	}
+	if listing != nil {
+		copy := *listing
+		f.byListingID[listing.ListingID] = &copy
+		if f.byUserID == nil {
+			f.byUserID = map[string][]models.Listing{}
+		}
+		userListings := f.byUserID[listing.UserID]
+		replaced := false
+		for i := range userListings {
+			if userListings[i].ListingID == listing.ListingID {
+				userListings[i] = copy
+				replaced = true
+				break
+			}
+		}
+		if !replaced {
+			userListings = append(userListings, copy)
+		}
+		f.byUserID[listing.UserID] = userListings
+	}
+	return nil
+}
+func (f *fakeListingStore) GetByID(_ context.Context, userID, listingID string) (*models.Listing, error) {
+	for _, listing := range f.byUserID[userID] {
+		if listing.ListingID == listingID {
+			copy := listing
+			return &copy, nil
+		}
+	}
 	return nil, nil
 }
-func (f *fakeListingStore) GetByListingID(_ context.Context, _ string) (*models.Listing, error) {
+func (f *fakeListingStore) GetByListingID(_ context.Context, listingID string) (*models.Listing, error) {
+	if listing, ok := f.byListingID[listingID]; ok {
+		copy := *listing
+		return &copy, nil
+	}
 	return nil, nil
 }
 func (f *fakeListingStore) CountMonthlyByUserID(_ context.Context, _ string) (int, error) {
@@ -31,9 +69,25 @@ func (f *fakeListingStore) Scan(_ context.Context, _ *models.ListingSearchParams
 	return nil, nil
 }
 
-type fakeUserStore struct{}
+func (f *fakeListingStore) ListByUserID(_ context.Context, userID string, _ int32) ([]models.Listing, error) {
+	listings := f.byUserID[userID]
+	result := make([]models.Listing, len(listings))
+	copy(result, listings)
+	return result, nil
+}
 
-func (f *fakeUserStore) GetByID(_ context.Context, _ string) (*models.User, error) {
+type fakeUserStore struct {
+	byID map[string]*models.User
+}
+
+func (f *fakeUserStore) GetByID(_ context.Context, userID string) (*models.User, error) {
+	if f.byID == nil {
+		return nil, nil
+	}
+	if user, ok := f.byID[userID]; ok {
+		copy := *user
+		return &copy, nil
+	}
 	return nil, nil
 }
 
@@ -59,9 +113,18 @@ func (f *fakeLocationNormalizer) NormalizeSuggestion(province, city, district st
 
 // newTestListingHandler wires a ListingHandler with in-memory fakes.
 func newTestListingHandler(ai services.AIParseService, loc services.LocationNormalizer) *ListingHandler {
+	return newTestListingHandlerWithStores(&fakeListingStore{}, &fakeUserStore{}, ai, loc)
+}
+
+func newTestListingHandlerWithStores(
+	listingStore *fakeListingStore,
+	userStore *fakeUserStore,
+	ai services.AIParseService,
+	loc services.LocationNormalizer,
+) *ListingHandler {
 	svc := services.NewListingService(
-		&fakeListingStore{},
-		&fakeUserStore{},
+		listingStore,
+		userStore,
 		ai,
 		nil, // s3 not needed for parse-text
 		nil, // maps not needed for parse-text
@@ -223,5 +286,90 @@ func TestParseTextHandlerWithoutLocationCatalog(t *testing.T) {
 	}
 	if !parsed.RequiresCorrection {
 		t.Error("expected requiresCorrection=true when location confidence < 0.7")
+	}
+}
+
+func TestMyListingsHandlerReturnsAuthenticatedUsersListings(t *testing.T) {
+	t.Parallel()
+
+	handler := newTestListingHandlerWithStores(
+		&fakeListingStore{
+			byUserID: map[string][]models.Listing{
+				"user-test-4": {
+					{
+						ListingID: "listing-1",
+						UserID:    "user-test-4",
+						Title:     "Rumah Depok",
+						Status:    models.ListingStatusActive,
+					},
+				},
+			},
+		},
+		&fakeUserStore{
+			byID: map[string]*models.User{
+				"user-test-4": {UserID: "user-test-4"},
+			},
+		},
+		&fakeAIParseService{result: &models.ParsedListing{}},
+		nil,
+	)
+
+	resp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodGet,
+		Path:       "/users/me/listings",
+		Headers:    authHeader(t, "user-test-4"),
+	})
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d — body: %s", resp.StatusCode, resp.Body)
+	}
+
+	var body struct {
+		Listings []models.Listing `json:"listings"`
+		Total    int              `json:"total"`
+		Page     int              `json:"page"`
+	}
+	if err := json.Unmarshal([]byte(resp.Body), &body); err != nil {
+		t.Fatalf("response is not valid JSON: %v", err)
+	}
+	if len(body.Listings) != 1 {
+		t.Fatalf("expected 1 listing, got %d", len(body.Listings))
+	}
+	if body.Listings[0].ListingID != "listing-1" {
+		t.Fatalf("expected listing-1, got %q", body.Listings[0].ListingID)
+	}
+}
+
+func TestGetListingHandlerRejectsPendingListings(t *testing.T) {
+	t.Parallel()
+
+	handler := newTestListingHandlerWithStores(
+		&fakeListingStore{
+			byListingID: map[string]*models.Listing{
+				"listing-pending": {
+					ListingID:        "listing-pending",
+					UserID:           "user-test-5",
+					Title:            "Pending Listing",
+					Status:           models.ListingStatusActive,
+					ModerationStatus: models.ModerationStatusPending,
+				},
+			},
+		},
+		&fakeUserStore{},
+		&fakeAIParseService{result: &models.ParsedListing{}},
+		nil,
+	)
+
+	resp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodGet,
+		Path:       "/listings/listing-pending",
+	})
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected 404 for pending listing, got %d — body: %s", resp.StatusCode, resp.Body)
 	}
 }

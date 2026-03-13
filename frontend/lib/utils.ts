@@ -15,6 +15,10 @@ export function formatPrice(price: number): string {
   return `Rp ${price.toLocaleString('id-ID')}`;
 }
 
+export function formatPriceFull(price: number): string {
+  return `Rp ${price.toLocaleString('id-ID')}`;
+}
+
 export function formatArea(area: number): string {
   return `${area} m²`;
 }

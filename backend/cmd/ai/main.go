@@ -26,7 +26,7 @@ func main() {
 	listingRepo := repository.NewListingRepo(db)
 	transactionRepo := repository.NewTransactionRepo(db)
 
-	var aiSvc *services.AIService
+	var aiSvc services.AIParseService
 	if key := os.Getenv("OPENAI_API_KEY"); key != "" {
 		aiSvc = services.NewAIService(key)
 	}

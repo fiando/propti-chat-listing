@@ -50,6 +50,22 @@ apiClient.interceptors.response.use(
   }
 );
 
+type BackendListingsResponse = {
+  items?: Listing[];
+  listings?: Listing[];
+  total?: number;
+  page?: number;
+};
+
+function normalizeListingsResponse(data: BackendListingsResponse): ListingsResponse {
+  const items = data.items ?? data.listings ?? [];
+  return {
+    items,
+    total: data.total ?? items.length,
+    page: data.page ?? 1,
+  };
+}
+
 export async function parseListingText(text: string): Promise<ParsedListing> {
   const response = await apiClient.post<{
     parsed: ParsedListing;
@@ -70,8 +86,8 @@ export async function getListing(id: string): Promise<Listing> {
 }
 
 export async function getListings(params: SearchParams): Promise<ListingsResponse> {
-  const response = await apiClient.get<ListingsResponse>('/listings', { params });
-  return response.data;
+  const response = await apiClient.get<BackendListingsResponse>('/listings', { params });
+  return normalizeListingsResponse(response.data);
 }
 
 export async function updateListing(
@@ -115,8 +131,8 @@ export async function getProfile(): Promise<User> {
 }
 
 export async function getSavedListings(): Promise<ListingsResponse> {
-  const response = await apiClient.get<ListingsResponse>('/users/me/saved');
-  return response.data;
+  const response = await apiClient.get<BackendListingsResponse>('/users/me/saved');
+  return normalizeListingsResponse(response.data);
 }
 
 export async function saveListing(listingId: string): Promise<void> {
@@ -128,8 +144,8 @@ export async function unsaveListing(listingId: string): Promise<void> {
 }
 
 export async function getMyListings(params?: SearchParams): Promise<ListingsResponse> {
-  const response = await apiClient.get<ListingsResponse>('/users/me/listings', { params });
-  return response.data;
+  const response = await apiClient.get<BackendListingsResponse>('/users/me/listings', { params });
+  return normalizeListingsResponse(response.data);
 }
 
 export async function searchNearby(
@@ -137,10 +153,10 @@ export async function searchNearby(
   lng: number,
   radiusKm: number
 ): Promise<ListingsResponse> {
-  const response = await apiClient.get<ListingsResponse>('/listings/nearby', {
+  const response = await apiClient.get<BackendListingsResponse>('/listings/nearby', {
     params: { lat, lng, radiusKm },
   });
-  return response.data;
+  return normalizeListingsResponse(response.data);
 }
 
 export async function getLocationSuggestions(

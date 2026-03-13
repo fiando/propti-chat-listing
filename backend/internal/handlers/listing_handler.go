@@ -44,6 +44,9 @@ func (h *ListingHandler) Handle(ctx context.Context, req events.APIGatewayProxyR
 	case method == http.MethodGet && path == "/listings":
 		return h.listListings(ctx, req)
 
+	case method == http.MethodGet && path == "/users/me/listings":
+		return h.listMyListings(ctx, req)
+
 	case method == http.MethodGet && isListingPath(path):
 		return h.getListing(ctx, req)
 
@@ -118,6 +121,30 @@ func (h *ListingHandler) getListing(ctx context.Context, req events.APIGatewayPr
 	}
 
 	body, _ := json.Marshal(listing)
+	return jsonResponse(http.StatusOK, string(body)), nil
+}
+
+func (h *ListingHandler) listMyListings(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	userID, err := extractUserID(req)
+	if err != nil {
+		return jsonResponse(http.StatusUnauthorized, utils.MarshalErrorResponse(utils.ErrUnauthorized)), nil
+	}
+
+	params := parseSearchParams(req)
+	listings, err := h.listingService.ListMyListings(ctx, userID, params)
+	if err != nil {
+		if appErr, ok := err.(*utils.AppError); ok {
+			return jsonResponse(appErr.Code, utils.MarshalErrorResponse(appErr)), nil
+		}
+		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
+	}
+
+	body, _ := json.Marshal(map[string]any{
+		"listings": listings,
+		"total":    len(listings),
+		"page":     params.Page,
+		"pageSize": params.PageSize,
+	})
 	return jsonResponse(http.StatusOK, string(body)), nil
 }
 
@@ -251,9 +278,9 @@ func extractListingID(req events.APIGatewayProxyRequest) string {
 
 func parseSearchParams(req events.APIGatewayProxyRequest) *models.ListingSearchParams {
 	p := &models.ListingSearchParams{
-		Query:    req.QueryStringParameters["q"],
-		City:     req.QueryStringParameters["city"],
-		SortBy:   req.QueryStringParameters["sortBy"],
+		Query:  req.QueryStringParameters["q"],
+		City:   req.QueryStringParameters["city"],
+		SortBy: req.QueryStringParameters["sortBy"],
 	}
 	if v, err := strconv.ParseFloat(req.QueryStringParameters["priceMin"], 64); err == nil {
 		p.PriceMin = v
