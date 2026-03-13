@@ -15,7 +15,7 @@ import type {
 import { getBackendAuthHeader, getBackendProfilePath } from '@/lib/backend-auth';
 
 const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'https://api.propti.id/v1',
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'https://api.propti.id',
   headers: {
     'Content-Type': 'application/json',
   },

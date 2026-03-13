@@ -3,7 +3,7 @@ import GoogleProvider from 'next-auth/providers/google';
 
 import { exchangeGoogleIdTokenForBackendSession } from '@/lib/backend-auth';
 
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.propti.id/v1';
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.propti.id';
 
 type BackendUser = {
   userId: string;

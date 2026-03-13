@@ -17,7 +17,7 @@ test('buildBackendAuthPayload uses Google id token for backend login exchange', 
 test('exchangeGoogleIdTokenForBackendSession posts Google id token to backend auth endpoint', async () => {
   const calls = [];
   const session = await exchangeGoogleIdTokenForBackendSession({
-    apiBaseUrl: 'https://api.propti.id/v1',
+    apiBaseUrl: 'https://api.propti.id',
     idToken: 'google-id-token',
     fetchImpl: async (url, init) => {
       calls.push({ url, init });
@@ -31,7 +31,7 @@ test('exchangeGoogleIdTokenForBackendSession posts Google id token to backend au
     },
   });
 
-  assert.equal(calls[0].url, 'https://api.propti.id/v1/auth/google');
+  assert.equal(calls[0].url, 'https://api.propti.id/auth/google');
   assert.equal(calls[0].init.method, 'POST');
   assert.equal(calls[0].init.headers['Content-Type'], 'application/json');
   assert.equal(calls[0].init.body, JSON.stringify({ idToken: 'google-id-token' }));

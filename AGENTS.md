@@ -47,7 +47,7 @@ Required GitHub production secrets:
 
 Production defaults in this repo:
 - `NEXTAUTH_URL=https://propti.id`
-- `NEXT_PUBLIC_API_URL=https://api.propti.id/v1`
+- `NEXT_PUBLIC_API_URL=https://api.propti.id`
 
 Helpful checks:
 
