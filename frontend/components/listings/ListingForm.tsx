@@ -52,6 +52,7 @@ interface ListingFormProps {
   onSubmit: (data: ListingFormValues) => Promise<void>;
   isLoading?: boolean;
   mode?: 'create' | 'edit';
+  isPremium?: boolean;
 }
 
 function CounterField({
@@ -96,6 +97,7 @@ export function ListingForm({
   onSubmit,
   isLoading = false,
   mode = 'create',
+  isPremium = false,
 }: ListingFormProps) {
   const [selectedProvinceId, setSelectedProvinceId] = useState('');
   const [selectedCityId, setSelectedCityId] = useState('');
@@ -588,7 +590,7 @@ export function ListingForm({
               listingId={listingId}
               images={field.value}
               onChange={field.onChange}
-              maxImages={3}
+              maxImages={isPremium ? 30 : 3}
             />
           )}
         />

@@ -11,6 +11,51 @@ interface ImageUploadProps {
   maxImages?: number;
 }
 
+// Compress an image file using the canvas API.
+// Images are scaled to at most MAX_IMAGE_PX on the longest side and encoded
+// as JPEG at IMAGE_QUALITY. This runs entirely in-browser with no network
+// round-trip, so there is no user-perceived delay — the compressed preview
+// appears as fast as the original would have.
+const MAX_IMAGE_PX = 1280;
+const IMAGE_QUALITY = 0.82;
+
+function compressImage(file: File, maxPx = MAX_IMAGE_PX, quality = IMAGE_QUALITY): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxPx || height > maxPx) {
+          if (width >= height) {
+            height = Math.round((height * maxPx) / width);
+            width = maxPx;
+          } else {
+            width = Math.round((width * maxPx) / height);
+            height = maxPx;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          // Fallback: use original if canvas is unavailable.
+          resolve(dataUrl);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export function ImageUpload({
   images,
   onChange,
@@ -24,13 +69,8 @@ export function ImageUpload({
     const remaining = maxImages - images.length;
     const newFiles = Array.from(files).slice(0, remaining);
 
-    newFiles.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const url = e.target?.result as string;
-        onChange([...images, url]);
-      };
-      reader.readAsDataURL(file);
+    Promise.all(newFiles.map((file) => compressImage(file))).then((urls) => {
+      onChange([...images, ...urls]);
     });
   };
 
@@ -126,12 +166,12 @@ export function ImageUpload({
       )}
 
       {/* Premium upsell */}
-      {maxImages === 3 && (
+      {maxImages <= 3 && (
         <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl p-3">
           <Crown className="w-5 h-5 text-amber-500 flex-shrink-0" />
           <div>
             <p className="text-xs font-semibold text-amber-700">
-              Upgrade ke Premium untuk upload foto tidak terbatas
+              Upgrade ke Premium untuk upload hingga 30 foto
             </p>
             <p className="text-xs text-amber-600">Iklan dengan banyak foto mendapat 3x lebih banyak penonton</p>
           </div>
