@@ -10,9 +10,16 @@ interface ProptiLogoProps {
   wordmarkColor?: 'dark' | 'white';
 }
 
+const iconMarkPath =
+  'M20 8.5L31 17.25V25.5C31 29.642 27.642 33 23.5 33H22L28 36.75V33H16.5C12.358 33 9 29.642 9 25.5V17.25L20 8.5Z';
+
+const iconDoorPath =
+  'M17 23C17 22.448 17.448 22 18 22H22C22.552 22 23 22.448 23 23V33H17V23Z';
+
 /**
  * Propti brand logo — standalone SVG icon with optional wordmark.
- * Uses the brand green gradient (#1B4332 → #40916C) and white house icon.
+ * The mark combines a home roof, a chat bubble tail, and an open doorway
+ * to reflect Propti's core flow: turning chat-based property info into listings.
  */
 export function ProptiLogo({
   size = 36,
@@ -36,19 +43,15 @@ export function ProptiLogo({
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
             <stop offset="0%" stopColor="#1B4332" />
-            <stop offset="100%" stopColor="#40916C" />
+            <stop offset="55%" stopColor="#2D6A4F" />
+            <stop offset="100%" stopColor="#52B788" />
           </linearGradient>
         </defs>
-        {/* Background */}
-        <rect width="40" height="40" rx="8" fill={`url(#${gradientId})`} />
-        {/* House roof */}
-        <polygon points="20,6 7,18 33,18" fill="white" />
-        {/* Chimney */}
-        <rect x="25" y="8" width="3.5" height="7" fill="white" />
-        {/* House body */}
-        <rect x="10" y="18" width="20" height="14" fill="white" />
-        {/* Door */}
-        <rect x="16.5" y="23" width="7" height="9" rx="1" fill="#40916C" />
+        <rect width="40" height="40" rx="10" fill={`url(#${gradientId})`} />
+        {/* Home roof + chat bubble tail */}
+        <path d={iconMarkPath} fill="white" />
+        {/* Open doorway */}
+        <path d={iconDoorPath} fill="#2D6A4F" />
       </svg>
 
       {showWordmark && (

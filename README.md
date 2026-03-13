@@ -50,6 +50,7 @@ propti/
 ## Quick Start
 
 See [docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md) for setup instructions.
+See [docs/BRAND_GUIDELINES.md](docs/BRAND_GUIDELINES.md) for the Propti brand system.
 
 ### Backend
 ```bash
