@@ -2,6 +2,7 @@ package services
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	openai "github.com/sashabaranov/go-openai"
@@ -9,17 +10,17 @@ import (
 	"github.com/fiando/propti/backend/internal/models"
 )
 
-func TestBuildParseChatCompletionRequestUsesDefaultTemperatureForGPT5(t *testing.T) {
+func TestBuildParseChatCompletionRequestUsesFastParserModel(t *testing.T) {
 	t.Parallel()
 
 	req := buildParseChatCompletionRequest("jual rumah depok")
 
-	if req.Model != parserModel {
-		t.Fatalf("expected parser model %q, got %q", parserModel, req.Model)
+	if req.Model != "gpt-4o-mini" {
+		t.Fatalf("expected fast parser model %q, got %q", "gpt-4o-mini", req.Model)
 	}
 
 	if req.Temperature != 0 {
-		t.Fatalf("expected parse request to omit temperature for GPT-5, got %v", req.Temperature)
+		t.Fatalf("expected parse request temperature to remain unset/zero, got %v", req.Temperature)
 	}
 
 	if req.ResponseFormat == nil || req.ResponseFormat.Type != openai.ChatCompletionResponseFormatTypeJSONObject {
@@ -60,5 +61,22 @@ func TestParseListingTextSupportsLocationSuggestions(t *testing.T) {
 
 	if parsed.LocationSuggestion.Confidence != 0.88 {
 		t.Fatalf("expected locationSuggestion.confidence 0.88, got %v", parsed.LocationSuggestion.Confidence)
+	}
+}
+
+func TestParseSystemPromptIncludesFormattingGuidance(t *testing.T) {
+	t.Parallel()
+
+	expectedSnippets := []string{
+		"Format \"title\" as clean headline-style Indonesian copy",
+		"Format \"description\" as clean multiline Indonesian copy using short sections and emoji bullets when helpful.",
+		"Use newline characters in the JSON string to separate lines.",
+		"Format \"address\" as a clean, readable full address string for a form field",
+	}
+
+	for _, snippet := range expectedSnippets {
+		if !strings.Contains(parseSystemPrompt, snippet) {
+			t.Fatalf("expected parse prompt to include %q", snippet)
+		}
 	}
 }

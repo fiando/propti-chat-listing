@@ -25,6 +25,7 @@ type ListingStore interface {
 	Put(ctx context.Context, listing *models.Listing) error
 	GetByID(ctx context.Context, userID, listingID string) (*models.Listing, error)
 	GetByListingID(ctx context.Context, listingID string) (*models.Listing, error)
+	ListByUserID(ctx context.Context, userID string, limit int32) ([]models.Listing, error)
 	CountMonthlyByUserID(ctx context.Context, userID string) (int, error)
 	Delete(ctx context.Context, userID, listingID string) error
 	Scan(ctx context.Context, params *models.ListingSearchParams) ([]models.Listing, error)
@@ -38,6 +39,10 @@ type UserStore interface {
 // AIParseService is the interface for AI-based listing text parsing.
 type AIParseService interface {
 	ParseListingText(ctx context.Context, text string) (*models.ParsedListing, error)
+}
+
+type aiContentModerator interface {
+	ModerateContent(ctx context.Context, title, description string) (approved bool, reason string, flags []string, err error)
 }
 
 // LocationNormalizer validates and normalizes AI-suggested location data against a catalog.
@@ -137,6 +142,8 @@ func (s *ListingService) CreateListing(ctx context.Context, userID string, req *
 		utils.LogError("put listing", err, "listingId", listingID)
 		return nil, utils.ErrInternal
 	}
+
+	s.applyContentModeration(ctx, listing)
 	return listing, nil
 }
 
@@ -205,16 +212,21 @@ func (s *ListingService) UpdateListing(ctx context.Context, userID, listingID st
 	if err := s.listingRepo.Put(ctx, listing); err != nil {
 		return nil, utils.ErrInternal
 	}
+
+	s.applyContentModeration(ctx, listing)
 	return listing, nil
 }
 
 // GetListing fetches a listing by ID. It increments the view counter.
 func (s *ListingService) GetListing(ctx context.Context, listingID string) (*models.Listing, error) {
-	listing, err := s.listingRepo.GetByListingID(ctx, listingID)
+	listing, err := s.getCurrentListingByListingID(ctx, listingID)
 	if err != nil {
 		return nil, utils.ErrInternal
 	}
 	if listing == nil {
+		return nil, utils.ErrNotFound
+	}
+	if listing.Status != models.ListingStatusActive || listing.ModerationStatus != models.ModerationStatusApproved {
 		return nil, utils.ErrNotFound
 	}
 
@@ -224,6 +236,72 @@ func (s *ListingService) GetListing(ctx context.Context, listingID string) (*mod
 	_ = s.listingRepo.Put(ctx, listing)
 
 	return listing, nil
+}
+
+func (s *ListingService) getCurrentListingByListingID(ctx context.Context, listingID string) (*models.Listing, error) {
+	listing, err := s.listingRepo.GetByListingID(ctx, listingID)
+	if err != nil || listing == nil {
+		return listing, err
+	}
+
+	current, err := s.listingRepo.GetByID(ctx, listing.UserID, listing.ListingID)
+	if err != nil {
+		return nil, err
+	}
+	if current == nil {
+		return nil, nil
+	}
+
+	return current, nil
+}
+
+func (s *ListingService) applyContentModeration(ctx context.Context, listing *models.Listing) {
+	if s.aiService == nil || listing == nil {
+		return
+	}
+
+	moderator, ok := s.aiService.(aiContentModerator)
+	if !ok {
+		return
+	}
+
+	approved, reason, flags, err := moderator.ModerateContent(ctx, listing.Title, listing.Description)
+	if err != nil {
+		utils.LogError("moderate listing content", err, "listingId", listing.ListingID)
+		return
+	}
+
+	if approved {
+		listing.ModerationStatus = models.ModerationStatusApproved
+		listing.Status = models.ListingStatusActive
+	} else {
+		listing.ModerationStatus = models.ModerationStatusRejected
+		listing.Status = models.ListingStatusArchived
+	}
+	listing.ModerationReason = joinModerationReason(reason, flags)
+	listing.UpdatedAt = time.Now().UTC()
+
+	if err := s.listingRepo.Put(ctx, listing); err != nil {
+		utils.LogError("persist moderated listing", err, "listingId", listing.ListingID)
+	}
+}
+
+func joinModerationReason(reason string, flags []string) string {
+	flagsText := ""
+	for i, flag := range flags {
+		if i > 0 {
+			flagsText += "; "
+		}
+		flagsText += flag
+	}
+
+	if reason != "" && flagsText != "" {
+		return reason + " | flags: " + flagsText
+	}
+	if flagsText != "" {
+		return "flags: " + flagsText
+	}
+	return reason
 }
 
 // ListListings returns paginated listings with optional filters.
@@ -240,6 +318,43 @@ func (s *ListingService) ListListings(ctx context.Context, params *models.Listin
 // SearchListings delegates to ListListings (uses the same DynamoDB scan with filters).
 func (s *ListingService) SearchListings(ctx context.Context, params *models.ListingSearchParams) ([]models.Listing, error) {
 	return s.ListListings(ctx, params)
+}
+
+// ListMyListings returns the authenticated user's listings.
+func (s *ListingService) ListMyListings(ctx context.Context, userID string, params *models.ListingSearchParams) ([]models.Listing, error) {
+	params.Page, params.PageSize = utils.ValidatePagination(params.Page, params.PageSize)
+
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, utils.ErrInternal
+	}
+	if user == nil {
+		return nil, utils.ErrUnauthorized
+	}
+
+	listings, err := s.listingRepo.ListByUserID(ctx, userID, int32(params.PageSize))
+	if err != nil {
+		utils.LogError("list user listings", err, "userId", userID)
+		return nil, utils.ErrInternal
+	}
+
+	filtered := make([]models.Listing, 0, len(listings))
+	for _, listing := range listings {
+		current, err := s.listingRepo.GetByID(ctx, userID, listing.ListingID)
+		if err != nil {
+			utils.LogError("get current listing after user index query", err, "userId", userID, "listingId", listing.ListingID)
+			return nil, utils.ErrInternal
+		}
+		if current == nil {
+			continue
+		}
+		if current.ModerationStatus == models.ModerationStatusRejected {
+			continue
+		}
+		filtered = append(filtered, *current)
+	}
+
+	return filtered, nil
 }
 
 // DeleteListing removes a listing after ownership verification.
@@ -271,7 +386,7 @@ func (s *ListingService) DeleteListing(ctx context.Context, userID, listingID st
 
 // GetUploadURL generates a presigned S3 PUT URL for listing media after verifying ownership.
 func (s *ListingService) GetUploadURL(ctx context.Context, userID, listingID, filename, contentType string) (string, string, error) {
-	listing, err := s.listingRepo.GetByListingID(ctx, listingID)
+	listing, err := s.getCurrentListingByListingID(ctx, listingID)
 	if err != nil {
 		return "", "", utils.ErrInternal
 	}

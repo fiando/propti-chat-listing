@@ -75,7 +75,8 @@ export function useDeleteListing() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => deleteListing(id),
-    onSuccess: () => {
+    onSuccess: (_, id) => {
+      queryClient.removeQueries({ queryKey: ['listing', id] });
       queryClient.invalidateQueries({ queryKey: ['listings'] });
       queryClient.invalidateQueries({ queryKey: ['my-listings'] });
     },

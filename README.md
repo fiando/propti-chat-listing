@@ -68,9 +68,77 @@ npm run dev
 
 ## Deployment
 
-- **Backend**: AWS Lambda via SAM (`sam deploy`)
-- **Frontend**: Vercel (auto-deploy on push to main)
-- **Backend custom domain**: `api.propti.id` can be managed from `backend/template.yaml` using API Gateway custom domain resources and an ACM certificate ARN in `ap-southeast-1`. After deploy, point DNS to the stack output `ApiCustomDomainRegionalName`.
+### Frontend (Vercel)
+
+Preferred path: run the GitHub Actions workflow `Deploy Frontend`.
+
+Required production secrets:
+- `NEXTAUTH_URL`
+- `NEXTAUTH_SECRET`
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `NEXT_PUBLIC_API_URL`
+- `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`
+- `VERCEL_TOKEN`
+- `VERCEL_ORG_ID`
+- `VERCEL_PROJECT_ID`
+
+Env-file workflow:
+- committed templates: `frontend/.env.production.example`, `frontend/.env.development.example`
+- local ignored files: `frontend/.env.production`, `frontend/.env.development`
+
+Helpful checks:
+
+```bash
+gh run list --workflow deploy-frontend.yml --limit 5
+gh secret list --env production
+cd frontend && npm run test:deploy-config
+cd frontend && npm run lint
+cd frontend && npm run build
+```
+
+If `gh secret list --env production` returns `no secrets found`, re-add the listed frontend production secrets before rerunning the workflow.
+
+### Backend (AWS SAM)
+
+Preferred path: run the GitHub Actions workflow `Deploy Backend`.
+
+Required production secrets:
+- `AWS_ROLE_ARN`
+- `JWT_SECRET`
+- `OPENAI_API_KEY`
+- `GOOGLE_MAPS_API_KEY`
+- `MIDTRANS_SERVER_KEY`
+
+Env-file workflow:
+- committed templates: `backend/.env.production.example`, `backend/.env.development.example`
+- local ignored files: `backend/.env.production`, `backend/.env.development`
+
+Manual redeploy from an AWS-authenticated machine:
+
+```bash
+cd backend
+go test ./...
+sam build
+sam deploy \
+  --no-confirm-changeset \
+  --no-fail-on-empty-changeset \
+  --resolve-s3 \
+  --stack-name propti-backend \
+  --region ap-southeast-1 \
+  --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+  --parameter-overrides \
+    Stage=production \
+    ApiCustomDomainName=api.propti.id \
+    ApiCustomDomainCertificateArn=arn:aws:acm:ap-southeast-1:260317865867:certificate/a6625ab7-0527-4dbf-aa1e-f22a39a33e98
+```
+
+Notes:
+- The production stack reuses previously stored secret parameter values when they are omitted from repeated `sam deploy` runs.
+- `CAPABILITY_NAMED_IAM` is required because the SAM template creates a named IAM role.
+- The backend custom domain remains `https://api.propti.id`. If DNS needs to be re-pointed, use the stack output `ApiCustomDomainRegionalName`.
+
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the full deployment guide.
 
 ## Tech Stack
 

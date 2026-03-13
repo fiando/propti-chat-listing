@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import { MessageCircle, Sparkles, Loader2, CheckCircle, AlertTriangle, ArrowRight, Edit, MapPin, ClipboardPaste } from 'lucide-react';
 import { parseListingText } from '@/lib/api';
 import type { ParsedListing } from '@/types';
-import { formatPrice } from '@/lib/utils';
+import { formatPriceFull } from '@/lib/utils';
 import { useToast } from '@/app/toaster';
 
 const EXAMPLE_TEXT = `Dijual rumah 2 lantai, 3KT 2KM
@@ -17,6 +17,14 @@ Hub: 08123456789`;
 interface TextParseFormProps {
   onParsed: (result: ParsedListing) => void;
   onManualFill: () => void;
+}
+
+function formatMultiline(value: string) {
+  return value
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join('\n');
 }
 
 export function TextParseForm({ onParsed, onManualFill }: TextParseFormProps) {
@@ -210,7 +218,7 @@ export function TextParseForm({ onParsed, onManualFill }: TextParseFormProps) {
           <div className="grid grid-cols-2 gap-3 mb-5">
             {[
               { label: 'Judul', value: result.title },
-              { label: 'Harga', value: result.price ? formatPrice(result.price) : '-' },
+              { label: 'Harga', value: result.price ? formatPriceFull(result.price) : '-' },
               {
                 label: 'Luas Tanah',
                 value: result.propertyDetails?.landArea
@@ -239,13 +247,20 @@ export function TextParseForm({ onParsed, onManualFill }: TextParseFormProps) {
                 label: 'Sertifikat',
                 value: result.propertyDetails?.legalStatus || '-',
               },
-              { label: 'Alamat', value: result.address || '-' },
+              { label: 'Alamat Lengkap', value: formatMultiline(result.address || '-') },
             ].map(({ label, value }) => (
               <div key={label} className="bg-gray-50 rounded-xl p-3">
                 <div className="text-xs text-gray-500 mb-0.5">{label}</div>
-                <div className="font-semibold text-gray-900 text-sm line-clamp-1">{value}</div>
+                <div className="font-semibold text-gray-900 text-sm whitespace-pre-line break-words">{value}</div>
               </div>
             ))}
+          </div>
+
+          <div className="bg-gray-50 rounded-xl p-4 mb-5">
+            <div className="text-xs text-gray-500 mb-1">Deskripsi</div>
+            <div className="text-sm text-gray-800 whitespace-pre-line leading-6">
+              {formatMultiline(result.description) || '-'}
+            </div>
           </div>
 
           {/* Location suggestion */}

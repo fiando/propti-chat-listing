@@ -83,6 +83,7 @@ func TestLocationCatalogSearchCapsResultWindows(t *testing.T) {
 		t.Fatalf("NewLocationCatalogFromReader returned error: %v", err)
 	}
 
+	// Non-empty query: cap at maxSearchResults (20).
 	provinces := catalog.SearchProvinces("provinsi")
 	if len(provinces) != 20 {
 		t.Fatalf("expected capped province results of 20, got %d", len(provinces))
@@ -96,6 +97,22 @@ func TestLocationCatalogSearchCapsResultWindows(t *testing.T) {
 	districts := catalog.SearchDistricts("c01", "kecamatan")
 	if len(districts) != 20 {
 		t.Fatalf("expected capped district results of 20, got %d", len(districts))
+	}
+
+	// Empty query: all items must be returned (dropdown population use-case).
+	allProvinces := catalog.SearchProvinces("")
+	if len(allProvinces) != 25 {
+		t.Fatalf("expected all 25 provinces for empty query, got %d", len(allProvinces))
+	}
+
+	allCities := catalog.SearchCities("p01", "")
+	if len(allCities) != 25 {
+		t.Fatalf("expected all 25 cities for empty query, got %d", len(allCities))
+	}
+
+	allDistricts := catalog.SearchDistricts("c01", "")
+	if len(allDistricts) != 25 {
+		t.Fatalf("expected all 25 districts for empty query, got %d", len(allDistricts))
 	}
 }
 

@@ -91,11 +91,13 @@ func (r *ListingRepo) GetByListingID(ctx context.Context, listingID string) (*mo
 func (r *ListingRepo) ListByUserID(ctx context.Context, userID string, limit int32) ([]models.Listing, error) {
 	result, err := r.db.Client.Query(ctx, &dynamodb.QueryInput{
 		TableName:              aws.String(r.db.ListingsTable),
-		KeyConditionExpression: aws.String("begins_with(PK, :prefix)"),
+		IndexName:              aws.String("userId-createdAt-index"),
+		KeyConditionExpression: aws.String("userId = :uid"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":prefix": &types.AttributeValueMemberS{Value: userID + "#"},
+			":uid": &types.AttributeValueMemberS{Value: userID},
 		},
-		Limit: aws.Int32(limit),
+		ScanIndexForward: aws.Bool(false),
+		Limit:            aws.Int32(limit),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list listings by user: %w", err)

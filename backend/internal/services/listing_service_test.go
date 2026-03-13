@@ -8,25 +8,78 @@ import (
 	"testing"
 
 	"github.com/fiando/propti/backend/internal/models"
+	"github.com/fiando/propti/backend/internal/utils"
 )
 
 // --- fakes ---
 
 type fakeListingStore struct {
-	putCalls    int
-	lastListing *models.Listing
+	putCalls            int
+	lastListing         *models.Listing
+	listingsByID        map[string]*models.Listing
+	listingsByUser      map[string]map[string]*models.Listing
+	listingsByUserIndex map[string][]models.Listing
 }
 
 func (f *fakeListingStore) Put(ctx context.Context, listing *models.Listing) error {
 	f.putCalls++
-	f.lastListing = listing
+	if listing == nil {
+		return nil
+	}
+	copy := *listing
+	f.lastListing = &copy
+	if f.listingsByID == nil {
+		f.listingsByID = make(map[string]*models.Listing)
+	}
+	f.listingsByID[listing.ListingID] = &copy
+	if f.listingsByUser == nil {
+		f.listingsByUser = make(map[string]map[string]*models.Listing)
+	}
+	if f.listingsByUser[listing.UserID] == nil {
+		f.listingsByUser[listing.UserID] = make(map[string]*models.Listing)
+	}
+	f.listingsByUser[listing.UserID][listing.ListingID] = &copy
 	return nil
 }
 func (f *fakeListingStore) GetByID(ctx context.Context, userID, listingID string) (*models.Listing, error) {
-	return nil, nil
+	if f.listingsByUser == nil || f.listingsByUser[userID] == nil {
+		return nil, nil
+	}
+	listing := f.listingsByUser[userID][listingID]
+	if listing == nil {
+		return nil, nil
+	}
+	copy := *listing
+	return &copy, nil
 }
 func (f *fakeListingStore) GetByListingID(ctx context.Context, listingID string) (*models.Listing, error) {
+	if f.listingsByID == nil {
+		return nil, nil
+	}
+	listing := f.listingsByID[listingID]
+	if listing == nil {
+		return nil, nil
+	}
+	copy := *listing
+	return &copy, nil
 	return nil, nil
+}
+func (f *fakeListingStore) ListByUserID(ctx context.Context, userID string, limit int32) ([]models.Listing, error) {
+	if f.listingsByUserIndex != nil {
+		listings := f.listingsByUserIndex[userID]
+		result := make([]models.Listing, len(listings))
+		copy(result, listings)
+		return result, nil
+	}
+	if f.listingsByUser == nil || f.listingsByUser[userID] == nil {
+		return nil, nil
+	}
+	result := make([]models.Listing, 0, len(f.listingsByUser[userID]))
+	for _, listing := range f.listingsByUser[userID] {
+		copy := *listing
+		result = append(result, copy)
+	}
+	return result, nil
 }
 func (f *fakeListingStore) CountMonthlyByUserID(ctx context.Context, userID string) (int, error) {
 	return 0, nil
@@ -45,12 +98,22 @@ func (f *fakeUserStore) GetByID(ctx context.Context, userID string) (*models.Use
 }
 
 type fakeAIService struct {
-	parseResult *models.ParsedListing
-	err         error
+	parseResult     *models.ParsedListing
+	err             error
+	moderateCalls   int
+	moderateOK      bool
+	moderateReason  string
+	moderateFlags   []string
+	moderationError error
 }
 
 func (f *fakeAIService) ParseListingText(ctx context.Context, text string) (*models.ParsedListing, error) {
 	return f.parseResult, f.err
+}
+
+func (f *fakeAIService) ModerateContent(ctx context.Context, title, description string) (bool, string, []string, error) {
+	f.moderateCalls++
+	return f.moderateOK, f.moderateReason, f.moderateFlags, f.moderationError
 }
 
 type countingRoundTripper struct {
@@ -117,6 +180,350 @@ func TestCreateListingDoesNotGeocodeDuringSubmit(t *testing.T) {
 	}
 	if listing.Location.Latitude != 0 || listing.Location.Longitude != 0 {
 		t.Fatalf("expected submit path to leave coordinates untouched, got lat=%v lng=%v", listing.Location.Latitude, listing.Location.Longitude)
+	}
+}
+
+func TestGetListingReturnsNotFoundWhenIndexEntryIsStale(t *testing.T) {
+	ctx := context.Background()
+
+	service := NewListingService(
+		&fakeListingStore{
+			listingsByID: map[string]*models.Listing{
+				"listing-1": {
+					ListingID:        "listing-1",
+					UserID:           "user-1",
+					Title:            "Rumah Depok",
+					Status:           models.ListingStatusActive,
+					ModerationStatus: models.ModerationStatusApproved,
+				},
+			},
+		},
+		&fakeUserStore{},
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	listing, err := service.GetListing(ctx, "listing-1")
+	if err != utils.ErrNotFound {
+		t.Fatalf("expected not found for stale index entry, got listing=%v err=%v", listing, err)
+	}
+}
+
+func TestListMyListingsSkipsDeletedListingsWhenUserIndexIsStale(t *testing.T) {
+	ctx := context.Background()
+
+	service := NewListingService(
+		&fakeListingStore{
+			listingsByUser: map[string]map[string]*models.Listing{
+				"user-1": {
+					"listing-live": {
+						ListingID:        "listing-live",
+						UserID:           "user-1",
+						Title:            "Rumah Aktif",
+						Status:           models.ListingStatusActive,
+						ModerationStatus: models.ModerationStatusApproved,
+					},
+				},
+			},
+			listingsByUserIndex: map[string][]models.Listing{
+				"user-1": {
+					{
+						ListingID:        "listing-deleted",
+						UserID:           "user-1",
+						Title:            "Rumah Terhapus",
+						Status:           models.ListingStatusActive,
+						ModerationStatus: models.ModerationStatusApproved,
+					},
+					{
+						ListingID:        "listing-live",
+						UserID:           "user-1",
+						Title:            "Rumah Aktif",
+						Status:           models.ListingStatusActive,
+						ModerationStatus: models.ModerationStatusApproved,
+					},
+				},
+			},
+		},
+		&fakeUserStore{
+			user: &models.User{UserID: "user-1"},
+		},
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	listings, err := service.ListMyListings(ctx, "user-1", &models.ListingSearchParams{})
+	if err != nil {
+		t.Fatalf("ListMyListings returned error: %v", err)
+	}
+	if len(listings) != 1 {
+		t.Fatalf("expected only live listing after filtering stale index results, got %d", len(listings))
+	}
+	if listings[0].ListingID != "listing-live" {
+		t.Fatalf("expected listing-live, got %q", listings[0].ListingID)
+	}
+}
+
+func TestListMyListingsSkipsRejectedListings(t *testing.T) {
+	ctx := context.Background()
+
+	service := NewListingService(
+		&fakeListingStore{
+			listingsByUser: map[string]map[string]*models.Listing{
+				"user-1": {
+					"listing-approved": {
+						ListingID:        "listing-approved",
+						UserID:           "user-1",
+						Title:            "Rumah Aman",
+						Status:           models.ListingStatusActive,
+						ModerationStatus: models.ModerationStatusApproved,
+					},
+					"listing-rejected": {
+						ListingID:        "listing-rejected",
+						UserID:           "user-1",
+						Title:            "Rumah Ditolak",
+						Status:           models.ListingStatusArchived,
+						ModerationStatus: models.ModerationStatusRejected,
+					},
+				},
+			},
+			listingsByUserIndex: map[string][]models.Listing{
+				"user-1": {
+					{
+						ListingID:        "listing-rejected",
+						UserID:           "user-1",
+						Title:            "Rumah Ditolak",
+						Status:           models.ListingStatusArchived,
+						ModerationStatus: models.ModerationStatusRejected,
+					},
+					{
+						ListingID:        "listing-approved",
+						UserID:           "user-1",
+						Title:            "Rumah Aman",
+						Status:           models.ListingStatusActive,
+						ModerationStatus: models.ModerationStatusApproved,
+					},
+				},
+			},
+		},
+		&fakeUserStore{
+			user: &models.User{UserID: "user-1"},
+		},
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	listings, err := service.ListMyListings(ctx, "user-1", &models.ListingSearchParams{})
+	if err != nil {
+		t.Fatalf("ListMyListings returned error: %v", err)
+	}
+	if len(listings) != 1 {
+		t.Fatalf("expected only approved/pending listing to remain visible, got %d", len(listings))
+	}
+	if listings[0].ListingID != "listing-approved" {
+		t.Fatalf("expected listing-approved, got %q", listings[0].ListingID)
+	}
+}
+
+func TestCreateListingRunsModerationAndArchivesRejection(t *testing.T) {
+	ctx := context.Background()
+	store := &fakeListingStore{}
+	ai := &fakeAIService{
+		moderateOK:     false,
+		moderateReason: "offensive language",
+		moderateFlags:  []string{"hate"},
+	}
+
+	service := NewListingService(
+		store,
+		&fakeUserStore{
+			user: &models.User{
+				UserID: "user-1",
+				Subscription: models.Subscription{
+					Tier: models.SubscriptionPremium,
+				},
+			},
+		},
+		ai,
+		nil,
+		nil,
+		nil,
+	)
+
+	listing, err := service.CreateListing(ctx, "user-1", &models.CreateListingRequest{
+		Title:       "Offensive title",
+		Description: "contains offensive language",
+		Price:       850000000,
+		PriceUnit:   "total",
+		ListingType: models.ListingTypeSell,
+		Location: models.Location{
+			Address:  "Jl. Margonda Raya No. 1",
+			Province: "Jawa Barat",
+			City:     "Depok",
+			District: "Beji",
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateListing returned error: %v", err)
+	}
+	if ai.moderateCalls != 1 {
+		t.Fatalf("expected moderation to run once, got %d call(s)", ai.moderateCalls)
+	}
+	if listing.ModerationStatus != models.ModerationStatusRejected {
+		t.Fatalf("expected returned listing moderation status rejected, got %q", listing.ModerationStatus)
+	}
+	if listing.Status != models.ListingStatusArchived {
+		t.Fatalf("expected returned listing status archived after rejection, got %q", listing.Status)
+	}
+	if store.lastListing == nil {
+		t.Fatalf("expected persisted listing to be captured")
+	}
+	if store.lastListing.ModerationStatus != models.ModerationStatusRejected {
+		t.Fatalf("expected persisted listing moderation status rejected, got %q", store.lastListing.ModerationStatus)
+	}
+	if store.lastListing.Status != models.ListingStatusArchived {
+		t.Fatalf("expected persisted listing status archived after rejection, got %q", store.lastListing.Status)
+	}
+	if !strings.Contains(store.lastListing.ModerationReason, "offensive language") {
+		t.Fatalf("expected moderation reason to be recorded, got %q", store.lastListing.ModerationReason)
+	}
+}
+
+func TestCreateListingKeepsPendingWhenModerationFails(t *testing.T) {
+	ctx := context.Background()
+	store := &fakeListingStore{}
+	ai := &fakeAIService{
+		moderationError: errors.New("openai unavailable"),
+	}
+
+	service := NewListingService(
+		store,
+		&fakeUserStore{
+			user: &models.User{
+				UserID: "user-1",
+				Subscription: models.Subscription{
+					Tier: models.SubscriptionPremium,
+				},
+			},
+		},
+		ai,
+		nil,
+		nil,
+		nil,
+	)
+
+	listing, err := service.CreateListing(ctx, "user-1", &models.CreateListingRequest{
+		Title:       "Rumah minimalis dekat tol Depok",
+		Description: "Rumah siap huni dengan akses cepat ke tol dan stasiun.",
+		Price:       850000000,
+		PriceUnit:   "total",
+		ListingType: models.ListingTypeSell,
+		Location: models.Location{
+			Address:  "Jl. Margonda Raya No. 1",
+			Province: "Jawa Barat",
+			City:     "Depok",
+			District: "Beji",
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateListing returned error: %v", err)
+	}
+	if ai.moderateCalls != 1 {
+		t.Fatalf("expected moderation to run once, got %d call(s)", ai.moderateCalls)
+	}
+	if listing.ModerationStatus != models.ModerationStatusPending {
+		t.Fatalf("expected listing to remain pending when moderation fails, got %q", listing.ModerationStatus)
+	}
+	if store.lastListing == nil {
+		t.Fatalf("expected persisted listing to be captured")
+	}
+	if store.lastListing.ModerationStatus != models.ModerationStatusPending {
+		t.Fatalf("expected persisted listing to remain pending, got %q", store.lastListing.ModerationStatus)
+	}
+}
+
+func TestUpdateListingRunsModerationAfterRequeue(t *testing.T) {
+	ctx := context.Background()
+	store := &fakeListingStore{
+		listingsByID: map[string]*models.Listing{
+			"listing-1": {
+				ListingID:         "listing-1",
+				UserID:            "user-1",
+				Title:             "Rumah lama",
+				Description:       "deskripsi lama",
+				Status:            models.ListingStatusActive,
+				ModerationStatus:  models.ModerationStatusApproved,
+				ModerationReason:  "",
+				Location:          models.Location{City: "Depok"},
+				PropertyDetails:   models.PropertyDetails{},
+				PremiumFeatures:   models.PremiumFeatures{IsPremium: true},
+			},
+		},
+		listingsByUser: map[string]map[string]*models.Listing{
+			"user-1": {
+				"listing-1": {
+					ListingID:        "listing-1",
+					UserID:           "user-1",
+					Title:            "Rumah lama",
+					Description:      "deskripsi lama",
+					Status:           models.ListingStatusActive,
+					ModerationStatus: models.ModerationStatusApproved,
+					Location:         models.Location{City: "Depok"},
+					PremiumFeatures:  models.PremiumFeatures{IsPremium: true},
+				},
+			},
+		},
+	}
+	ai := &fakeAIService{
+		moderateOK:     false,
+		moderateReason: "profanity detected",
+	}
+
+	service := NewListingService(
+		store,
+		&fakeUserStore{
+			user: &models.User{
+				UserID: "user-1",
+				Subscription: models.Subscription{
+					Tier: models.SubscriptionPremium,
+				},
+			},
+		},
+		ai,
+		nil,
+		nil,
+		nil,
+	)
+
+	description := "contains profanity"
+	listing, err := service.UpdateListing(ctx, "user-1", "listing-1", &models.UpdateListingRequest{
+		Description: &description,
+	})
+	if err != nil {
+		t.Fatalf("UpdateListing returned error: %v", err)
+	}
+	if ai.moderateCalls != 1 {
+		t.Fatalf("expected moderation to run once, got %d call(s)", ai.moderateCalls)
+	}
+	if listing.ModerationStatus != models.ModerationStatusRejected {
+		t.Fatalf("expected returned listing moderation status rejected, got %q", listing.ModerationStatus)
+	}
+	if listing.Status != models.ListingStatusArchived {
+		t.Fatalf("expected returned listing status archived after rejection, got %q", listing.Status)
+	}
+	if store.lastListing == nil {
+		t.Fatalf("expected persisted listing to be captured")
+	}
+	if store.lastListing.ModerationStatus != models.ModerationStatusRejected {
+		t.Fatalf("expected persisted listing moderation status rejected, got %q", store.lastListing.ModerationStatus)
+	}
+	if store.lastListing.Status != models.ListingStatusArchived {
+		t.Fatalf("expected persisted listing status archived after rejection, got %q", store.lastListing.Status)
 	}
 }
 

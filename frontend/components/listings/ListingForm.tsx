@@ -11,6 +11,7 @@ import {
   ORIENTATION_OPTIONS,
   AMENITIES_OPTIONS,
   cn,
+  formatPriceFull,
 } from '@/lib/utils';
 import { getProvinceSuggestions, getCitySuggestions, getDistrictSuggestions } from '@/lib/api';
 import type { ParsedListing, Location, ListingType } from '@/types';
@@ -193,6 +194,7 @@ export function ListingForm({
   }, [allCities, initCity, selectedCityId]);
 
   const watchedAmenities = watch('amenities') || [];
+  const watchedPrice = watch('price');
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -271,6 +273,9 @@ export function ListingForm({
                 placeholder="850000000"
               />
             </div>
+            {watchedPrice > 0 && (
+              <p className="text-xs text-gray-500 mt-1">{formatPriceFull(watchedPrice)}</p>
+            )}
             {errors.price && <p className="text-red-500 text-xs mt-1">{errors.price.message}</p>}
           </div>
           <div>
