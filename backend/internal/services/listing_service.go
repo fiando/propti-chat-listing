@@ -15,6 +15,7 @@ import (
 const (
 	freeTierMaxListingsPerMonth = 1
 	freeTierMaxMedia            = 3
+	premiumTierMaxMedia         = 30
 
 	minLocationConfidence = 0.7
 )
