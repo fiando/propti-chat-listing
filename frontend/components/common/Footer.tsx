@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { Facebook, Instagram, Twitter } from 'lucide-react';
 import { ProptiLogo } from './ProptiLogo';
 
+const FOOTER_LOGO_CARD_CLASS = 'rounded-xl bg-white px-3 py-2';
+
 const FOOTER_LINKS = {
   Produk: [
     { label: 'Cari Properti', href: '/search' },
@@ -28,7 +30,7 @@ export function Footer() {
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
             <div className="mb-4">
-              <ProptiLogo size={36} showWordmark wordmarkColor="white" />
+              <ProptiLogo size={36} showWordmark className={FOOTER_LOGO_CARD_CLASS} />
             </div>
             <p className="text-white/60 text-sm leading-relaxed mb-6">
               Jual beli properti semudah chat WhatsApp. AI kami otomatis rapikan iklanmu.

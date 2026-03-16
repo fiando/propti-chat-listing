@@ -28,7 +28,7 @@ export function Header() {
       <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center flex-shrink-0" aria-label="Propti - Beranda">
-          <ProptiLogo size={36} showWordmark wordmarkColor="dark" />
+          <ProptiLogo size={36} showWordmark />
         </Link>
 
         {/* Desktop nav */}
