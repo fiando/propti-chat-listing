@@ -158,24 +158,24 @@ export function ListingForm({
   });
 
   // Resolve initial province name to ID when provinces load
-  const initProvince = initialLocation?.province || '';
+  const initialProvince = initialLocation?.province || '';
   useEffect(() => {
-    if (!initProvince || !allProvinces.length || selectedProvinceId) return;
+    if (!initialProvince || !allProvinces.length || selectedProvinceId) return;
     const match = allProvinces.find(
-      (p) => p.name.toLowerCase() === initProvince.toLowerCase()
+      (p) => p.name.toLowerCase() === initialProvince.toLowerCase()
     );
     if (match) setSelectedProvinceId(match.id);
-  }, [allProvinces, initProvince, selectedProvinceId]);
+  }, [allProvinces, initialProvince, selectedProvinceId]);
 
   // Resolve initial city name to ID when cities load
-  const initCity = initialLocation?.city || '';
+  const initialCity = initialLocation?.city || '';
   useEffect(() => {
-    if (!initCity || !allCities.length || selectedCityId) return;
+    if (!initialCity || !allCities.length || selectedCityId) return;
     const match = allCities.find(
-      (c) => c.name.toLowerCase() === initCity.toLowerCase()
+      (c) => c.name.toLowerCase() === initialCity.toLowerCase()
     );
     if (match) setSelectedCityId(match.id);
-  }, [allCities, initCity, selectedCityId]);
+  }, [allCities, initialCity, selectedCityId]);
 
   const watchedAmenities = watch('amenities') || [];
   const watchedPrice = watch('price');
