@@ -358,9 +358,10 @@ func extractListingID(req events.APIGatewayProxyRequest) string {
 
 func parseSearchParams(req events.APIGatewayProxyRequest) *models.ListingSearchParams {
 	p := &models.ListingSearchParams{
-		Query:  req.QueryStringParameters["q"],
-		City:   req.QueryStringParameters["city"],
-		SortBy: req.QueryStringParameters["sortBy"],
+		Query:    req.QueryStringParameters["q"],
+		Province: req.QueryStringParameters["province"],
+		City:     req.QueryStringParameters["city"],
+		SortBy:   req.QueryStringParameters["sortBy"],
 	}
 	if v, err := strconv.ParseFloat(req.QueryStringParameters["priceMin"], 64); err == nil {
 		p.PriceMin = v

@@ -4,11 +4,12 @@ import { useSession, signIn, signOut } from 'next-auth/react';
 import { useQuery } from '@tanstack/react-query';
 import { getProfile } from '@/lib/api';
 import type { User } from '@/types';
+import { getSubscriptionStatus } from '@/lib/subscription-status';
 
 export function useAuth() {
   const { data: session, status } = useSession();
 
-  const { data: profile } = useQuery<User>({
+  const { data: profile, isLoading: isProfileLoading } = useQuery<User>({
     queryKey: ['profile'],
     queryFn: getProfile,
     enabled: status === 'authenticated',
@@ -16,10 +17,10 @@ export function useAuth() {
   });
 
   const isAuthenticated = status === 'authenticated';
-  const isLoading = status === 'loading';
-  const renewDate = profile?.subscription?.renewDate ? new Date(profile.subscription.renewDate) : null;
-  const hasActiveRenewDate = renewDate ? Number.isFinite(renewDate.getTime()) && renewDate.getTime() > Date.now() : true;
-  const isPremium = profile?.subscription?.tier === 'premium' && hasActiveRenewDate;
+  const subscriptionStatus = getSubscriptionStatus({ authStatus: status, profile });
+  const isSubscriptionLoading = subscriptionStatus === 'loading';
+  const isLoading = status === 'loading' || (status === 'authenticated' && isProfileLoading);
+  const isPremium = subscriptionStatus === 'premium';
 
   const login = () => signIn('google', { callbackUrl: '/' });
   const logout = () => signOut({ callbackUrl: '/' });
@@ -29,6 +30,8 @@ export function useAuth() {
     profile,
     isAuthenticated,
     isLoading,
+    isSubscriptionLoading,
+    subscriptionStatus,
     isPremium,
     login,
     logout,

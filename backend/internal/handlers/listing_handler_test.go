@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -65,8 +67,43 @@ func (f *fakeListingStore) CountMonthlyByUserID(_ context.Context, _ string) (in
 	return 0, nil
 }
 func (f *fakeListingStore) Delete(_ context.Context, _, _ string) error { return nil }
-func (f *fakeListingStore) Scan(_ context.Context, _ *models.ListingSearchParams) ([]models.Listing, error) {
-	return nil, nil
+func (f *fakeListingStore) Scan(_ context.Context, params *models.ListingSearchParams) ([]models.Listing, error) {
+	if len(f.byListingID) == 0 {
+		return nil, nil
+	}
+
+	paramsValue := reflect.ValueOf(params)
+	if !paramsValue.IsValid() || paramsValue.IsNil() {
+		return nil, nil
+	}
+
+	var province string
+	if provinceField := paramsValue.Elem().FieldByName("Province"); provinceField.IsValid() && provinceField.Kind() == reflect.String {
+		province = provinceField.String()
+	}
+
+	cityField := paramsValue.Elem().FieldByName("City")
+	city := ""
+	if cityField.IsValid() && cityField.Kind() == reflect.String {
+		city = cityField.String()
+	}
+
+	filtered := make([]models.Listing, 0, len(f.byListingID))
+	for _, listing := range f.byListingID {
+		if listing == nil {
+			continue
+		}
+		if province != "" && !strings.EqualFold(listing.Location.Province, province) {
+			continue
+		}
+		if city != "" && !strings.EqualFold(listing.Location.City, city) {
+			continue
+		}
+		copy := *listing
+		filtered = append(filtered, copy)
+	}
+
+	return filtered, nil
 }
 
 func (f *fakeListingStore) ListByUserID(_ context.Context, userID string, _ int32) ([]models.Listing, error) {
@@ -512,5 +549,68 @@ func TestGetListingHandlerRejectsPendingListings(t *testing.T) {
 	}
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("expected 404 for pending listing, got %d — body: %s", resp.StatusCode, resp.Body)
+	}
+}
+
+func TestListListingsHandlerFiltersByProvince(t *testing.T) {
+	t.Parallel()
+
+	handler := newTestListingHandlerWithStores(
+		&fakeListingStore{
+			byListingID: map[string]*models.Listing{
+				"listing-jambi": {
+					ListingID:        "listing-jambi",
+					UserID:           "user-jambi",
+					Title:            "Rumah Jambi",
+					Status:           models.ListingStatusActive,
+					ModerationStatus: models.ModerationStatusApproved,
+					Location: models.Location{
+						Province: "Jambi",
+						City:     "Kota Jambi",
+					},
+				},
+				"listing-jabar": {
+					ListingID:        "listing-jabar",
+					UserID:           "user-jabar",
+					Title:            "Rumah Bekasi",
+					Status:           models.ListingStatusActive,
+					ModerationStatus: models.ModerationStatusApproved,
+					Location: models.Location{
+						Province: "Jawa Barat",
+						City:     "Bekasi",
+					},
+				},
+			},
+		},
+		&fakeUserStore{},
+		&fakeAIParseService{result: &models.ParsedListing{}},
+		nil,
+	)
+
+	resp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodGet,
+		Path:       "/listings",
+		QueryStringParameters: map[string]string{
+			"province": "Jambi",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d — body: %s", resp.StatusCode, resp.Body)
+	}
+
+	var body struct {
+		Listings []models.Listing `json:"listings"`
+	}
+	if err := json.Unmarshal([]byte(resp.Body), &body); err != nil {
+		t.Fatalf("response is not valid JSON: %v", err)
+	}
+	if len(body.Listings) != 1 {
+		t.Fatalf("expected 1 listing for province filter, got %d", len(body.Listings))
+	}
+	if body.Listings[0].ListingID != "listing-jambi" {
+		t.Fatalf("expected listing-jambi, got %q", body.Listings[0].ListingID)
 	}
 }

@@ -148,7 +148,7 @@ func (r *ListingRepo) Delete(ctx context.Context, userID, listingID string) erro
 	return err
 }
 
-// Scan returns listings with optional city/price filters (full-table scan — use for dev/small datasets).
+// Scan returns listings with optional location/price filters (full-table scan — use for dev/small datasets).
 func (r *ListingRepo) Scan(ctx context.Context, params *models.ListingSearchParams) ([]models.Listing, error) {
 	filterExpr := "moderationStatus = :approved AND #st = :active"
 	exprAttrValues := map[string]types.AttributeValue{
@@ -159,8 +159,16 @@ func (r *ListingRepo) Scan(ctx context.Context, params *models.ListingSearchPara
 		"#st": "status",
 	}
 
+	if params.Province != "" {
+		exprAttrNames["#loc"] = "location"
+		exprAttrNames["#province"] = "province"
+		filterExpr += " AND #loc.#province = :province"
+		exprAttrValues[":province"] = &types.AttributeValueMemberS{Value: params.Province}
+	}
 	if params.City != "" {
-		filterExpr += " AND city = :city"
+		exprAttrNames["#loc"] = "location"
+		exprAttrNames["#city"] = "city"
+		filterExpr += " AND #loc.#city = :city"
 		exprAttrValues[":city"] = &types.AttributeValueMemberS{Value: params.City}
 	}
 	if params.PriceMin > 0 {

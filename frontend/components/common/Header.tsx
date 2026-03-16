@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useSession, signOut } from 'next-auth/react';
+import { signOut } from 'next-auth/react';
 import { useState } from 'react';
 import {
   Home,
@@ -16,10 +16,11 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
 import { ProptiLogo } from './ProptiLogo';
 
 export function Header() {
-  const { data: session, status } = useSession();
+  const { session, isAuthenticated, isLoading, isPremium, isSubscriptionLoading } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
 
@@ -40,7 +41,7 @@ export function Header() {
             <Search className="w-4 h-4" />
             Cari Properti
           </Link>
-          {session && (
+          {isAuthenticated && (
             <>
               <Link
                 href="/listings"
@@ -69,15 +70,15 @@ export function Header() {
             Pasang Iklan
           </Link>
 
-          {status === 'loading' ? (
+          {isLoading ? (
             <div className="w-9 h-9 bg-gray-100 rounded-full animate-pulse" />
-          ) : session ? (
+          ) : isAuthenticated ? (
             <div className="relative">
               <button
                 onClick={() => setProfileOpen(!profileOpen)}
                 className="flex items-center gap-2 hover:bg-gray-50 rounded-xl px-2 py-1.5 transition-colors"
               >
-                {session.user?.image ? (
+                {session?.user?.image ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={session.user.image}
@@ -86,11 +87,11 @@ export function Header() {
                   />
                 ) : (
                   <div className="w-8 h-8 bg-brand-primary rounded-full flex items-center justify-center text-white text-sm font-bold">
-                    {session.user?.name?.[0] || 'U'}
+                    {session?.user?.name?.[0] || 'U'}
                   </div>
                 )}
                 <span className="hidden md:block text-sm font-medium text-gray-700 max-w-[120px] truncate">
-                  {session.user?.name?.split(' ')[0]}
+                  {session?.user?.name?.split(' ')[0]}
                 </span>
                 <ChevronDown className={cn('w-4 h-4 text-gray-400 transition-transform', profileOpen && 'rotate-180')} />
               </button>
@@ -100,8 +101,8 @@ export function Header() {
                   <div className="fixed inset-0 z-10" onClick={() => setProfileOpen(false)} />
                   <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-20">
                     <div className="px-4 py-3 border-b border-gray-100">
-                      <p className="font-semibold text-gray-900 text-sm">{session.user?.name}</p>
-                      <p className="text-xs text-gray-500 truncate">{session.user?.email}</p>
+                      <p className="font-semibold text-gray-900 text-sm">{session?.user?.name}</p>
+                      <p className="text-xs text-gray-500 truncate">{session?.user?.email}</p>
                     </div>
                     <Link
                       href="/profile"
@@ -119,14 +120,26 @@ export function Header() {
                       <Home className="w-4 h-4" />
                       Iklan Saya
                     </Link>
-                    <Link
-                      href="/profile#premium"
-                      className="flex items-center gap-3 px-4 py-2.5 text-sm text-brand-gold hover:bg-amber-50 transition-colors"
-                      onClick={() => setProfileOpen(false)}
-                    >
-                      <Crown className="w-4 h-4" />
-                      Upgrade Premium
-                    </Link>
+                    {isSubscriptionLoading ? (
+                      <div className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400">
+                        <Crown className="w-4 h-4" />
+                        Memuat status paket...
+                      </div>
+                    ) : isPremium ? (
+                      <div className="flex items-center gap-3 px-4 py-2.5 text-sm text-brand-gold bg-amber-50/60">
+                        <Crown className="w-4 h-4" />
+                        Paket Premium Aktif
+                      </div>
+                    ) : (
+                      <Link
+                        href="/profile#premium"
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-brand-gold hover:bg-amber-50 transition-colors"
+                        onClick={() => setProfileOpen(false)}
+                      >
+                        <Crown className="w-4 h-4" />
+                        Upgrade Premium
+                      </Link>
+                    )}
                     <div className="border-t border-gray-100 mt-1 pt-1">
                       <button
                         onClick={() => {
@@ -178,7 +191,7 @@ export function Header() {
             <Plus className="w-4 h-4" />
             Pasang Iklan Gratis
           </Link>
-          {session && (
+          {isAuthenticated && (
             <>
               <Link
                 href="/listings"

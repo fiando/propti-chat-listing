@@ -93,12 +93,12 @@ export default function SettingsPage() {
           <div className="grid gap-4 md:grid-cols-2">
             <label className="block">
               <span className="text-sm font-medium text-gray-700">Nama</span>
-              <input value={profile.name} disabled className="input mt-1 bg-gray-50 text-gray-500" />
+              <input value={profile.name} disabled className="input-field mt-1 bg-gray-50 text-gray-500" />
             </label>
 
             <label className="block">
               <span className="text-sm font-medium text-gray-700">Email</span>
-              <input value={profile.email} disabled className="input mt-1 bg-gray-50 text-gray-500" />
+              <input value={profile.email} disabled className="input-field mt-1 bg-gray-50 text-gray-500" />
             </label>
 
             <label className="block">
@@ -107,13 +107,13 @@ export default function SettingsPage() {
                 value={phone}
                 onChange={(event) => setPhone(event.target.value)}
                 placeholder="Contoh: 081234567890"
-                className="input mt-1"
+                className="input-field mt-1"
               />
             </label>
 
             <label className="block">
               <span className="text-sm font-medium text-gray-700">Peran Akun</span>
-              <select value={role} onChange={(event) => setRole(event.target.value as 'buyer' | 'seller' | 'both')} className="input mt-1">
+              <select value={role} onChange={(event) => setRole(event.target.value as 'buyer' | 'seller' | 'both')} className="input-field mt-1">
                 <option value="buyer">Pencari Properti</option>
                 <option value="seller">Penjual / Agen</option>
                 <option value="both">Keduanya</option>

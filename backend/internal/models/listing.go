@@ -100,6 +100,7 @@ type UpdateListingRequest struct {
 
 type ListingSearchParams struct {
 	Query    string  `json:"q"`
+	Province string  `json:"province"`
 	City     string  `json:"city"`
 	PriceMin float64 `json:"priceMin"`
 	PriceMax float64 `json:"priceMax"`

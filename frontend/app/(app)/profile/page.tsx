@@ -24,12 +24,20 @@ import { formatDate } from '@/lib/utils';
 export default function ProfilePage() {
   const { status } = useSession();
   const router = useRouter();
-  const { profile, user, isPremium } = useAuth();
+  const { profile, user, isPremium, isLoading, isSubscriptionLoading } = useAuth();
   const [showPremiumModal, setShowPremiumModal] = useState(false);
 
   if (status === 'unauthenticated') {
     router.replace('/login');
     return null;
+  }
+
+  if (status === 'loading' || (isLoading && !profile)) {
+    return (
+      <div className="flex items-center justify-center min-h-[320px]">
+        <div className="w-8 h-8 border-4 border-brand-primary/20 border-t-brand-primary rounded-full animate-spin" />
+      </div>
+    );
   }
 
   const displayName = profile?.name || user?.name || '';
@@ -88,7 +96,11 @@ export default function ProfilePage() {
                 label: 'Iklan Bulan Ini',
                 value: profile.subscription.monthlyListingsUsed,
               },
-              { icon: User, label: 'Tipe Akun', value: isPremium ? 'Premium' : 'Gratis' },
+              {
+                icon: User,
+                label: 'Tipe Akun',
+                value: isSubscriptionLoading ? 'Memuat...' : isPremium ? 'Premium' : 'Gratis',
+              },
               {
                 icon: TrendingUp,
                 label: 'Bergabung',
@@ -113,7 +125,17 @@ export default function ProfilePage() {
           <h3 className="font-bold text-gray-900">Paket Berlangganan</h3>
         </div>
 
-        {isPremium ? (
+        {isSubscriptionLoading ? (
+          <div className="border border-gray-100 rounded-2xl p-4 bg-gray-50 animate-pulse">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-gray-200" />
+              <div className="flex-1 space-y-2">
+                <div className="h-4 w-40 bg-gray-200 rounded" />
+                <div className="h-3 w-28 bg-gray-200 rounded" />
+              </div>
+            </div>
+          </div>
+        ) : isPremium ? (
           <div className="flex items-center gap-4 bg-amber-50 border border-amber-200 rounded-2xl p-4">
             <div className="w-12 h-12 bg-brand-gold rounded-xl flex items-center justify-center">
               <Crown className="w-6 h-6 text-white" />
