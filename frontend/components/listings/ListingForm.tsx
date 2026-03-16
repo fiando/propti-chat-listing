@@ -105,9 +105,6 @@ export function ListingForm({
 }: ListingFormProps) {
   const [selectedProvinceId, setSelectedProvinceId] = useState('');
   const [selectedCityId, setSelectedCityId] = useState('');
-  const [provinceQuery, setProvinceQuery] = useState('');
-  const [cityQuery, setCityQuery] = useState('');
-  const [districtQuery, setDistrictQuery] = useState('');
 
   const {
     register,
@@ -159,19 +156,6 @@ export function ListingForm({
     enabled: !!selectedCityId,
     staleTime: Infinity,
   });
-
-  // Client-side filtering based on search queries
-  const provinces = provinceQuery
-    ? allProvinces.filter((p) => p.name.toLowerCase().includes(provinceQuery.toLowerCase()))
-    : allProvinces;
-
-  const cities = cityQuery
-    ? allCities.filter((c) => c.name.toLowerCase().includes(cityQuery.toLowerCase()))
-    : allCities;
-
-  const districts = districtQuery
-    ? allDistricts.filter((d) => d.name.toLowerCase().includes(districtQuery.toLowerCase()))
-    : allDistricts;
 
   // Resolve initial province name to ID when provinces load
   const initProvince = initialLocation?.province || '';
@@ -466,12 +450,6 @@ export function ListingForm({
         {/* Province */}
         <div>
           <label className="label">Provinsi *</label>
-          <input
-            value={provinceQuery}
-            onChange={(e) => setProvinceQuery(e.target.value)}
-            className="input-field mb-2"
-            placeholder="Cari provinsi..."
-          />
           <Controller
             name="province"
             control={control}
@@ -479,11 +457,9 @@ export function ListingForm({
               <select
                 value={selectedProvinceId}
                 onChange={(e) => {
-                  const opt = provinces.find((p) => p.id === e.target.value);
+                  const opt = allProvinces.find((p) => p.id === e.target.value);
                   setSelectedProvinceId(e.target.value);
                   setSelectedCityId('');
-                  setCityQuery('');
-                  setDistrictQuery('');
                   field.onChange(opt?.name || '');
                   setValue('city', '');
                   setValue('district', '');
@@ -494,7 +470,7 @@ export function ListingForm({
                 <option value="">
                   {loadingProvinces ? 'Memuat provinsi...' : 'Pilih provinsi'}
                 </option>
-                {provinces.map((p) => (
+                {allProvinces.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
                   </option>
@@ -511,13 +487,6 @@ export function ListingForm({
           {/* City */}
           <div>
             <label className="label">Kota / Kabupaten *</label>
-            <input
-              value={cityQuery}
-              onChange={(e) => setCityQuery(e.target.value)}
-              className="input-field mb-2"
-              placeholder={!selectedProvinceId ? 'Pilih provinsi dulu' : 'Cari kota / kabupaten...'}
-              disabled={!selectedProvinceId}
-            />
             <Controller
               name="city"
               control={control}
@@ -525,9 +494,8 @@ export function ListingForm({
                 <select
                   value={selectedCityId}
                   onChange={(e) => {
-                    const opt = cities.find((c) => c.id === e.target.value);
+                    const opt = allCities.find((c) => c.id === e.target.value);
                     setSelectedCityId(e.target.value);
-                    setDistrictQuery('');
                     field.onChange(opt?.name || '');
                     setValue('district', '');
                   }}
@@ -541,7 +509,7 @@ export function ListingForm({
                       ? 'Memuat kota...'
                       : 'Pilih kota'}
                   </option>
-                  {cities.map((c) => (
+                  {allCities.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
                     </option>
@@ -557,13 +525,6 @@ export function ListingForm({
           {/* District */}
           <div>
             <label className="label">Kecamatan</label>
-            <input
-              value={districtQuery}
-              onChange={(e) => setDistrictQuery(e.target.value)}
-              className="input-field mb-2"
-              placeholder={!selectedCityId ? 'Pilih kota dulu' : 'Cari kecamatan...'}
-              disabled={!selectedCityId}
-            />
             <Controller
               name="district"
               control={control}
@@ -572,10 +533,10 @@ export function ListingForm({
                   value={
                     loadingDistricts
                       ? ''
-                      : districts.find((d) => d.name === field.value)?.id || ''
+                      : allDistricts.find((d) => d.name === field.value)?.id || ''
                   }
                   onChange={(e) => {
-                    const opt = districts.find((d) => d.id === e.target.value);
+                    const opt = allDistricts.find((d) => d.id === e.target.value);
                     field.onChange(opt?.name || e.target.value);
                   }}
                   className="input-field"
@@ -588,7 +549,7 @@ export function ListingForm({
                       ? 'Memuat kecamatan...'
                       : 'Pilih kecamatan (opsional)'}
                   </option>
-                  {districts.map((d) => (
+                  {allDistricts.map((d) => (
                     <option key={d.id} value={d.id}>
                       {d.name}
                     </option>

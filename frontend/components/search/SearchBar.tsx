@@ -19,18 +19,16 @@ export function SearchBar({ initialParams = {}, onSearch }: SearchBarProps) {
   const [listingType, setListingType] = useState(initialParams.listingType || '');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedProvinceId, setSelectedProvinceId] = useState('');
-  const [provinceQuery, setProvinceQuery] = useState('');
-  const [cityQuery, setCityQuery] = useState('');
 
   const { data: provinces = [], isLoading: loadingProvinces } = useQuery({
-    queryKey: ['search-provinces', provinceQuery],
-    queryFn: () => getProvinceSuggestions(provinceQuery || undefined),
+    queryKey: ['search-provinces'],
+    queryFn: () => getProvinceSuggestions(),
     staleTime: Infinity,
   });
 
   const { data: cities = [], isLoading: loadingCities } = useQuery({
-    queryKey: ['search-cities', selectedProvinceId, cityQuery],
-    queryFn: () => getCitySuggestions(selectedProvinceId, cityQuery || undefined),
+    queryKey: ['search-cities', selectedProvinceId],
+    queryFn: () => getCitySuggestions(selectedProvinceId),
     enabled: !!selectedProvinceId,
     staleTime: Infinity,
   });
@@ -49,8 +47,6 @@ export function SearchBar({ initialParams = {}, onSearch }: SearchBarProps) {
     setCity(initialParams.city || '');
     setListingType(initialParams.listingType || '');
     setSelectedProvinceId('');
-    setProvinceQuery('');
-    setCityQuery('');
   }, [initialParams.city, initialParams.listingType, initialParams.province, initialParams.q]);
 
   const handleSearch = () => {
@@ -123,12 +119,6 @@ export function SearchBar({ initialParams = {}, onSearch }: SearchBarProps) {
           {/* Province */}
           <div className="relative">
             <label className="label text-xs">Provinsi</label>
-            <input
-              value={provinceQuery}
-              onChange={(e) => setProvinceQuery(e.target.value)}
-              className="input-field mb-2 text-sm"
-              placeholder="Cari provinsi..."
-            />
             <div className="relative">
               <select
                 value={selectedProvinceId}
@@ -136,7 +126,6 @@ export function SearchBar({ initialParams = {}, onSearch }: SearchBarProps) {
                   const selectedId = e.target.value;
                   const selectedProvince = provinces.find((item) => item.id === selectedId);
                   setSelectedProvinceId(selectedId);
-                  setCityQuery('');
                   setProvince(selectedProvince?.name || '');
                   setCity('');
                 }}
@@ -156,13 +145,6 @@ export function SearchBar({ initialParams = {}, onSearch }: SearchBarProps) {
           {/* City */}
           <div className="relative">
             <label className="label text-xs">Kota</label>
-            <input
-              value={cityQuery}
-              onChange={(e) => setCityQuery(e.target.value)}
-              disabled={!selectedProvinceId}
-              className="input-field mb-2 text-sm disabled:bg-gray-50 disabled:text-gray-400"
-              placeholder={!selectedProvinceId ? 'Pilih provinsi dulu' : 'Cari kota...'}
-            />
             <div className="relative">
               <select
                 value={city}
