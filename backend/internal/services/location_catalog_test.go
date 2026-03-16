@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	data "github.com/fiando/propti/backend/internal/data"
 )
 
 func TestLocationCatalogFindsCitiesAndDistricts(t *testing.T) {
@@ -262,3 +264,18 @@ func TestNormalizeSuggestionCityResolvesWhenProvinceUnmatched(t *testing.T) {
 		t.Fatalf("expected confidence ~%.4f, got %v", want, result.Confidence)
 	}
 }
+
+func TestEmbeddedIndonesiaLocationsIncludeCitiesForJambiAndSumateraBarat(t *testing.T) {
+	catalog, err := NewLocationCatalogFromReader(strings.NewReader(string(data.IndonesiaLocationsJSON)))
+	if err != nil {
+		t.Fatalf("NewLocationCatalogFromReader returned error: %v", err)
+	}
+
+	for _, provinceID := range []string{"13", "15"} {
+		cities := catalog.SearchCities(provinceID, "")
+		if len(cities) == 0 {
+			t.Fatalf("expected embedded location data to include cities for province %s", provinceID)
+		}
+	}
+}
+
