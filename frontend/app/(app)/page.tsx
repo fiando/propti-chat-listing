@@ -11,104 +11,14 @@ import {
   Star,
   CheckCircle,
   ChevronRight,
-  MapPin,
-  Bed,
-  Bath,
-  Maximize2,
 } from 'lucide-react';
-import { formatPrice } from '@/lib/utils';
 import { ShieldIcon } from '@/components/icons/ShieldIcon';
+import { ListingCard } from '@/components/listings/ListingCard';
+import { getHomepageListings } from '@/lib/homepage-listings';
 
 export const metadata: Metadata = {
   title: 'Propti — Jual Beli Properti Semudah Chat WhatsApp',
 };
-
-const MOCK_LISTINGS = [
-  {
-    id: '1',
-    title: 'Rumah Minimalis Modern Depok',
-    price: 850_000_000,
-    city: 'Depok',
-    district: 'Beji',
-    bedrooms: 3,
-    bathrooms: 2,
-    landArea: 120,
-    buildingArea: 90,
-    image: null,
-    isFeatured: true,
-    listingType: 'sell' as const,
-  },
-  {
-    id: '2',
-    title: 'Ruko 3 Lantai Strategis Tangerang',
-    price: 2_500_000_000,
-    city: 'Tangerang Selatan',
-    district: 'BSD City',
-    bedrooms: 0,
-    bathrooms: 3,
-    landArea: 90,
-    buildingArea: 270,
-    image: null,
-    isFeatured: false,
-    listingType: 'sell' as const,
-  },
-  {
-    id: '3',
-    title: 'Apartemen 2BR Kemang Jakarta Selatan',
-    price: 8_500_000,
-    city: 'Jakarta Selatan',
-    district: 'Kemang',
-    bedrooms: 2,
-    bathrooms: 1,
-    landArea: 0,
-    buildingArea: 65,
-    image: null,
-    isFeatured: true,
-    listingType: 'rent' as const,
-  },
-  {
-    id: '4',
-    title: 'Rumah Cluster Premium Bandung',
-    price: 1_200_000_000,
-    city: 'Bandung',
-    district: 'Dago',
-    bedrooms: 4,
-    bathrooms: 3,
-    landArea: 180,
-    buildingArea: 150,
-    image: null,
-    isFeatured: false,
-    listingType: 'sell' as const,
-  },
-  {
-    id: '5',
-    title: 'Kavling Siap Bangun Bogor',
-    price: 320_000_000,
-    city: 'Bogor',
-    district: 'Cibinong',
-    bedrooms: 0,
-    bathrooms: 0,
-    landArea: 200,
-    buildingArea: 0,
-    image: null,
-    isFeatured: false,
-    listingType: 'sell' as const,
-  },
-  {
-    id: '6',
-    title: 'Kost Eksklusif AC Surabaya',
-    price: 1_800_000,
-    city: 'Surabaya',
-    district: 'Rungkut',
-    bedrooms: 1,
-    bathrooms: 1,
-    landArea: 0,
-    buildingArea: 20,
-    image: null,
-    isFeatured: false,
-    listingType: 'rent' as const,
-  },
-];
 
 const STATS = [
   { value: '10.000+', label: 'Properti', icon: Home },
@@ -161,89 +71,9 @@ const TESTIMONIALS = [
   },
 ];
 
-function MockListingCard({ listing }: { listing: (typeof MOCK_LISTINGS)[0] }) {
-  const typeLabel = listing.listingType === 'sell' ? 'Dijual' : 'Disewa';
-  const typeBg = listing.listingType === 'sell' ? 'bg-brand-primary' : 'bg-blue-600';
-  const priceLabel =
-    listing.listingType === 'rent'
-      ? `${formatPrice(listing.price)}/bln`
-      : formatPrice(listing.price);
+export default async function HomePage() {
+  const homepageListings = await getHomepageListings();
 
-  const gradients = [
-    'from-brand-primary to-brand-secondary',
-    'from-blue-600 to-blue-400',
-    'from-purple-600 to-purple-400',
-    'from-amber-600 to-amber-400',
-    'from-teal-600 to-teal-400',
-    'from-rose-600 to-rose-400',
-  ];
-  const gradient = gradients[parseInt(listing.id) % gradients.length];
-
-  return (
-    <Link href={`/listings/${listing.id}`} className="card block group cursor-pointer">
-      {/* Image area */}
-      <div className={`relative h-48 bg-gradient-to-br ${gradient} rounded-t-2xl overflow-hidden`}>
-        <div className="absolute inset-0 flex items-center justify-center opacity-20">
-          <Home className="w-20 h-20 text-white" />
-        </div>
-        <div className="absolute top-3 left-3 flex gap-2">
-          <span className={`${typeBg} text-white text-xs font-bold px-2.5 py-1 rounded-full`}>
-            {typeLabel}
-          </span>
-          {listing.isFeatured && (
-            <span className="bg-brand-gold text-white text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1">
-              <Star className="w-3 h-3" /> Unggulan
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="p-4">
-        <h3 className="font-semibold text-gray-900 group-hover:text-brand-primary transition-colors line-clamp-1 mb-1">
-          {listing.title}
-        </h3>
-        <p className="text-brand-primary font-bold text-lg mb-2">{priceLabel}</p>
-
-        <div className="flex items-center gap-1 text-gray-500 text-xs mb-3">
-          <MapPin className="w-3 h-3 flex-shrink-0" />
-          <span className="truncate">
-            {listing.district}, {listing.city}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-3 text-xs text-gray-500 border-t pt-3">
-          {listing.landArea > 0 && (
-            <span className="flex items-center gap-1">
-              <Maximize2 className="w-3 h-3" />
-              {listing.landArea} m²
-            </span>
-          )}
-          {listing.buildingArea > 0 && (
-            <span className="flex items-center gap-1">
-              <Home className="w-3 h-3" />
-              {listing.buildingArea} m²
-            </span>
-          )}
-          {listing.bedrooms > 0 && (
-            <span className="flex items-center gap-1">
-              <Bed className="w-3 h-3" />
-              {listing.bedrooms} KT
-            </span>
-          )}
-          {listing.bathrooms > 0 && (
-            <span className="flex items-center gap-1">
-              <Bath className="w-3 h-3" />
-              {listing.bathrooms} KM
-            </span>
-          )}
-        </div>
-      </div>
-    </Link>
-  );
-}
-
-export default function HomePage() {
   return (
     <div className="bg-[#F8F9FA]">
       {/* ── HERO ── */}
@@ -420,8 +250,8 @@ export default function HomePage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {MOCK_LISTINGS.map((listing) => (
-              <MockListingCard key={listing.id} listing={listing} />
+            {homepageListings.map((listing) => (
+              <ListingCard key={listing.listingId} listing={listing} />
             ))}
           </div>
 

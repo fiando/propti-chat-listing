@@ -57,7 +57,7 @@ export function PremiumUpgradeModal({ isOpen, onClose }: PremiumUpgradeModalProp
           <h2 className="text-2xl font-black">Propti Premium</h2>
           <p className="text-white/80 mt-1 text-sm">Jangkau lebih banyak calon pembeli</p>
           <div className="mt-4">
-            <span className="text-4xl font-black">Rp 99rb</span>
+            <span className="text-4xl font-black">Rp 49rb</span>
             <span className="text-white/70 text-sm ml-1">/bulan</span>
           </div>
         </div>
@@ -100,7 +100,7 @@ export function PremiumUpgradeModal({ isOpen, onClose }: PremiumUpgradeModalProp
           </button>
 
           <p className="text-center text-xs text-gray-400 mt-3">
-            Pembayaran aman melalui Midtrans. Batalkan kapan saja.
+            Pembayaran aman melalui DOKU. Batalkan kapan saja.
           </p>
         </div>
       </div>

@@ -29,6 +29,9 @@ import type { Listing } from '@/types';
 interface ListingDetailProps {
   listing: Listing;
   isOwner?: boolean;
+  isSaved?: boolean;
+  isSaving?: boolean;
+  onSave?: () => void;
   onDelete?: () => void;
 }
 
@@ -38,9 +41,15 @@ const STATUS_CONFIG = {
   rejected: { icon: XCircle, label: 'Ditolak', color: 'text-red-600 bg-red-50' },
 };
 
-export function ListingDetail({ listing, isOwner = false, onDelete }: ListingDetailProps) {
+export function ListingDetail({
+  listing,
+  isOwner = false,
+  isSaved = false,
+  isSaving = false,
+  onSave,
+  onDelete,
+}: ListingDetailProps) {
   const [activeImage, setActiveImage] = useState(0);
-  const [saved, setSaved] = useState(false);
 
   const status = STATUS_CONFIG[listing.moderationStatus] || STATUS_CONFIG.pending;
   const priceLabel = formatPrice(listing.price);
@@ -294,15 +303,16 @@ export function ListingDetail({ listing, isOwner = false, onDelete }: ListingDet
 
             <div className="flex gap-2 mt-4">
               <button
-                onClick={() => setSaved(!saved)}
+                onClick={onSave}
+                disabled={!onSave || isSaving}
                 className={`flex-1 flex items-center justify-center gap-2 border rounded-xl py-2.5 text-sm font-medium transition-all ${
-                  saved
+                  isSaved
                     ? 'bg-red-50 border-red-200 text-red-500'
                     : 'border-gray-200 text-gray-600 hover:bg-gray-50'
                 }`}
               >
-                <Heart className={`w-4 h-4 ${saved ? 'fill-red-500' : ''}`} />
-                {saved ? 'Tersimpan' : 'Simpan'}
+                <Heart className={`w-4 h-4 ${isSaved ? 'fill-red-500' : ''}`} />
+                {isSaving ? 'Memproses...' : isSaved ? 'Tersimpan' : 'Simpan'}
               </button>
               <button className="flex-1 flex items-center justify-center gap-2 border border-gray-200 text-gray-600 rounded-xl py-2.5 text-sm font-medium hover:bg-gray-50 transition-colors">
                 <Share2 className="w-4 h-4" />

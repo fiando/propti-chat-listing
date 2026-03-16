@@ -25,8 +25,9 @@ type Transaction struct {
 	Amount            float64           `json:"amount" dynamodbav:"amount"`
 	Currency          string            `json:"currency" dynamodbav:"currency"`
 	Status            TransactionStatus `json:"status" dynamodbav:"status"`
-	MidtransPaymentID string            `json:"midtransPaymentId,omitempty" dynamodbav:"midtransPaymentId,omitempty"`
-	MidtransOrderID   string            `json:"midtransOrderId,omitempty" dynamodbav:"midtransOrderId,omitempty"`
+	Provider          string            `json:"provider,omitempty" dynamodbav:"provider,omitempty"`
+	ProviderPaymentID string            `json:"providerPaymentId,omitempty" dynamodbav:"midtransPaymentId,omitempty"`
+	ProviderOrderID   string            `json:"providerOrderId,omitempty" dynamodbav:"midtransOrderId,omitempty"`
 	PaymentURL        string            `json:"paymentUrl,omitempty" dynamodbav:"paymentUrl,omitempty"`
 	Metadata          map[string]string `json:"metadata,omitempty" dynamodbav:"metadata,omitempty"`
 	CreatedAt         time.Time         `json:"createdAt" dynamodbav:"createdAt"`
@@ -44,7 +45,8 @@ type PremiumUpgradeRequest struct {
 }
 
 type PaymentResponse struct {
-	TransactionID string `json:"transactionId"`
-	PaymentURL    string `json:"paymentUrl"`
-	OrderID       string `json:"orderId"`
+	TransactionID string  `json:"transactionId"`
+	PaymentURL    string  `json:"paymentUrl"`
+	OrderID       string  `json:"orderId"`
+	Amount        float64 `json:"amount"`
 }

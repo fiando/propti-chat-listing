@@ -19,8 +19,13 @@ Globals:
         JWT_SECRET: !Ref JWTSecret
         OPENAI_API_KEY: !Ref OpenAIAPIKey
         GOOGLE_MAPS_API_KEY: !Ref GoogleMapsAPIKey
-        MIDTRANS_SERVER_KEY: !Ref MidtransServerKey
-        MIDTRANS_ENV: !FindInMap [StageToMidtransEnv, !Ref Stage, env]
+        DOKU_CLIENT_ID: !Ref DOKUClientID
+        DOKU_SECRET_KEY: !Ref DOKUSecretKey
+        DOKU_ENV: !FindInMap [StageToDOKUEnv, !Ref Stage, env]
+        PUBLIC_API_BASE_URL: !If
+          - HasApiCustomDomain
+          - !Sub "https://${ApiCustomDomainName}"
+          - !Sub "https://${ProptiApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}"
         LOG_LEVEL: info
   Api:
     Cors:
@@ -29,7 +34,7 @@ Globals:
       AllowOrigin: "'*'"
 
 Mappings:
-  StageToMidtransEnv:
+  StageToDOKUEnv:
     dev:
       env: sandbox
     staging:
@@ -57,7 +62,10 @@ Parameters:
   GoogleMapsAPIKey:
     Type: String
     NoEcho: true
-  MidtransServerKey:
+  DOKUClientID:
+    Type: String
+    NoEcho: true
+  DOKUSecretKey:
     Type: String
     NoEcho: true
 
@@ -240,7 +248,7 @@ Resources:
       FunctionName: !Sub "propti-ai-${Stage}"
       CodeUri: ./cmd/ai/
       Handler: bootstrap
-      Description: Handles premium subscriptions and featured listings via Midtrans
+      Description: Handles premium subscriptions and featured listings via DOKU
       Role: !GetAtt LambdaExecutionRole.Arn
       Events:
         PremiumUpgrade:

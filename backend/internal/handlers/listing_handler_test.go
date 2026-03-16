@@ -91,6 +91,18 @@ func (f *fakeUserStore) GetByID(_ context.Context, userID string) (*models.User,
 	return nil, nil
 }
 
+func (f *fakeUserStore) Put(_ context.Context, user *models.User) error {
+	if f.byID == nil {
+		f.byID = map[string]*models.User{}
+	}
+	if user == nil {
+		return nil
+	}
+	copy := *user
+	f.byID[user.UserID] = &copy
+	return nil
+}
+
 type fakeAIParseService struct {
 	result *models.ParsedListing
 }
@@ -339,6 +351,135 @@ func TestMyListingsHandlerReturnsAuthenticatedUsersListings(t *testing.T) {
 	}
 	if body.Listings[0].ListingID != "listing-1" {
 		t.Fatalf("expected listing-1, got %q", body.Listings[0].ListingID)
+	}
+}
+
+func TestSaveListingHandlerPersistsSavedListing(t *testing.T) {
+	t.Parallel()
+
+	listingStore := &fakeListingStore{
+		byUserID: map[string][]models.Listing{
+			"owner-1": {{
+				ListingID:        "listing-save-1",
+				UserID:           "owner-1",
+				Title:            "Rumah Cinere",
+				Status:           models.ListingStatusActive,
+				ModerationStatus: models.ModerationStatusApproved,
+			}},
+		},
+		byListingID: map[string]*models.Listing{
+			"listing-save-1": {
+				ListingID:        "listing-save-1",
+				UserID:           "owner-1",
+				Title:            "Rumah Cinere",
+				Status:           models.ListingStatusActive,
+				ModerationStatus: models.ModerationStatusApproved,
+			},
+		},
+	}
+	userStore := &fakeUserStore{byID: map[string]*models.User{
+		"user-test-save": {UserID: "user-test-save"},
+	}}
+	handler := newTestListingHandlerWithStores(listingStore, userStore, &fakeAIParseService{result: &models.ParsedListing{}}, nil)
+
+	saveResp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodPost,
+		Path:       "/listings/listing-save-1/save",
+		Headers:    authHeader(t, "user-test-save"),
+	})
+	if err != nil {
+		t.Fatalf("save Handle returned error: %v", err)
+	}
+	if saveResp.StatusCode != http.StatusNoContent {
+		t.Fatalf("expected 204 from save, got %d body=%s", saveResp.StatusCode, saveResp.Body)
+	}
+
+	listResp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodGet,
+		Path:       "/users/me/saved",
+		Headers:    authHeader(t, "user-test-save"),
+	})
+	if err != nil {
+		t.Fatalf("saved list Handle returned error: %v", err)
+	}
+	if listResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 from saved list, got %d body=%s", listResp.StatusCode, listResp.Body)
+	}
+
+	var body struct {
+		Listings []models.Listing `json:"listings"`
+	}
+	if err := json.Unmarshal([]byte(listResp.Body), &body); err != nil {
+		t.Fatalf("saved list response is not valid JSON: %v", err)
+	}
+	if len(body.Listings) != 1 || body.Listings[0].ListingID != "listing-save-1" {
+		t.Fatalf("expected saved listings to include listing-save-1, got %#v", body.Listings)
+	}
+}
+
+func TestUnsaveListingHandlerRemovesSavedListing(t *testing.T) {
+	t.Parallel()
+
+	listingStore := &fakeListingStore{
+		byUserID: map[string][]models.Listing{
+			"owner-2": {{
+				ListingID:        "listing-save-2",
+				UserID:           "owner-2",
+				Title:            "Apartemen Blok M",
+				Status:           models.ListingStatusActive,
+				ModerationStatus: models.ModerationStatusApproved,
+			}},
+		},
+		byListingID: map[string]*models.Listing{
+			"listing-save-2": {
+				ListingID:        "listing-save-2",
+				UserID:           "owner-2",
+				Title:            "Apartemen Blok M",
+				Status:           models.ListingStatusActive,
+				ModerationStatus: models.ModerationStatusApproved,
+			},
+		},
+	}
+	userStore := &fakeUserStore{byID: map[string]*models.User{
+		"user-test-unsave": {UserID: "user-test-unsave"},
+	}}
+	handler := newTestListingHandlerWithStores(listingStore, userStore, &fakeAIParseService{result: &models.ParsedListing{}}, nil)
+
+	_, _ = handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodPost,
+		Path:       "/listings/listing-save-2/save",
+		Headers:    authHeader(t, "user-test-unsave"),
+	})
+
+	unsaveResp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodDelete,
+		Path:       "/listings/listing-save-2/save",
+		Headers:    authHeader(t, "user-test-unsave"),
+	})
+	if err != nil {
+		t.Fatalf("unsave Handle returned error: %v", err)
+	}
+	if unsaveResp.StatusCode != http.StatusNoContent {
+		t.Fatalf("expected 204 from unsave, got %d body=%s", unsaveResp.StatusCode, unsaveResp.Body)
+	}
+
+	listResp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodGet,
+		Path:       "/users/me/saved",
+		Headers:    authHeader(t, "user-test-unsave"),
+	})
+	if err != nil {
+		t.Fatalf("saved list Handle returned error: %v", err)
+	}
+
+	var body struct {
+		Listings []models.Listing `json:"listings"`
+	}
+	if err := json.Unmarshal([]byte(listResp.Body), &body); err != nil {
+		t.Fatalf("saved list response is not valid JSON: %v", err)
+	}
+	if len(body.Listings) != 0 {
+		t.Fatalf("expected no saved listings after unsave, got %#v", body.Listings)
 	}
 }
 

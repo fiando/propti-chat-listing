@@ -62,6 +62,8 @@ export interface User {
   profilePicture?: string;
   phone?: string;
   role: 'buyer' | 'seller' | 'both';
+  preferences?: UserPreferences;
+  savedListingIds?: string[];
   subscription: {
     tier: 'free' | 'premium';
     monthlyListingsUsed: number;
@@ -69,6 +71,18 @@ export interface User {
   };
   createdAt: string;
   lastLoginAt: string;
+}
+
+export interface UserPreferences {
+  favoriteLocations: string[];
+  searchHistory: string[];
+  notifications: boolean;
+}
+
+export interface UpdateProfileRequest {
+  phone?: string;
+  role?: 'buyer' | 'seller' | 'both';
+  preferences?: UserPreferences;
 }
 
 export interface ParsedLocationSuggestion {
@@ -130,9 +144,11 @@ export interface CreateListingRequest {
 export interface FeatureListingRequest {
   listingId: string;
   durationDays: number;
+  type: 'featured' | 'promotion';
 }
 
 export interface PaymentResponse {
+  transactionId: string;
   paymentUrl: string;
   orderId: string;
   amount: number;

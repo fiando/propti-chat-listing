@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -11,21 +12,36 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/fiando/propti/backend/internal/models"
+	"github.com/fiando/propti/backend/internal/payments"
 	"github.com/fiando/propti/backend/internal/repository"
+	"github.com/fiando/propti/backend/internal/services"
 	"github.com/fiando/propti/backend/internal/utils"
 )
 
 // AuthHandler handles Google OAuth login and user profile requests.
 type AuthHandler struct {
-	db       *repository.DynamoDB
-	userRepo *repository.UserRepo
+	db                *repository.DynamoDB
+	userRepo          *repository.UserRepo
+	paymentReconciler *services.PaymentReconciler
 }
 
 // NewAuthHandler creates an AuthHandler.
 func NewAuthHandler(db *repository.DynamoDB) *AuthHandler {
+	userRepo := repository.NewUserRepo(db)
+	dokuBaseURL := "https://api-sandbox.doku.com"
+	if os.Getenv("DOKU_ENV") == "production" {
+		dokuBaseURL = "https://api.doku.com"
+	}
+	paymentProvider := payments.NewDOKUProvider(payments.DOKUConfig{
+		ClientID:  os.Getenv("DOKU_CLIENT_ID"),
+		SecretKey: os.Getenv("DOKU_SECRET_KEY"),
+		BaseURL:   dokuBaseURL,
+	})
+
 	return &AuthHandler{
-		db:       db,
-		userRepo: repository.NewUserRepo(db),
+		db:                db,
+		userRepo:          userRepo,
+		paymentReconciler: services.NewPaymentReconciler(userRepo, repository.NewTransactionRepo(db), paymentProvider),
 	}
 }
 
@@ -124,6 +140,11 @@ func (h *AuthHandler) getUser(ctx context.Context, req events.APIGatewayProxyReq
 	user, err := h.userRepo.GetByID(ctx, userID)
 	if err != nil || user == nil {
 		return jsonResponse(http.StatusNotFound, utils.MarshalErrorResponse(utils.ErrNotFound)), nil
+	}
+	if err := h.paymentReconciler.ReconcileUser(ctx, userID); err != nil {
+		utils.LogWarn("reconcile pending premium payment", "userId", userID, "error", err.Error())
+	} else if refreshedUser, refreshErr := h.userRepo.GetByID(ctx, userID); refreshErr == nil && refreshedUser != nil {
+		user = refreshedUser
 	}
 
 	body, _ := json.Marshal(user)

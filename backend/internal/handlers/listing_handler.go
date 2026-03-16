@@ -47,6 +47,9 @@ func (h *ListingHandler) Handle(ctx context.Context, req events.APIGatewayProxyR
 	case method == http.MethodGet && path == "/users/me/listings":
 		return h.listMyListings(ctx, req)
 
+	case method == http.MethodGet && path == "/users/me/saved":
+		return h.listSavedListings(ctx, req)
+
 	case method == http.MethodGet && isListingPath(path):
 		return h.getListing(ctx, req)
 
@@ -55,6 +58,12 @@ func (h *ListingHandler) Handle(ctx context.Context, req events.APIGatewayProxyR
 
 	case method == http.MethodDelete && isListingPath(path):
 		return h.deleteListing(ctx, req)
+
+	case method == http.MethodPost && isListingSavePath(path):
+		return h.saveListing(ctx, req)
+
+	case method == http.MethodDelete && isListingSavePath(path):
+		return h.unsaveListing(ctx, req)
 
 	case method == http.MethodPost && path == "/listings/parse-text":
 		return h.parseText(ctx, req)
@@ -148,6 +157,30 @@ func (h *ListingHandler) listMyListings(ctx context.Context, req events.APIGatew
 	return jsonResponse(http.StatusOK, string(body)), nil
 }
 
+func (h *ListingHandler) listSavedListings(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	userID, err := extractUserID(req)
+	if err != nil {
+		return jsonResponse(http.StatusUnauthorized, utils.MarshalErrorResponse(utils.ErrUnauthorized)), nil
+	}
+
+	params := parseSearchParams(req)
+	listings, err := h.listingService.ListSavedListings(ctx, userID, params)
+	if err != nil {
+		if appErr, ok := err.(*utils.AppError); ok {
+			return jsonResponse(appErr.Code, utils.MarshalErrorResponse(appErr)), nil
+		}
+		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
+	}
+
+	body, _ := json.Marshal(map[string]any{
+		"listings": listings,
+		"total":    len(listings),
+		"page":     params.Page,
+		"pageSize": params.PageSize,
+	})
+	return jsonResponse(http.StatusOK, string(body)), nil
+}
+
 func (h *ListingHandler) updateListing(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	userID, err := extractUserID(req)
 	if err != nil {
@@ -188,6 +221,48 @@ func (h *ListingHandler) deleteListing(ctx context.Context, req events.APIGatewa
 	}
 
 	if err := h.listingService.DeleteListing(ctx, userID, listingID); err != nil {
+		if appErr, ok := err.(*utils.AppError); ok {
+			return jsonResponse(appErr.Code, utils.MarshalErrorResponse(appErr)), nil
+		}
+		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
+	}
+
+	return jsonResponse(http.StatusNoContent, ""), nil
+}
+
+func (h *ListingHandler) saveListing(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	userID, err := extractUserID(req)
+	if err != nil {
+		return jsonResponse(http.StatusUnauthorized, utils.MarshalErrorResponse(utils.ErrUnauthorized)), nil
+	}
+
+	listingID := extractListingID(req)
+	if listingID == "" {
+		return jsonResponse(http.StatusBadRequest, utils.MarshalErrorResponse(utils.ErrBadRequest)), nil
+	}
+
+	if err := h.listingService.SaveListing(ctx, userID, listingID); err != nil {
+		if appErr, ok := err.(*utils.AppError); ok {
+			return jsonResponse(appErr.Code, utils.MarshalErrorResponse(appErr)), nil
+		}
+		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
+	}
+
+	return jsonResponse(http.StatusNoContent, ""), nil
+}
+
+func (h *ListingHandler) unsaveListing(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	userID, err := extractUserID(req)
+	if err != nil {
+		return jsonResponse(http.StatusUnauthorized, utils.MarshalErrorResponse(utils.ErrUnauthorized)), nil
+	}
+
+	listingID := extractListingID(req)
+	if listingID == "" {
+		return jsonResponse(http.StatusBadRequest, utils.MarshalErrorResponse(utils.ErrBadRequest)), nil
+	}
+
+	if err := h.listingService.UnsaveListing(ctx, userID, listingID); err != nil {
 		if appErr, ok := err.(*utils.AppError); ok {
 			return jsonResponse(appErr.Code, utils.MarshalErrorResponse(appErr)), nil
 		}
@@ -262,6 +337,11 @@ func isListingPath(path string) bool {
 	// Matches /listings/{id} but NOT /listings/parse-text
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	return len(parts) == 2 && parts[0] == "listings" && parts[1] != "parse-text"
+}
+
+func isListingSavePath(path string) bool {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	return len(parts) == 3 && parts[0] == "listings" && parts[1] != "" && parts[2] == "save"
 }
 
 func extractListingID(req events.APIGatewayProxyRequest) string {

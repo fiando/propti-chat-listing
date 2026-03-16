@@ -97,6 +97,16 @@ func (f *fakeUserStore) GetByID(ctx context.Context, userID string) (*models.Use
 	return f.user, nil
 }
 
+func (f *fakeUserStore) Put(ctx context.Context, user *models.User) error {
+	if user == nil {
+		f.user = nil
+		return nil
+	}
+	copy := *user
+	f.user = &copy
+	return nil
+}
+
 type fakeAIService struct {
 	parseResult     *models.ParsedListing
 	err             error
@@ -452,16 +462,16 @@ func TestUpdateListingRunsModerationAfterRequeue(t *testing.T) {
 	store := &fakeListingStore{
 		listingsByID: map[string]*models.Listing{
 			"listing-1": {
-				ListingID:         "listing-1",
-				UserID:            "user-1",
-				Title:             "Rumah lama",
-				Description:       "deskripsi lama",
-				Status:            models.ListingStatusActive,
-				ModerationStatus:  models.ModerationStatusApproved,
-				ModerationReason:  "",
-				Location:          models.Location{City: "Depok"},
-				PropertyDetails:   models.PropertyDetails{},
-				PremiumFeatures:   models.PremiumFeatures{IsPremium: true},
+				ListingID:        "listing-1",
+				UserID:           "user-1",
+				Title:            "Rumah lama",
+				Description:      "deskripsi lama",
+				Status:           models.ListingStatusActive,
+				ModerationStatus: models.ModerationStatusApproved,
+				ModerationReason: "",
+				Location:         models.Location{City: "Depok"},
+				PropertyDetails:  models.PropertyDetails{},
+				PremiumFeatures:  models.PremiumFeatures{IsPremium: true},
 			},
 		},
 		listingsByUser: map[string]map[string]*models.Listing{

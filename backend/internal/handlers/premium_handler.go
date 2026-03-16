@@ -1,10 +1,7 @@
 package handlers
 
 import (
-	"bytes"
 	"context"
-	"crypto/sha512"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -17,31 +14,47 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/fiando/propti/backend/internal/models"
+	"github.com/fiando/propti/backend/internal/payments"
 	"github.com/fiando/propti/backend/internal/repository"
 	"github.com/fiando/propti/backend/internal/services"
 	"github.com/fiando/propti/backend/internal/utils"
 )
 
+type premiumUserStore interface {
+	GetByID(ctx context.Context, userID string) (*models.User, error)
+	Put(ctx context.Context, user *models.User) error
+}
+
+type premiumTransactionStore interface {
+	Put(ctx context.Context, tx *models.Transaction) error
+	GetByProviderOrderID(ctx context.Context, orderID string) (*models.Transaction, error)
+	UpdateStatus(ctx context.Context, transactionID, createdAt string, status models.TransactionStatus) error
+}
+
+type premiumListingService interface {
+	FeatureListing(ctx context.Context, userID, listingID, featureType string, until time.Time) error
+}
+
 // PremiumHandler handles subscription upgrades, featured listings, and payment callbacks.
 type PremiumHandler struct {
-	userRepo        *repository.UserRepo
-	listingRepo     *repository.ListingRepo
-	transactionRepo *repository.TransactionRepo
-	listingService  *services.ListingService
+	userRepo        premiumUserStore
+	transactionRepo premiumTransactionStore
+	listingService  premiumListingService
+	paymentProvider payments.Provider
 }
 
 // NewPremiumHandler creates a PremiumHandler.
 func NewPremiumHandler(
-	userRepo *repository.UserRepo,
-	listingRepo *repository.ListingRepo,
-	transactionRepo *repository.TransactionRepo,
-	listingService *services.ListingService,
+	userRepo premiumUserStore,
+	transactionRepo premiumTransactionStore,
+	listingService premiumListingService,
+	paymentProvider payments.Provider,
 ) *PremiumHandler {
 	return &PremiumHandler{
 		userRepo:        userRepo,
-		listingRepo:     listingRepo,
 		transactionRepo: transactionRepo,
 		listingService:  listingService,
+		paymentProvider: paymentProvider,
 	}
 }
 
@@ -55,13 +68,19 @@ func (h *PremiumHandler) Handle(ctx context.Context, req events.APIGatewayProxyR
 	case req.HTTPMethod == http.MethodPost && req.Path == "/premium/feature-listing":
 		return h.featureListing(ctx, req)
 	case req.HTTPMethod == http.MethodPost && req.Path == "/premium/callback":
-		return h.midtransCallback(ctx, req)
+		return h.paymentCallback(ctx, req)
 	default:
 		return jsonResponse(http.StatusNotFound, utils.MarshalErrorResponse(utils.ErrNotFound)), nil
 	}
 }
 
-// upgradeToPremium initiates a Midtrans payment to upgrade the user to premium.
+var (
+	_ premiumUserStore        = (*repository.UserRepo)(nil)
+	_ premiumTransactionStore = (*repository.TransactionRepo)(nil)
+	_ premiumListingService   = (*services.ListingService)(nil)
+)
+
+// upgradeToPremium initiates a payment to upgrade the user to premium.
 func (h *PremiumHandler) upgradeToPremium(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	userID, err := extractUserID(req)
 	if err != nil {
@@ -81,28 +100,42 @@ func (h *PremiumHandler) upgradeToPremium(ctx context.Context, req events.APIGat
 	amount := 49000.0 // Rp 49,000/month
 
 	tx := &models.Transaction{
-		PK:            uuid.NewString(),
-		SK:            time.Now().UTC().Format(time.RFC3339),
-		TransactionID: uuid.NewString(),
-		UserID:        userID,
-		Type:          models.TransactionTypePremiumTier,
-		Amount:        amount,
-		Currency:      "IDR",
-		Status:        models.TransactionStatusPending,
-		MidtransOrderID: orderID,
-		CreatedAt:     time.Now().UTC(),
-		UpdatedAt:     time.Now().UTC(),
+		PK:              uuid.NewString(),
+		SK:              time.Now().UTC().Format(time.RFC3339),
+		TransactionID:   uuid.NewString(),
+		UserID:          userID,
+		Type:            models.TransactionTypePremiumTier,
+		Amount:          amount,
+		Currency:        "IDR",
+		Status:          models.TransactionStatusPending,
+		Provider:        h.paymentProvider.Name(),
+		ProviderOrderID: orderID,
+		CreatedAt:       time.Now().UTC(),
+		UpdatedAt:       time.Now().UTC(),
 	}
 	tx.PK = tx.TransactionID
 
-	paymentURL, midtransID, err := createMidtransSnapToken(ctx, orderID, amount, user)
+	paymentResult, err := h.paymentProvider.CreatePayment(ctx, payments.CreatePaymentInput{
+		OrderID:         orderID,
+		Amount:          amount,
+		Currency:        "IDR",
+		Description:     "Propti Premium",
+		NotificationURL: buildPremiumCallbackURL(),
+		Customer: payments.Customer{
+			ID:    userID,
+			Name:  user.Name,
+			Email: user.Email,
+			Phone: user.Phone,
+		},
+	})
 	if err != nil {
-		utils.LogError("create midtrans snap token", err, "userId", userID)
+		utils.LogError("create payment checkout", err, "userId", userID, "provider", h.paymentProvider.Name())
 		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
 	}
 
-	tx.MidtransPaymentID = midtransID
-	tx.PaymentURL = paymentURL
+	tx.ProviderPaymentID = paymentResult.ProviderPaymentID
+	tx.ProviderOrderID = paymentResult.ProviderOrderID
+	tx.PaymentURL = paymentResult.PaymentURL
 
 	if err := h.transactionRepo.Put(ctx, tx); err != nil {
 		utils.LogError("save transaction", err)
@@ -111,8 +144,9 @@ func (h *PremiumHandler) upgradeToPremium(ctx context.Context, req events.APIGat
 
 	resp := models.PaymentResponse{
 		TransactionID: tx.TransactionID,
-		PaymentURL:    paymentURL,
-		OrderID:       orderID,
+		PaymentURL:    paymentResult.PaymentURL,
+		OrderID:       paymentResult.ProviderOrderID,
+		Amount:        amount,
 	}
 	body, _ := json.Marshal(resp)
 	return jsonResponse(http.StatusOK, string(body)), nil
@@ -160,7 +194,8 @@ func (h *PremiumHandler) featureListing(ctx context.Context, req events.APIGatew
 		Amount:          amount,
 		Currency:        "IDR",
 		Status:          models.TransactionStatusPending,
-		MidtransOrderID: orderID,
+		Provider:        h.paymentProvider.Name(),
+		ProviderOrderID: orderID,
 		Metadata: map[string]string{
 			"featureType":  featReq.Type,
 			"durationDays": fmt.Sprintf("%d", featReq.DurationDays),
@@ -171,14 +206,31 @@ func (h *PremiumHandler) featureListing(ctx context.Context, req events.APIGatew
 	tx.PK = tx.TransactionID
 	tx.SK = tx.CreatedAt.Format(time.RFC3339)
 
-	paymentURL, midtransID, err := createMidtransSnapToken(ctx, orderID, amount, user)
+	description := "Propti Featured Listing"
+	if featReq.Type == "promotion" {
+		description = "Propti Listing Promotion"
+	}
+	paymentResult, err := h.paymentProvider.CreatePayment(ctx, payments.CreatePaymentInput{
+		OrderID:         orderID,
+		Amount:          amount,
+		Currency:        "IDR",
+		Description:     description,
+		NotificationURL: buildPremiumCallbackURL(),
+		Customer: payments.Customer{
+			ID:    userID,
+			Name:  user.Name,
+			Email: user.Email,
+			Phone: user.Phone,
+		},
+	})
 	if err != nil {
-		utils.LogError("create midtrans snap token", err, "userId", userID)
+		utils.LogError("create payment checkout", err, "userId", userID, "provider", h.paymentProvider.Name())
 		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
 	}
 
-	tx.MidtransPaymentID = midtransID
-	tx.PaymentURL = paymentURL
+	tx.ProviderPaymentID = paymentResult.ProviderPaymentID
+	tx.ProviderOrderID = paymentResult.ProviderOrderID
+	tx.PaymentURL = paymentResult.PaymentURL
 
 	if err := h.transactionRepo.Put(ctx, tx); err != nil {
 		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
@@ -186,46 +238,35 @@ func (h *PremiumHandler) featureListing(ctx context.Context, req events.APIGatew
 
 	resp := models.PaymentResponse{
 		TransactionID: tx.TransactionID,
-		PaymentURL:    paymentURL,
-		OrderID:       orderID,
+		PaymentURL:    paymentResult.PaymentURL,
+		OrderID:       paymentResult.ProviderOrderID,
+		Amount:        amount,
 	}
 	body, _ := json.Marshal(resp)
 	return jsonResponse(http.StatusOK, string(body)), nil
 }
 
-// midtransCallback handles Midtrans payment notification webhooks.
-func (h *PremiumHandler) midtransCallback(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	var notification midtransNotification
-	if err := json.Unmarshal([]byte(req.Body), &notification); err != nil {
-		return jsonResponse(http.StatusBadRequest, utils.MarshalErrorResponse(utils.ErrBadRequest)), nil
-	}
-
-	// Verify signature key per Midtrans spec:
-	// SHA-512(order_id + status_code + gross_amount + server_key)
-	serverKey := os.Getenv("MIDTRANS_SERVER_KEY")
-	raw := notification.OrderID + notification.StatusCode + notification.GrossAmount + serverKey
-	h512 := sha512.New()
-	h512.Write([]byte(raw))
-	expectedSig := hex.EncodeToString(h512.Sum(nil))
-
-	if notification.SignatureKey != expectedSig {
-		utils.LogWarn("midtrans signature mismatch", "orderId", notification.OrderID)
+// paymentCallback handles payment notification webhooks.
+func (h *PremiumHandler) paymentCallback(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	callbackResult, err := h.paymentProvider.ParseCallback(req.Headers, req.Path, []byte(req.Body))
+	if err != nil {
+		utils.LogWarn("payment callback rejected", "provider", h.paymentProvider.Name(), "error", err.Error())
 		return jsonResponse(http.StatusUnauthorized, utils.MarshalErrorResponse(utils.ErrUnauthorized)), nil
 	}
 
-	tx, err := h.transactionRepo.GetByMidtransOrderID(ctx, notification.OrderID)
+	tx, err := h.transactionRepo.GetByProviderOrderID(ctx, callbackResult.ProviderOrderID)
 	if err != nil || tx == nil {
-		utils.LogWarn("transaction not found for callback", "orderId", notification.OrderID)
+		utils.LogWarn("transaction not found for callback", "provider", h.paymentProvider.Name(), "orderId", callbackResult.ProviderOrderID)
 		return jsonResponse(http.StatusNotFound, utils.MarshalErrorResponse(utils.ErrNotFound)), nil
 	}
 
-	switch notification.TransactionStatus {
-	case "capture", "settlement":
+	switch callbackResult.Status {
+	case payments.PaymentStatusSucceeded:
 		if err := h.handleSuccessfulPayment(ctx, tx); err != nil {
 			utils.LogError("handle successful payment", err, "transactionId", tx.TransactionID)
 			return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
 		}
-	case "deny", "cancel", "expire":
+	case payments.PaymentStatusFailed:
 		_ = h.transactionRepo.UpdateStatus(ctx, tx.TransactionID, tx.SK, models.TransactionStatusFailed)
 	}
 
@@ -234,6 +275,10 @@ func (h *PremiumHandler) midtransCallback(ctx context.Context, req events.APIGat
 
 // handleSuccessfulPayment fulfils the transaction: upgrade user tier or feature a listing.
 func (h *PremiumHandler) handleSuccessfulPayment(ctx context.Context, tx *models.Transaction) error {
+	if tx.Status == models.TransactionStatusCompleted {
+		return nil
+	}
+
 	if err := h.transactionRepo.UpdateStatus(ctx, tx.TransactionID, tx.SK, models.TransactionStatusCompleted); err != nil {
 		return err
 	}
@@ -274,92 +319,10 @@ func (h *PremiumHandler) handleSuccessfulPayment(ctx context.Context, tx *models
 	return nil
 }
 
-// --- Midtrans Snap API integration ---
-
-type midtransSnapRequest struct {
-	TransactionDetails struct {
-		OrderID     string  `json:"order_id"`
-		GrossAmount float64 `json:"gross_amount"`
-	} `json:"transaction_details"`
-	CustomerDetails struct {
-		FirstName string `json:"first_name"`
-		Email     string `json:"email"`
-	} `json:"customer_details"`
-}
-
-type midtransSnapResponse struct {
-	Token       string `json:"token"`
-	RedirectURL string `json:"redirect_url"`
-}
-
-type midtransNotification struct {
-	OrderID           string `json:"order_id"`
-	StatusCode        string `json:"status_code"`
-	GrossAmount       string `json:"gross_amount"`
-	SignatureKey      string `json:"signature_key"`
-	TransactionStatus string `json:"transaction_status"`
-	PaymentType       string `json:"payment_type"`
-	TransactionID     string `json:"transaction_id"`
-}
-
-// createMidtransSnapToken calls the Midtrans Snap API and returns the redirect URL and token.
-func createMidtransSnapToken(_ context.Context, orderID string, amount float64, user *models.User) (paymentURL, token string, err error) {
-	serverKey := os.Getenv("MIDTRANS_SERVER_KEY")
-	isProduction := os.Getenv("MIDTRANS_ENV") == "production"
-
-	baseURL := "https://app.sandbox.midtrans.com/snap/v1/transactions"
-	if isProduction {
-		baseURL = "https://app.midtrans.com/snap/v1/transactions"
+func buildPremiumCallbackURL() string {
+	baseURL := strings.TrimRight(os.Getenv("PUBLIC_API_BASE_URL"), "/")
+	if baseURL == "" {
+		return ""
 	}
-
-	snapReq := midtransSnapRequest{}
-	snapReq.TransactionDetails.OrderID = orderID
-	snapReq.TransactionDetails.GrossAmount = amount
-	snapReq.CustomerDetails.FirstName = user.Name
-	snapReq.CustomerDetails.Email = user.Email
-
-	payload, err := json.Marshal(snapReq)
-	if err != nil {
-		return "", "", fmt.Errorf("marshal snap request: %w", err)
-	}
-
-	httpReq, err := http.NewRequest(http.MethodPost, baseURL, bytes.NewReader(payload))
-	if err != nil {
-		return "", "", err
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Accept", "application/json")
-
-	// Midtrans uses HTTP Basic Auth with server key as username and empty password.
-	httpReq.SetBasicAuth(serverKey, "")
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(httpReq)
-	if err != nil {
-		return "", "", fmt.Errorf("snap api call: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusCreated {
-		return "", "", fmt.Errorf("snap api returned status %d", resp.StatusCode)
-	}
-
-	var snapResp midtransSnapResponse
-	if err := json.NewDecoder(resp.Body).Decode(&snapResp); err != nil {
-		return "", "", fmt.Errorf("decode snap response: %w", err)
-	}
-
-	if snapResp.RedirectURL == "" {
-		snapResp.RedirectURL = buildSnapRedirectURL(snapResp.Token, isProduction)
-	}
-
-	return snapResp.RedirectURL, snapResp.Token, nil
-}
-
-func buildSnapRedirectURL(token string, isProduction bool) string {
-	base := "https://app.sandbox.midtrans.com/snap/v2/vtweb/"
-	if isProduction {
-		base = "https://app.midtrans.com/snap/v2/vtweb/"
-	}
-	return base + strings.TrimSpace(token)
+	return baseURL + "/premium/callback"
 }

@@ -58,8 +58,8 @@ func (r *TransactionRepo) GetByID(ctx context.Context, transactionID, createdAt 
 	return &tx, nil
 }
 
-// GetByMidtransOrderID looks up a transaction by its Midtrans order ID via a GSI.
-func (r *TransactionRepo) GetByMidtransOrderID(ctx context.Context, orderID string) (*models.Transaction, error) {
+// GetByProviderOrderID looks up a transaction by its provider order ID via a GSI.
+func (r *TransactionRepo) GetByProviderOrderID(ctx context.Context, orderID string) (*models.Transaction, error) {
 	result, err := r.db.Client.Query(ctx, &dynamodb.QueryInput{
 		TableName:              aws.String(r.db.TransactionsTable),
 		IndexName:              aws.String("midtransOrderId-index"),
@@ -70,7 +70,7 @@ func (r *TransactionRepo) GetByMidtransOrderID(ctx context.Context, orderID stri
 		Limit: aws.Int32(1),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("query by midtransOrderId: %w", err)
+		return nil, fmt.Errorf("query by providerOrderId via legacy index: %w", err)
 	}
 	if len(result.Items) == 0 {
 		return nil, nil

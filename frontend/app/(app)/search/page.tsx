@@ -1,17 +1,26 @@
 'use client';
 
 import { Suspense } from 'react';
+import { useSession } from 'next-auth/react';
 import { useSearch } from '@/hooks/useSearch';
+import { useSaveListing, useSavedListings } from '@/hooks/useListings';
 import { SearchBar } from '@/components/search/SearchBar';
 import { FilterPanel } from '@/components/search/FilterPanel';
 import { ListingGrid } from '@/components/listings/ListingGrid';
 import { Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
-import type { SearchParams } from '@/types';
 
 function SearchResults() {
   const { params, listings, total, page, isLoading, isFetching, updateSearch, setPage } = useSearch();
+  const { status } = useSession();
+  const { data: savedData } = useSavedListings({ enabled: status === 'authenticated' });
+  const { mutateAsync: toggleSave, isPending: isSaving } = useSaveListing();
 
   const totalPages = Math.ceil(total / 12);
+  const savedIds = savedData?.items.map((listing) => listing.listingId) ?? [];
+
+  const handleSave = async (listingId: string) => {
+    await toggleSave({ id: listingId, saved: savedIds.includes(listingId) });
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -56,6 +65,8 @@ function SearchResults() {
             <>
               <ListingGrid
                 listings={listings}
+                savedIds={savedIds}
+                onSave={status === 'authenticated' && !isSaving ? handleSave : undefined}
                 emptyMessage="Tidak ada properti yang sesuai dengan filter pencarian."
               />
 

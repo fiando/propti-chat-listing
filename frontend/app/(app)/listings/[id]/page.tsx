@@ -1,7 +1,7 @@
 'use client';
 
 import { use } from 'react';
-import { useListing } from '@/hooks/useListings';
+import { useListing, useSaveListing, useSavedListings } from '@/hooks/useListings';
 import { ListingDetail } from '@/components/listings/ListingDetail';
 import { useDeleteListing } from '@/hooks/useListings';
 import { useRouter } from 'next/navigation';
@@ -13,8 +13,10 @@ export default function ListingDetailPage({ params }: { params: Promise<{ id: st
   const { id } = use(params);
   const { data: listing, isLoading, error } = useListing(id);
   const { mutateAsync: deleteListing, isPending: isDeleting } = useDeleteListing();
+  const { mutateAsync: toggleSave, isPending: isSaving } = useSaveListing();
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+  const { data: savedData } = useSavedListings({ enabled: status === 'authenticated' });
 
   const handleDelete = async () => {
     if (!confirm('Yakin ingin menghapus iklan ini?')) return;
@@ -43,11 +45,20 @@ export default function ListingDetailPage({ params }: { params: Promise<{ id: st
   }
 
   const isOwner = session?.user && (listing.userId === (session as { user?: { id?: string } }).user?.id);
+  const savedIds = savedData?.items.map((item) => item.listingId) ?? [];
+  const isSaved = savedIds.includes(id);
+
+  const handleSave = async () => {
+    await toggleSave({ id, saved: isSaved });
+  };
 
   return (
     <ListingDetail
       listing={listing}
       isOwner={isOwner || false}
+      isSaved={isSaved}
+      isSaving={isSaving}
+      onSave={status === 'authenticated' ? handleSave : undefined}
       onDelete={isDeleting ? undefined : handleDelete}
     />
   );

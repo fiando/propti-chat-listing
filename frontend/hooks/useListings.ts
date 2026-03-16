@@ -42,10 +42,11 @@ export function useMyListings(params: SearchParams = {}) {
   });
 }
 
-export function useSavedListings() {
+export function useSavedListings(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['saved-listings'],
     queryFn: getSavedListings,
+    enabled: options?.enabled ?? true,
   });
 }
 
@@ -88,8 +89,11 @@ export function useSaveListing() {
   return useMutation({
     mutationFn: ({ id, saved }: { id: string; saved: boolean }) =>
       saved ? unsaveListing(id) : saveListing(id),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['saved-listings'] });
+      queryClient.invalidateQueries({ queryKey: ['listings'] });
+      queryClient.invalidateQueries({ queryKey: ['my-listings'] });
+      queryClient.invalidateQueries({ queryKey: ['listing', variables.id] });
     },
   });
 }

@@ -11,6 +11,7 @@ import type {
   PaymentResponse,
   LocationSuggestion,
   LocationOption,
+  UpdateProfileRequest,
 } from '@/types';
 import { getBackendAuthHeader, getBackendProfilePath } from '@/lib/backend-auth';
 
@@ -116,17 +117,22 @@ export async function getUploadUrl(
 export async function featureListing(
   data: FeatureListingRequest
 ): Promise<PaymentResponse> {
-  const response = await apiClient.post<PaymentResponse>('/listings/feature', data);
+  const response = await apiClient.post<PaymentResponse>('/premium/feature-listing', data);
   return response.data;
 }
 
 export async function upgradePremium(): Promise<PaymentResponse> {
-  const response = await apiClient.post<PaymentResponse>('/users/upgrade');
+  const response = await apiClient.post<PaymentResponse>('/premium/upgrade');
   return response.data;
 }
 
 export async function getProfile(): Promise<User> {
   const response = await apiClient.get<User>(getBackendProfilePath());
+  return response.data;
+}
+
+export async function updateProfile(data: UpdateProfileRequest): Promise<User> {
+  const response = await apiClient.put<User>(getBackendProfilePath(), data);
   return response.data;
 }
 

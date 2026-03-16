@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
 import { Heart, MapPin, Bed, Bath, Maximize2, Home, Eye, Star } from 'lucide-react';
 import { cn, formatPrice, LISTING_TYPE_LABELS } from '@/lib/utils';
 import type { Listing } from '@/types';
@@ -13,12 +12,9 @@ interface ListingCardProps {
 }
 
 export function ListingCard({ listing, onSave, isSaved = false }: ListingCardProps) {
-  const [saved, setSaved] = useState(isSaved);
-
   const handleSave = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setSaved(!saved);
     onSave?.(listing.listingId);
   };
 
@@ -70,12 +66,14 @@ export function ListingCard({ listing, onSave, isSaved = false }: ListingCardPro
           onClick={handleSave}
           className={cn(
             'absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200',
-            saved
+            isSaved
               ? 'bg-red-500 text-white shadow-md'
               : 'bg-white/90 text-gray-500 hover:bg-white hover:text-red-400 shadow-sm'
           )}
+          disabled={!onSave}
+          aria-label={isSaved ? 'Hapus dari tersimpan' : 'Simpan properti'}
         >
-          <Heart className={cn('w-4 h-4', saved && 'fill-white')} />
+          <Heart className={cn('w-4 h-4', isSaved && 'fill-white')} />
         </button>
 
         {/* Views */}

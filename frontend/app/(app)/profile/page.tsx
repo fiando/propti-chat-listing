@@ -154,7 +154,7 @@ export default function ProfilePage() {
               className="w-full btn-gold flex items-center justify-center gap-2"
             >
               <Crown className="w-4 h-4" />
-              Upgrade ke Premium — Rp 99rb/bulan
+              Upgrade ke Premium — Rp 49rb/bulan
             </button>
           </div>
         )}

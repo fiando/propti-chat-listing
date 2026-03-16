@@ -17,7 +17,9 @@ export function useAuth() {
 
   const isAuthenticated = status === 'authenticated';
   const isLoading = status === 'loading';
-  const isPremium = profile?.subscription?.tier === 'premium';
+  const renewDate = profile?.subscription?.renewDate ? new Date(profile.subscription.renewDate) : null;
+  const hasActiveRenewDate = renewDate ? Number.isFinite(renewDate.getTime()) && renewDate.getTime() > Date.now() : true;
+  const isPremium = profile?.subscription?.tier === 'premium' && hasActiveRenewDate;
 
   const login = () => signIn('google', { callbackUrl: '/' });
   const logout = () => signOut({ callbackUrl: '/' });

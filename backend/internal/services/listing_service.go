@@ -34,6 +34,7 @@ type ListingStore interface {
 // UserStore is the storage interface for user persistence.
 type UserStore interface {
 	GetByID(ctx context.Context, userID string) (*models.User, error)
+	Put(ctx context.Context, user *models.User) error
 }
 
 // AIParseService is the interface for AI-based listing text parsing.
@@ -357,6 +358,128 @@ func (s *ListingService) ListMyListings(ctx context.Context, userID string, para
 	return filtered, nil
 }
 
+// ListSavedListings returns the authenticated user's saved listings.
+func (s *ListingService) ListSavedListings(ctx context.Context, userID string, params *models.ListingSearchParams) ([]models.Listing, error) {
+	params.Page, params.PageSize = utils.ValidatePagination(params.Page, params.PageSize)
+
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, utils.ErrInternal
+	}
+	if user == nil {
+		return nil, utils.ErrUnauthorized
+	}
+
+	limit := params.PageSize
+	if limit <= 0 {
+		limit = len(user.SavedListingIDs)
+	}
+
+	listings := make([]models.Listing, 0, min(limit, len(user.SavedListingIDs)))
+	for _, listingID := range user.SavedListingIDs {
+		listing, err := s.getCurrentListingByListingID(ctx, listingID)
+		if err != nil {
+			utils.LogError("get saved listing", err, "userId", userID, "listingId", listingID)
+			return nil, utils.ErrInternal
+		}
+		if listing == nil {
+			continue
+		}
+		if listing.Status != models.ListingStatusActive || listing.ModerationStatus != models.ModerationStatusApproved {
+			continue
+		}
+		listings = append(listings, *listing)
+		if len(listings) >= limit {
+			break
+		}
+	}
+
+	return listings, nil
+}
+
+// SaveListing adds a listing to the authenticated user's saved listings.
+func (s *ListingService) SaveListing(ctx context.Context, userID, listingID string) error {
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return utils.ErrInternal
+	}
+	if user == nil {
+		return utils.ErrUnauthorized
+	}
+
+	listing, err := s.getCurrentListingByListingID(ctx, listingID)
+	if err != nil {
+		return utils.ErrInternal
+	}
+	if listing == nil || listing.Status != models.ListingStatusActive || listing.ModerationStatus != models.ModerationStatusApproved {
+		return utils.ErrNotFound
+	}
+
+	for _, savedListingID := range user.SavedListingIDs {
+		if savedListingID == listingID {
+			return nil
+		}
+	}
+
+	user.SavedListingIDs = append(user.SavedListingIDs, listingID)
+	if err := s.userRepo.Put(ctx, user); err != nil {
+		return utils.ErrInternal
+	}
+
+	listing.Saves++
+	listing.UpdatedAt = time.Now().UTC()
+	if err := s.listingRepo.Put(ctx, listing); err != nil {
+		return utils.ErrInternal
+	}
+
+	return nil
+}
+
+// UnsaveListing removes a listing from the authenticated user's saved listings.
+func (s *ListingService) UnsaveListing(ctx context.Context, userID, listingID string) error {
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return utils.ErrInternal
+	}
+	if user == nil {
+		return utils.ErrUnauthorized
+	}
+
+	index := -1
+	for i, savedListingID := range user.SavedListingIDs {
+		if savedListingID == listingID {
+			index = i
+			break
+		}
+	}
+	if index == -1 {
+		return nil
+	}
+
+	user.SavedListingIDs = append(user.SavedListingIDs[:index], user.SavedListingIDs[index+1:]...)
+	if err := s.userRepo.Put(ctx, user); err != nil {
+		return utils.ErrInternal
+	}
+
+	listing, err := s.getCurrentListingByListingID(ctx, listingID)
+	if err != nil {
+		return utils.ErrInternal
+	}
+	if listing == nil {
+		return nil
+	}
+
+	if listing.Saves > 0 {
+		listing.Saves--
+	}
+	listing.UpdatedAt = time.Now().UTC()
+	if err := s.listingRepo.Put(ctx, listing); err != nil {
+		return utils.ErrInternal
+	}
+
+	return nil
+}
+
 // DeleteListing removes a listing after ownership verification.
 func (s *ListingService) DeleteListing(ctx context.Context, userID, listingID string) error {
 	listing, err := s.listingRepo.GetByID(ctx, userID, listingID)
@@ -408,6 +531,13 @@ func (s *ListingService) GetUploadURL(ctx context.Context, userID, listingID, fi
 // listingMediaKey builds the S3 key for listing media.
 func listingMediaKey(listingID, filename string) string {
 	return fmt.Sprintf("listings/%s/%s", listingID, filename)
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // FeatureListing marks a listing as featured/promoted until the given expiry.

@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/fiando/propti/backend/internal/data"
 	"github.com/fiando/propti/backend/internal/handlers"
+	"github.com/fiando/propti/backend/internal/payments"
 	"github.com/fiando/propti/backend/internal/repository"
 	"github.com/fiando/propti/backend/internal/services"
 	"github.com/fiando/propti/backend/internal/utils"
@@ -46,7 +47,17 @@ func main() {
 	}
 
 	listingSvc := services.NewListingService(listingRepo, userRepo, aiSvc, s3Svc, mapsSvc, locationCatalog)
+	dokuBaseURL := "https://api-sandbox.doku.com"
+	if os.Getenv("DOKU_ENV") == "production" {
+		dokuBaseURL = "https://api.doku.com"
+	}
 
-	premiumHandler := handlers.NewPremiumHandler(userRepo, listingRepo, transactionRepo, listingSvc)
+	paymentProvider := payments.NewDOKUProvider(payments.DOKUConfig{
+		ClientID:  os.Getenv("DOKU_CLIENT_ID"),
+		SecretKey: os.Getenv("DOKU_SECRET_KEY"),
+		BaseURL:   dokuBaseURL,
+	})
+
+	premiumHandler := handlers.NewPremiumHandler(userRepo, transactionRepo, listingSvc, paymentProvider)
 	lambda.Start(premiumHandler.Handle)
 }

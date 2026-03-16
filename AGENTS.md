@@ -4,6 +4,16 @@
 
 Use these steps when you need to redeploy production without rediscovering the setup.
 
+### Skills-first reminder
+
+When a future agent needs to deploy or redeploy production, load these repo-local skills first:
+
+- `.github/skills/production-deploy/SKILL.md`
+- `.github/skills/deploy-frontend/SKILL.md`
+- `.github/skills/deploy-backend/SKILL.md`
+
+Use the combined skill for triage and end-to-end redeploys, then the per-surface skills for the exact frontend or backend procedure.
+
 ### Shared env-file workflow
 
 Use committed example files as the source of truth for required variables:
@@ -63,6 +73,27 @@ cd frontend && vercel env ls production
 If `gh secret list --env production` returns `no secrets found`, restore the frontend secrets above before rerunning `Deploy Frontend`. The latest failed frontend workflow in this repo stopped immediately on missing `NEXTAUTH_URL`.
 
 Direct CLI deploy is only safe after the auth and public runtime variables above exist either in the Vercel project env or are passed explicitly during deploy.
+
+Manual CLI fallback that was verified from this repo on 2026-03-13:
+
+```bash
+cd frontend
+vercel whoami
+vercel env ls production
+npm run test:deploy-config
+npm run lint
+npm run build
+vercel deploy --prod --yes
+vercel inspect <deployment-url>
+```
+
+Current linked Vercel project details in this repo:
+- `frontend/.vercel/project.json`
+- `projectName=frontend`
+- `orgId=team_hcVAY7JajK1yJwfF1wZjForP`
+- `projectId=prj_NWTrClnRGeb5iYaPuGY3mNwd6hTf`
+
+The latest verified production redeploy from local CLI produced a Ready deployment aliased to `https://propti.id`.
 
 ### Backend (`backend/`) -> AWS SAM
 
@@ -125,3 +156,26 @@ cd backend && sam build
 ```
 
 If `gh secret list --env production` returns `no secrets found`, restore `AWS_ROLE_ARN` and the backend secrets above before rerunning `Deploy Backend`. The latest failed backend workflow in this repo stopped at AWS credential setup.
+
+Manual CLI fallback that was verified from this repo on 2026-03-13:
+
+```bash
+aws sts get-caller-identity
+cd backend
+go test ./...
+sam build
+sam deploy \
+  --no-confirm-changeset \
+  --no-fail-on-empty-changeset \
+  --resolve-s3 \
+  --stack-name propti-backend \
+  --region ap-southeast-1 \
+  --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+  --parameter-overrides \
+    Stage=production \
+    ApiCustomDomainName=api.propti.id \
+    ApiCustomDomainCertificateArn=arn:aws:acm:ap-southeast-1:260317865867:certificate/a6625ab7-0527-4dbf-aa1e-f22a39a33e98
+aws cloudformation describe-stacks --stack-name propti-backend --region ap-southeast-1
+```
+
+The latest verified local SAM redeploy completed successfully and preserved the custom API domain `https://api.propti.id`.
