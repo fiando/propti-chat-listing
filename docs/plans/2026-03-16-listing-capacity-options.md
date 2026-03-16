@@ -1,100 +1,152 @@
 # Listing Capacity Options
 
-## Current state
+## Updated product constraint
 
-The current product model is simple but rigid:
+The public product lineup should stay at exactly **two plans**:
 
-- user subscription only stores `tier`, `monthlyListingsUsed`, and `renewDate`
-- listing creation logic explicitly blocks free users after `1` listing per month
-- premium is treated mostly as a binary access state instead of a configurable quota product
-- there is no concept of purchased quota, carry-over balance, or custom seller plans
+- Free
+- Premium
 
-This makes Premium easy to explain, but it also makes growth offers hard to model. If a subscribed seller wants more capacity, the product currently has no clean path besides changing the single Premium rule itself.
+That means extra listing capacity must not feel like a third public plan. It must be positioned so Premium remains the main upgrade path and the best-value relationship for serious sellers.
 
-## Option 1 — Multiple subscription tiers
+## Option 1 — Premium-only extra capacity (recommended)
 
-Examples:
+### Model
 
-- Free: 1 listing/month
-- Premium Basic: 5 listings/month
-- Premium Plus: 20 listings/month
-- Agency: 100 listings/month
+- Free users get the basic free quota only
+- users must upgrade to Premium before they can buy extra listing capacity
+- Premium includes bundled monthly listing allowance plus core seller perks
+- extra listing packs are available only as Premium top-ups
+
+### Why this is strongest
+
+This keeps the product ladder very clear:
+
+- Free = try the marketplace
+- Premium = become a serious seller
+- Extra capacity = scale further after becoming Premium
+
+That structure protects Premium from becoming useless. The user first subscribes because Premium unlocks the better selling experience. Then, once they are already in Premium, extra capacity monetizes heavy usage without creating a substitute plan.
 
 ### Pros
 
-- very easy for users to understand
-- pricing page is straightforward
-- quota reset logic stays subscription-based
-- good for predictable recurring revenue
+- strongest protection of Premium value
+- simple upgrade path
+- clean recurring revenue foundation
+- top-ups feel like a power-user expansion, not a replacement plan
 
 ### Cons
 
-- users must upgrade the whole plan even when they only need a temporary increase
-- tier migration logic becomes important
-- not very flexible for seasonal demand spikes
+- some free users who only want one temporary burst may convert later
+- requires Premium to feel clearly valuable even before top-ups
 
 ### Best for
 
-A product that wants a clean SaaS pricing ladder with low operational complexity.
+A marketplace that wants Premium to be the main business model and extra spend to come from higher-intent sellers.
 
-## Option 2 — Pay-per-extra-listing credits
+## Option 2 — Everyone can buy capacity, but Premium gets better economics
 
-Examples:
+### Model
 
-- Free or Premium users buy extra listing credits in packs
-- each new listing consumes one credit after the included plan quota is exhausted
+- Free users can buy listing credits
+- Premium users get lower unit pricing, better pack sizes, or bonus credits
+
+### Why teams consider it
+
+This can capture revenue from people who refuse subscriptions but still want more inventory temporarily.
 
 ### Pros
 
-- highly flexible for occasional sellers
-- easier upsell for users who do not want a larger recurring plan
-- good monetization for demand spikes
+- broader monetization surface
+- may increase short-term conversion from occasional sellers
 
 ### Cons
 
-- balance accounting becomes more complex
-- users may be confused about whether they are buying a subscription or prepaid quota
-- credit expiry rules need to be clear
+- weakens the reason to subscribe
+- easy for users to think: "why buy Premium if I can just buy credits?"
+- requires careful pricing to avoid damaging Premium positioning
 
 ### Best for
 
-A marketplace with bursty seller behavior and many occasional payers.
+A marketplace optimizing aggressively for short-term transaction revenue over strong subscription identity.
 
-## Option 3 — Hybrid model (recommended)
+## Option 3 — No extra capacity purchase, only richer Premium
 
-Examples:
+### Model
 
-- Free: 1 listing/month
-- Premium: included monthly quota, e.g. 5 active listings/month
-- Add-on packs: +5, +10, +25 temporary listing slots or posting credits
-- Agency / enterprise override: custom negotiated quota
-
-### Why this is the strongest fit
-
-It preserves the simplicity of a recurring Premium product while unlocking flexibility for power sellers. Users can stay on Premium for baseline value, then add extra capacity only when they actually need it. The same model also leaves room for agent teams or agencies later.
+- still only Free and Premium
+- Premium gets a higher included limit, maybe rollover, bonus monthly quota, and stronger perks
+- no separate top-up product
 
 ### Pros
 
-- flexible without abandoning the existing Premium concept
-- easy upgrade story: subscription first, add-ons second
-- supports both recurring sellers and seasonal spikes
-- gives room for enterprise or admin-managed quota later
+- simplest model to explain and operate
+- Premium always feels central
+- low implementation and support complexity
 
 ### Cons
 
-- most complex option to model correctly
-- requires clear UI around included quota vs purchased add-ons
-- needs explicit policy decisions for expiry, refunds, and reset behavior
+- leaves money on the table from high-volume sellers
+- less flexible during seasonal demand spikes
+- forces some users to ask support for exceptions
+
+### Best for
+
+A product that prioritizes simplicity over monetization flexibility.
 
 ## Recommendation
 
-Use the hybrid model as the main design direction.
+Choose **Option 1: Premium-only extra capacity**.
 
-Start with a simple structure:
+This is the cleanest revenue model if your goal is to attract users into Premium without making Premium feel unnecessary.
 
-- keep Free and Premium as base plans
-- define a configurable included monthly quota per plan
-- add one purchasable extra-capacity product type
-- reserve a manual custom-quota override for internal/admin use
+## Positioning principle
 
-That gives Propti a path from small sellers to serious agents without needing to rebuild the subscription model each time pricing evolves.
+Premium must deliver value **before** extra credits are even considered.
+
+That means Premium should not be sold only as "the ability to buy more." Instead it should feel like the complete seller plan with:
+
+- included monthly listing quota
+- more media and richer listing presentation
+- better visibility or selling tools
+- lower friction for frequent sellers
+- access to paid top-ups only after becoming Premium
+
+## Revenue model suggestion
+
+### Free
+
+- very limited listing quota
+- basic experience
+- strong upgrade messaging
+
+### Premium
+
+- recurring subscription with a clearly useful included quota
+- strongest seller experience
+- best economics per listing posted
+- unlocks access to extra capacity packs
+
+### Extra capacity packs
+
+- available only to Premium members
+- framed as scale packs, not as alternative plans
+- used when sellers exceed the included Premium allowance
+
+## How to make Premium feel attractive
+
+To protect Premium’s status, use these rules:
+
+1. **Premium gets the best unit economics**
+   - the subscription should already be the cheapest cost-per-listing path for any active seller
+
+2. **Top-ups are expansion, not access**
+   - users cannot buy top-ups unless they are already Premium
+
+3. **Premium includes exclusive seller value**
+   - examples: larger media limit, featured listing discount, better analytics, priority moderation, stronger trust badges, or better AI tools
+
+4. **Retention rewards stay inside Premium**
+   - examples: bonus listing credits on renewal, small credit rollover cap, or loyalty perks after consecutive paid months
+
+That combination makes Premium the identity and top-ups the monetization expansion layer.
