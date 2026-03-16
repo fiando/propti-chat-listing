@@ -2,8 +2,6 @@ import Link from 'next/link';
 import { Facebook, Instagram, Twitter } from 'lucide-react';
 import { ProptiLogo } from './ProptiLogo';
 
-const FOOTER_LOGO_CARD_CLASS = 'rounded-xl bg-white px-3 py-2';
-
 const FOOTER_LINKS = {
   Produk: [
     { label: 'Cari Properti', href: '/search' },
@@ -29,8 +27,9 @@ export function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
-            <div className="mb-4">
-              <ProptiLogo size={36} showWordmark className={FOOTER_LOGO_CARD_CLASS} />
+            <div className="mb-4 flex items-center gap-3">
+              <ProptiLogo size={36} />
+              <span className="text-2xl font-black tracking-tight text-white">Propti</span>
             </div>
             <p className="text-white/60 text-sm leading-relaxed mb-6">
               Jual beli properti semudah chat WhatsApp. AI kami otomatis rapikan iklanmu.
