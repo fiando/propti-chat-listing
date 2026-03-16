@@ -7,8 +7,8 @@ interface ProptiLogoProps {
   showWordmark?: boolean;
 }
 
-const FULL_LOGO_ASPECT_RATIO = 337 / 138;
-const ICON_MARK_ASPECT_RATIO = 120 / 138;
+const FULL_LOGO_ASPECT_RATIO = 3;
+const ICON_MARK_ASPECT_RATIO = 96 / 112;
 const FULL_LOGO_SRC = '/propti-logo.svg';
 const ICON_MARK_SRC = '/propti-mark.svg';
 const MIN_IMAGE_DIMENSION_PX = 1;
