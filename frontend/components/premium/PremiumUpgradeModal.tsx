@@ -13,9 +13,7 @@ const PREMIUM_FEATURES = [
   'Upload hingga 30 foto per iklan (gratis maksimal 3)',
   'Iklan tampil lebih lama (gratis 30 hari)',
   'Posting lebih dari 3 listing gratis',
-  'Statistik detail per iklan',
-  'Badge "Penjual Terverifikasi"',
-  'Prioritas dukungan pelanggan',
+  'Statistik dasar listing: dilihat dan disimpan',
 ];
 
 export function PremiumUpgradeModal({ isOpen, onClose }: PremiumUpgradeModalProps) {
@@ -55,7 +53,7 @@ export function PremiumUpgradeModal({ isOpen, onClose }: PremiumUpgradeModalProp
             <Crown className="w-8 h-8 text-white" />
           </div>
           <h2 className="text-2xl font-black">Propti Premium</h2>
-          <p className="text-white/80 mt-1 text-sm">Jangkau lebih banyak calon pembeli</p>
+          <p className="text-white/80 mt-1 text-sm">Tambah kapasitas listing dan media tanpa janji fitur yang belum aktif</p>
           <div className="mt-4">
             <span className="text-4xl font-black">Rp 49rb</span>
             <span className="text-white/70 text-sm ml-1">/bulan</span>
@@ -80,6 +78,11 @@ export function PremiumUpgradeModal({ isOpen, onClose }: PremiumUpgradeModalProp
               {error}
             </div>
           )}
+
+          <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 mb-4 text-sm text-amber-800">
+            Iklan unggulan atau promosi berbayar per listing dan dibayar terpisah dari paket
+            Premium ini. Boost tetap memakai checkout terpisah saat tersedia.
+          </div>
 
           <button
             onClick={handleUpgrade}

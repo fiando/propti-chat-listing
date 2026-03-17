@@ -16,3 +16,12 @@ test('premium modal copy reflects 30-photo cap and free tier 3-listing baseline'
   assert.doesNotMatch(premiumModal, /foto tidak terbatas/i);
   assert.doesNotMatch(premiumModal, /gratis hanya 1/i);
 });
+
+test('premium modal copy only promises shipped benefits and clarifies boost is separate', () => {
+  assert.match(premiumModal, /statistik dasar/i);
+  assert.match(premiumModal, /iklan unggulan.*terpisah/i);
+  assert.match(premiumModal, /berbayar per listing/i);
+  assert.doesNotMatch(premiumModal, /statistik detail/i);
+  assert.doesNotMatch(premiumModal, /penjual terverifikasi/i);
+  assert.doesNotMatch(premiumModal, /prioritas dukungan pelanggan/i);
+});
