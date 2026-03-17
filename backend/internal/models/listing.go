@@ -66,7 +66,9 @@ type Listing struct {
 	Videos           []string         `json:"videos" dynamodbav:"videos"`
 	ImageCount       int              `json:"imageCount" dynamodbav:"imageCount"`
 	PremiumFeatures  PremiumFeatures  `json:"premiumFeatures" dynamodbav:"premiumFeatures"`
+	SellerName       string           `json:"sellerName,omitempty" dynamodbav:"-"`
 	SellerPhone      string           `json:"sellerPhone,omitempty" dynamodbav:"-"`
+	HasSellerPhone   bool             `json:"hasSellerPhone" dynamodbav:"-"`
 	Views            int              `json:"views" dynamodbav:"views"`
 	Saves            int              `json:"saves" dynamodbav:"saves"`
 	ModerationStatus ModerationStatus `json:"moderationStatus" dynamodbav:"moderationStatus"`
@@ -117,6 +119,23 @@ type ListingSearchParams struct {
 	SortBy          string      `json:"sortBy"`
 	Page            int         `json:"page"`
 	PageSize        int         `json:"pageSize"`
+}
+
+type ContactRevealChannel string
+
+const (
+	ContactRevealChannelWhatsApp ContactRevealChannel = "whatsapp"
+	ContactRevealChannelPhone    ContactRevealChannel = "phone"
+)
+
+type RevealListingContactRequest struct {
+	Channel ContactRevealChannel `json:"channel"`
+}
+
+type ListingContactReveal struct {
+	SellerName  string               `json:"sellerName"`
+	SellerPhone string               `json:"sellerPhone"`
+	Channel     ContactRevealChannel `json:"channel"`
 }
 
 type ParseTextRequest struct {

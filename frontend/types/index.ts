@@ -47,7 +47,9 @@ export interface Listing {
   videos: string[];
   imageCount: number;
   premiumFeatures: PremiumFeatures;
+  sellerName?: string;
   sellerPhone?: string;
+  hasSellerPhone?: boolean;
   views: number;
   saves: number;
   moderationStatus: ModerationStatus;
@@ -72,6 +74,14 @@ export interface User {
   };
   createdAt: string;
   lastLoginAt: string;
+}
+
+export type ContactRevealChannel = 'whatsapp' | 'phone';
+
+export interface RevealListingContactResponse {
+  sellerName: string;
+  sellerPhone: string;
+  channel: ContactRevealChannel;
 }
 
 export interface UserPreferences {

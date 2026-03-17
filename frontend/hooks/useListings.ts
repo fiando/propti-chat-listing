@@ -10,6 +10,7 @@ import {
   getListings,
   getListing,
   trackListingView,
+  revealListingContact,
   createListing,
   updateListing,
   deleteListing,
@@ -19,7 +20,7 @@ import {
   getSavedListings,
 } from '@/lib/api';
 import { collectActiveListingCount } from '@/lib/my-listing-access';
-import type { SearchParams, CreateListingRequest } from '@/types';
+import type { SearchParams, CreateListingRequest, ContactRevealChannel } from '@/types';
 import { LISTING_ACCESS_CHECK_PAGE_SIZE } from '@/lib/create-listing-errors';
 
 export function useListings(params: SearchParams = {}) {
@@ -45,6 +46,13 @@ export function useTrackListingView() {
     onSuccess: (listing) => {
       queryClient.setQueryData(['listing', listing.listingId], listing);
     },
+  });
+}
+
+export function useRevealListingContact() {
+  return useMutation({
+    mutationFn: ({ id, channel }: { id: string; channel: ContactRevealChannel }) =>
+      revealListingContact(id, channel),
   });
 }
 
@@ -95,6 +103,7 @@ export function useCreateListing() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['listings'] });
       queryClient.invalidateQueries({ queryKey: ['my-listings'] });
+      queryClient.invalidateQueries({ queryKey: ['my-listing-quota-summary'] });
     },
   });
 }
@@ -106,6 +115,7 @@ export function useUpdateListing(id: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['listing', id] });
       queryClient.invalidateQueries({ queryKey: ['my-listings'] });
+      queryClient.invalidateQueries({ queryKey: ['my-listing-quota-summary'] });
     },
   });
 }
@@ -118,6 +128,7 @@ export function useDeleteListing() {
       queryClient.removeQueries({ queryKey: ['listing', id] });
       queryClient.invalidateQueries({ queryKey: ['listings'] });
       queryClient.invalidateQueries({ queryKey: ['my-listings'] });
+      queryClient.invalidateQueries({ queryKey: ['my-listing-quota-summary'] });
     },
   });
 }

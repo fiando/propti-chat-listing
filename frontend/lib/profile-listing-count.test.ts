@@ -83,6 +83,7 @@ test('create listing page blocks free-tier sellers early using current active li
   assert.match(createPage, /userId:\s*profile\?\.userId\s*\?\?\s*null/);
   assert.match(createPage, /Coba lagi/);
   assert.match(useListingsHook, /queryKey:\s*\['my-listing-quota-summary',\s*options\?\.userId\s*\?\?\s*null,\s*options\?\.activeLimit\s*\?\?\s*null\]/);
+  assert.match(useListingsHook, /invalidateQueries\(\{ queryKey: \['my-listing-quota-summary'\] \}\)/);
 });
 
 test('parsed-result handoff is explicit and scrolls final review to the top', () => {

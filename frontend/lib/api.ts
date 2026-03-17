@@ -11,6 +11,8 @@ import type {
   PaymentResponse,
   LocationSuggestion,
   LocationOption,
+  ContactRevealChannel,
+  RevealListingContactResponse,
   UpdateProfileRequest,
 } from '@/types';
 import { getBackendAuthHeader, getBackendProfilePath } from '@/lib/backend-auth';
@@ -101,6 +103,16 @@ export async function getListing(id: string): Promise<Listing> {
 
 export async function trackListingView(id: string): Promise<Listing> {
   const response = await apiClient.post<Listing>(`/listings/${id}/view`);
+  return response.data;
+}
+
+export async function revealListingContact(
+  id: string,
+  channel: ContactRevealChannel
+): Promise<RevealListingContactResponse> {
+  const response = await apiClient.post<RevealListingContactResponse>(`/listings/${id}/contact-reveal`, {
+    channel,
+  });
   return response.data;
 }
 

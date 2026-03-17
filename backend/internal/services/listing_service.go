@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -249,10 +250,56 @@ func (s *ListingService) GetListing(ctx context.Context, listingID string) (*mod
 		return nil, utils.ErrNotFound
 	}
 	if seller, err := s.userRepo.GetByID(ctx, listing.UserID); err == nil && seller != nil {
-		listing.SellerPhone = seller.Phone
+		listing.SellerName = seller.Name
+		listing.HasSellerPhone = strings.TrimSpace(seller.Phone) != ""
 	}
 
 	return listing, nil
+}
+
+func (s *ListingService) RevealListingContact(
+	ctx context.Context,
+	viewerUserID, listingID string,
+	channel models.ContactRevealChannel,
+) (*models.ListingContactReveal, error) {
+	switch channel {
+	case models.ContactRevealChannelWhatsApp, models.ContactRevealChannelPhone:
+	default:
+		return nil, utils.NewAppError(400, "channel is required")
+	}
+
+	listing, err := s.getCurrentListingByListingID(ctx, listingID)
+	if err != nil {
+		return nil, utils.ErrInternal
+	}
+	if listing == nil {
+		return nil, utils.ErrNotFound
+	}
+	if listing.Status != models.ListingStatusActive || listing.ModerationStatus != models.ModerationStatusApproved {
+		return nil, utils.ErrNotFound
+	}
+
+	seller, err := s.userRepo.GetByID(ctx, listing.UserID)
+	if err != nil {
+		return nil, utils.ErrInternal
+	}
+	if seller == nil || strings.TrimSpace(seller.Phone) == "" {
+		return nil, utils.NewAppError(404, "seller contact is not available")
+	}
+
+	utils.LogInfo(
+		"listing contact revealed",
+		"listingId", listingID,
+		"viewerUserId", viewerUserID,
+		"sellerUserId", seller.UserID,
+		"channel", channel,
+	)
+
+	return &models.ListingContactReveal{
+		SellerName:  seller.Name,
+		SellerPhone: seller.Phone,
+		Channel:     channel,
+	}, nil
 }
 
 // RecordListingView increments the public impression counter for a listing.

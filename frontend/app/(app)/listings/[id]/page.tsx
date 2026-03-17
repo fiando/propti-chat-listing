@@ -76,6 +76,7 @@ export default function ListingDetailPage({ params }: { params: Promise<{ id: st
     <ListingDetail
       listing={listing}
       isOwner={isOwner || false}
+      isAuthenticated={status === 'authenticated'}
       isSaved={isSaved}
       isSaving={isSaving}
       onSave={status === 'authenticated' ? handleSave : undefined}

@@ -56,6 +56,9 @@ func (h *ListingHandler) Handle(ctx context.Context, req events.APIGatewayProxyR
 	case method == http.MethodPost && isListingViewPath(path):
 		return h.recordListingView(ctx, req)
 
+	case method == http.MethodPost && isListingContactRevealPath(path):
+		return h.revealListingContact(ctx, req)
+
 	case method == http.MethodPut && isListingPath(path):
 		return h.updateListing(ctx, req)
 
@@ -151,6 +154,34 @@ func (h *ListingHandler) recordListingView(ctx context.Context, req events.APIGa
 	}
 
 	body, _ := json.Marshal(listing)
+	return jsonResponse(http.StatusOK, string(body)), nil
+}
+
+func (h *ListingHandler) revealListingContact(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	userID, err := extractUserID(req)
+	if err != nil {
+		return jsonResponse(http.StatusUnauthorized, utils.MarshalErrorResponse(utils.ErrUnauthorized)), nil
+	}
+
+	listingID := extractListingID(req)
+	if listingID == "" {
+		return jsonResponse(http.StatusBadRequest, utils.MarshalErrorResponse(utils.ErrBadRequest)), nil
+	}
+
+	var revealReq models.RevealListingContactRequest
+	if err := json.Unmarshal([]byte(req.Body), &revealReq); err != nil {
+		return jsonResponse(http.StatusBadRequest, utils.MarshalErrorResponse(utils.ErrBadRequest)), nil
+	}
+
+	contact, err := h.listingService.RevealListingContact(ctx, userID, listingID, revealReq.Channel)
+	if err != nil {
+		if appErr, ok := err.(*utils.AppError); ok {
+			return jsonResponse(appErr.Code, utils.MarshalErrorResponse(appErr)), nil
+		}
+		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
+	}
+
+	body, _ := json.Marshal(contact)
 	return jsonResponse(http.StatusOK, string(body)), nil
 }
 
@@ -368,6 +399,11 @@ func isListingSavePath(path string) bool {
 func isListingViewPath(path string) bool {
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	return len(parts) == 3 && parts[0] == "listings" && parts[1] != "" && parts[2] == "view"
+}
+
+func isListingContactRevealPath(path string) bool {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	return len(parts) == 3 && parts[0] == "listings" && parts[1] != "" && parts[2] == "contact-reveal"
 }
 
 func extractListingID(req events.APIGatewayProxyRequest) string {

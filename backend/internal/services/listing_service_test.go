@@ -401,7 +401,7 @@ func TestRecordListingViewIncrementsViewsForApprovedActiveListings(t *testing.T)
 	}
 }
 
-func TestGetListingIncludesSellerPhoneWhenAvailable(t *testing.T) {
+func TestGetListingIncludesSellerNameWithoutSellerPhone(t *testing.T) {
 	ctx := context.Background()
 
 	service := NewListingService(
@@ -430,6 +430,7 @@ func TestGetListingIncludesSellerPhoneWhenAvailable(t *testing.T) {
 		&fakeUserStore{
 			user: &models.User{
 				UserID: "user-1",
+				Name:   "Budi Hartono",
 				Phone:  "081234567890",
 			},
 		},
@@ -443,8 +444,65 @@ func TestGetListingIncludesSellerPhoneWhenAvailable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetListing returned error: %v", err)
 	}
-	if listing.SellerPhone != "081234567890" {
-		t.Fatalf("expected seller phone to be exposed, got %q", listing.SellerPhone)
+	if listing.SellerName != "Budi Hartono" {
+		t.Fatalf("expected seller name to be exposed, got %q", listing.SellerName)
+	}
+	if listing.SellerPhone != "" {
+		t.Fatalf("expected seller phone to stay hidden on public detail, got %q", listing.SellerPhone)
+	}
+}
+
+func TestRevealListingContactReturnsSellerPhoneWhenAvailable(t *testing.T) {
+	ctx := context.Background()
+
+	service := NewListingService(
+		&fakeListingStore{
+			listingsByID: map[string]*models.Listing{
+				"listing-1": {
+					ListingID:        "listing-1",
+					UserID:           "seller-1",
+					Title:            "Rumah Depok",
+					Status:           models.ListingStatusActive,
+					ModerationStatus: models.ModerationStatusApproved,
+				},
+			},
+			listingsByUser: map[string]map[string]*models.Listing{
+				"seller-1": {
+					"listing-1": {
+						ListingID:        "listing-1",
+						UserID:           "seller-1",
+						Title:            "Rumah Depok",
+						Status:           models.ListingStatusActive,
+						ModerationStatus: models.ModerationStatusApproved,
+					},
+				},
+			},
+		},
+		&fakeUserStore{
+			user: &models.User{
+				UserID: "seller-1",
+				Name:   "Budi Hartono",
+				Phone:  "081234567890",
+			},
+		},
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	contact, err := service.RevealListingContact(ctx, "viewer-1", "listing-1", models.ContactRevealChannelWhatsApp)
+	if err != nil {
+		t.Fatalf("RevealListingContact returned error: %v", err)
+	}
+	if contact.SellerName != "Budi Hartono" {
+		t.Fatalf("expected seller name in reveal payload, got %q", contact.SellerName)
+	}
+	if contact.SellerPhone != "081234567890" {
+		t.Fatalf("expected seller phone in reveal payload, got %q", contact.SellerPhone)
+	}
+	if contact.Channel != models.ContactRevealChannelWhatsApp {
+		t.Fatalf("expected contact reveal channel to round-trip, got %q", contact.Channel)
 	}
 }
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   MapPin,
   Bed,
@@ -24,13 +25,15 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatAmenityLabel, formatPrice, formatDate, LISTING_TYPE_LABELS, PRICE_UNIT_LABELS } from '@/lib/utils';
-import type { Listing } from '@/types';
+import type { Listing, ContactRevealChannel, RevealListingContactResponse } from '@/types';
 import { buildListingContactLinks } from '@/lib/listing-contact';
 import { useToast } from '@/app/toaster';
+import { useRevealListingContact } from '@/hooks/useListings';
 
 interface ListingDetailProps {
   listing: Listing;
   isOwner?: boolean;
+  isAuthenticated?: boolean;
   isSaved?: boolean;
   isSaving?: boolean;
   onSave?: () => void;
@@ -46,13 +49,17 @@ const STATUS_CONFIG = {
 export function ListingDetail({
   listing,
   isOwner = false,
+  isAuthenticated = false,
   isSaved = false,
   isSaving = false,
   onSave,
   onDelete,
 }: ListingDetailProps) {
   const [activeImage, setActiveImage] = useState(0);
+  const [revealedContact, setRevealedContact] = useState<RevealListingContactResponse | null>(null);
+  const router = useRouter();
   const { toast } = useToast();
+  const { mutateAsync: revealListingContact, isPending: isRevealingContact } = useRevealListingContact();
 
   const status = STATUS_CONFIG[listing.moderationStatus] || STATUS_CONFIG.pending;
   const priceLabel = formatPrice(listing.price);
@@ -60,8 +67,36 @@ export function ListingDetail({
   const typeLabel = LISTING_TYPE_LABELS[listing.listingType];
 
   const images = listing.images?.length > 0 ? listing.images : [];
-  const { whatsappUrl, phoneUrl } = buildListingContactLinks(listing.sellerPhone || '');
-  const hasSellerContact = Boolean(whatsappUrl && phoneUrl);
+  const sellerName = listing.sellerName?.trim() || 'Penjual Propti';
+  const hasSellerContact = Boolean(listing.hasSellerPhone);
+
+  const handleRevealContact = async (channel: ContactRevealChannel) => {
+    if (!isAuthenticated) {
+      router.push(`/login?callbackUrl=${encodeURIComponent(`/listings/${listing.listingId}`)}`);
+      return;
+    }
+
+    try {
+      const contact = await revealListingContact({ id: listing.listingId, channel });
+      setRevealedContact(contact);
+
+      const nextLinks = buildListingContactLinks(contact.sellerPhone);
+      const nextUrl = channel === 'whatsapp' ? nextLinks.whatsappUrl : nextLinks.phoneUrl;
+      if (!nextUrl) {
+        toast('Nomor penjual tidak valid untuk dibuka.', 'error');
+        return;
+      }
+
+      if (channel === 'whatsapp') {
+        window.open(nextUrl, '_blank', 'noopener,noreferrer');
+        return;
+      }
+
+      window.location.href = nextUrl;
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'Gagal membuka kontak penjual.', 'error');
+    }
+  };
 
   const handleShare = async () => {
     const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
@@ -307,25 +342,49 @@ export function ListingDetail({
           {/* Contact card */}
           <div className="card p-6 sticky top-20">
             <h3 className="font-bold text-gray-900 mb-4">Hubungi Penjual</h3>
+            <div className="mb-4 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Nama penjual</p>
+              <p className="mt-1 font-semibold text-gray-900">{revealedContact?.sellerName || sellerName}</p>
+              {revealedContact?.sellerPhone ? (
+                <p className="mt-1 text-sm text-gray-600">{revealedContact.sellerPhone}</p>
+              ) : isAuthenticated ? (
+                <p className="mt-1 text-sm text-gray-500">
+                  Nomor baru dibuka saat kamu memilih WhatsApp atau Telepon.
+                </p>
+              ) : (
+                <p className="mt-1 text-sm text-gray-500">Masuk untuk melihat nomor dan menghubungi penjual.</p>
+              )}
+            </div>
             <div className="space-y-3">
               {hasSellerContact ? (
                 <>
-                  <a
-                    href={whatsappUrl || '#'}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => void handleRevealContact('whatsapp')}
+                    disabled={isRevealingContact}
                     className="w-full flex items-center justify-center gap-2 bg-[#25D366] text-white font-semibold py-3 px-4 rounded-xl hover:opacity-90 transition-opacity"
                   >
                     <MessageCircle className="w-5 h-5" />
-                    Chat WhatsApp
-                  </a>
-                  <a
-                    href={phoneUrl || '#'}
+                    {isRevealingContact ? 'Membuka kontak...' : 'Chat WhatsApp'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleRevealContact('phone')}
+                    disabled={isRevealingContact}
                     className="w-full flex items-center justify-center gap-2 btn-secondary"
                   >
                     <Phone className="w-5 h-5" />
-                    Telepon
-                  </a>
+                    {isRevealingContact ? 'Membuka kontak...' : 'Telepon'}
+                  </button>
+                  {!isAuthenticated && (
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/login?callbackUrl=${encodeURIComponent(`/listings/${listing.listingId}`)}`)}
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      Masuk untuk melihat nomor
+                    </button>
+                  )}
                 </>
               ) : (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
