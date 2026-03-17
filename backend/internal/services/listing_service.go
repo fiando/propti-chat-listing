@@ -13,9 +13,9 @@ import (
 )
 
 const (
-	freeTierMaxListingsPerMonth = 1
-	freeTierMaxMedia            = 3
-	premiumTierMaxMedia         = 30
+	freeTierMaxListings = 3
+	freeTierMaxMedia    = 3
+	premiumTierMaxMedia = 30
 
 	minLocationConfidence = 0.7
 )
@@ -26,7 +26,7 @@ type ListingStore interface {
 	GetByID(ctx context.Context, userID, listingID string) (*models.Listing, error)
 	GetByListingID(ctx context.Context, listingID string) (*models.Listing, error)
 	ListByUserID(ctx context.Context, userID string, limit int32) ([]models.Listing, error)
-	CountMonthlyByUserID(ctx context.Context, userID string) (int, error)
+	CountActiveByUserID(ctx context.Context, userID string) (int, error)
 	Delete(ctx context.Context, userID, listingID string) error
 	Scan(ctx context.Context, params *models.ListingSearchParams) ([]models.Listing, error)
 }
@@ -42,8 +42,12 @@ type AIParseService interface {
 	ParseListingText(ctx context.Context, text string) (*models.ParsedListing, error)
 }
 
-type aiContentModerator interface {
+type ContentModerator interface {
 	ModerateContent(ctx context.Context, title, description string) (approved bool, reason string, flags []string, err error)
+}
+
+type ModerationEnqueuer interface {
+	EnqueueListingModeration(ctx context.Context, listingID string) error
 }
 
 // LocationNormalizer validates and normalizes AI-suggested location data against a catalog.
@@ -59,6 +63,7 @@ type ListingService struct {
 	s3Service       *S3Service
 	mapsService     *GoogleMapsService
 	locationCatalog LocationNormalizer
+	moderationQueue ModerationEnqueuer
 }
 
 // NewListingService creates a fully-wired ListingService.
@@ -80,6 +85,10 @@ func NewListingService(
 	}
 }
 
+func (s *ListingService) SetModerationEnqueuer(enqueuer ModerationEnqueuer) {
+	s.moderationQueue = enqueuer
+}
+
 // ensure concrete repository types satisfy the service interfaces.
 var _ ListingStore = (*repository.ListingRepo)(nil)
 var _ UserStore = (*repository.UserRepo)(nil)
@@ -99,13 +108,13 @@ func (s *ListingService) CreateListing(ctx context.Context, userID string, req *
 
 	// Enforce free-tier listing limit.
 	if !isPremium {
-		count, err := s.listingRepo.CountMonthlyByUserID(ctx, userID)
+		count, err := s.listingRepo.CountActiveByUserID(ctx, userID)
 		if err != nil {
-			utils.LogError("count monthly listings", err, "userId", userID)
+			utils.LogError("count active listings", err, "userId", userID)
 			return nil, utils.ErrInternal
 		}
-		if count >= freeTierMaxListingsPerMonth {
-			return nil, utils.NewAppError(403, fmt.Sprintf("free tier allows at most %d listing(s) per month", freeTierMaxListingsPerMonth))
+		if count >= freeTierMaxListings {
+			return nil, utils.NewAppError(403, fmt.Sprintf("free tier allows at most %d listing(s)", freeTierMaxListings))
 		}
 	}
 
@@ -144,7 +153,11 @@ func (s *ListingService) CreateListing(ctx context.Context, userID string, req *
 		return nil, utils.ErrInternal
 	}
 
-	s.applyContentModeration(ctx, listing)
+	if err := s.enqueueListingModeration(ctx, listing.ListingID); err != nil {
+		utils.LogError("enqueue listing moderation", err, "listingId", listing.ListingID)
+		return nil, utils.ErrInternal
+	}
+
 	return listing, nil
 }
 
@@ -209,16 +222,21 @@ func (s *ListingService) UpdateListing(ctx context.Context, userID, listingID st
 	listing.UpdatedAt = time.Now().UTC()
 	// Re-queue for moderation when content changes.
 	listing.ModerationStatus = models.ModerationStatusPending
+	listing.ModerationReason = ""
 
 	if err := s.listingRepo.Put(ctx, listing); err != nil {
 		return nil, utils.ErrInternal
 	}
 
-	s.applyContentModeration(ctx, listing)
+	if err := s.enqueueListingModeration(ctx, listing.ListingID); err != nil {
+		utils.LogError("enqueue listing moderation", err, "listingId", listing.ListingID)
+		return nil, utils.ErrInternal
+	}
+
 	return listing, nil
 }
 
-// GetListing fetches a listing by ID. It increments the view counter.
+// GetListing fetches a listing by ID.
 func (s *ListingService) GetListing(ctx context.Context, listingID string) (*models.Listing, error) {
 	listing, err := s.getCurrentListingByListingID(ctx, listingID)
 	if err != nil {
@@ -230,11 +248,31 @@ func (s *ListingService) GetListing(ctx context.Context, listingID string) (*mod
 	if listing.Status != models.ListingStatusActive || listing.ModerationStatus != models.ModerationStatusApproved {
 		return nil, utils.ErrNotFound
 	}
+	if seller, err := s.userRepo.GetByID(ctx, listing.UserID); err == nil && seller != nil {
+		listing.SellerPhone = seller.Phone
+	}
 
-	// Best-effort view increment.
+	return listing, nil
+}
+
+// RecordListingView increments the public impression counter for a listing.
+func (s *ListingService) RecordListingView(ctx context.Context, listingID string) (*models.Listing, error) {
+	listing, err := s.getCurrentListingByListingID(ctx, listingID)
+	if err != nil {
+		return nil, utils.ErrInternal
+	}
+	if listing == nil {
+		return nil, utils.ErrNotFound
+	}
+	if listing.Status != models.ListingStatusActive || listing.ModerationStatus != models.ModerationStatusApproved {
+		return nil, utils.ErrNotFound
+	}
+
 	listing.Views++
 	listing.UpdatedAt = time.Now().UTC()
-	_ = s.listingRepo.Put(ctx, listing)
+	if err := s.listingRepo.Put(ctx, listing); err != nil {
+		return nil, utils.ErrInternal
+	}
 
 	return listing, nil
 }
@@ -256,35 +294,11 @@ func (s *ListingService) getCurrentListingByListingID(ctx context.Context, listi
 	return current, nil
 }
 
-func (s *ListingService) applyContentModeration(ctx context.Context, listing *models.Listing) {
-	if s.aiService == nil || listing == nil {
-		return
+func (s *ListingService) enqueueListingModeration(ctx context.Context, listingID string) error {
+	if s.moderationQueue == nil {
+		return nil
 	}
-
-	moderator, ok := s.aiService.(aiContentModerator)
-	if !ok {
-		return
-	}
-
-	approved, reason, flags, err := moderator.ModerateContent(ctx, listing.Title, listing.Description)
-	if err != nil {
-		utils.LogError("moderate listing content", err, "listingId", listing.ListingID)
-		return
-	}
-
-	if approved {
-		listing.ModerationStatus = models.ModerationStatusApproved
-		listing.Status = models.ListingStatusActive
-	} else {
-		listing.ModerationStatus = models.ModerationStatusRejected
-		listing.Status = models.ListingStatusArchived
-	}
-	listing.ModerationReason = joinModerationReason(reason, flags)
-	listing.UpdatedAt = time.Now().UTC()
-
-	if err := s.listingRepo.Put(ctx, listing); err != nil {
-		utils.LogError("persist moderated listing", err, "listingId", listing.ListingID)
-	}
+	return s.moderationQueue.EnqueueListingModeration(ctx, listingID)
 }
 
 func joinModerationReason(reason string, flags []string) string {

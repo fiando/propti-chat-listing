@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"os"
 
 	"github.com/aws/aws-lambda-go/lambda"
@@ -24,6 +25,7 @@ func main() {
 
 	listingRepo := repository.NewListingRepo(db)
 	userRepo := repository.NewUserRepo(db)
+	moderationRepo := repository.NewModerationRepo(db)
 
 	s3Svc, err := services.NewS3Service(ctx, os.Getenv("S3_MEDIA_BUCKET"))
 	if err != nil {
@@ -44,13 +46,54 @@ func main() {
 		panic(err)
 	}
 	listingSvc := services.NewListingService(listingRepo, userRepo, aiSvc, s3Svc, mapsSvc, locationCatalog)
+	moderationQueue, err := services.NewLambdaModerationEnqueuer(ctx, os.Getenv("LISTINGS_FUNCTION_NAME"))
+	if err != nil {
+		utils.LogError("init moderation queue", err)
+		panic(err)
+	}
+	if moderationQueue != nil {
+		listingSvc.SetModerationEnqueuer(moderationQueue)
+	}
+
+	imageModerator, err := services.NewRekognitionImageModerator(ctx)
+	if err != nil {
+		utils.LogError("init image moderator", err)
+		panic(err)
+	}
+
+	var textModerator services.ContentModerator
+	if moderator, ok := aiSvc.(services.ContentModerator); ok {
+		textModerator = moderator
+	}
+	moderationSvc := services.NewModerationService(textModerator, imageModerator, moderationRepo, listingRepo)
 
 	listingHandler := handlers.NewListingHandler(listingSvc, userRepo)
 	searchHandler := handlers.NewSearchHandler(listingRepo, mapsSvc, locationCatalog)
 
 	// Route /search/* and /locations/* to searchHandler; all others to listingHandler.
-	lambda.Start(func(ctx context.Context, req interface{}) (interface{}, error) {
-		// Use a combined handler that dispatches based on path prefix.
+	lambda.Start(func(ctx context.Context, rawReq json.RawMessage) (interface{}, error) {
+		var moderationEvent services.ListingModerationEvent
+		if err := json.Unmarshal(rawReq, &moderationEvent); err == nil && moderationEvent.Action == services.ListingModerationAction {
+			listing, err := moderationSvc.ModerateListing(ctx, moderationEvent.ListingID)
+			if err != nil {
+				utils.LogError("moderate listing asynchronously", err, "listingId", moderationEvent.ListingID)
+				return map[string]string{
+					"status": "error",
+				}, err
+			}
+
+			return map[string]string{
+				"status":    "processed",
+				"listingId": listing.ListingID,
+			}, nil
+		}
+
+		var req interface{}
+		if err := json.Unmarshal(rawReq, &req); err != nil {
+			utils.LogError("decode lambda request", err)
+			return nil, err
+		}
+
 		return handlers.CombinedListingHandler(ctx, req, listingHandler, searchHandler)
 	})
 }

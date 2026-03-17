@@ -10,9 +10,9 @@ interface PremiumUpgradeModalProps {
 }
 
 const PREMIUM_FEATURES = [
-  'Upload foto tidak terbatas (gratis hanya 3)',
+  'Upload hingga 30 foto per iklan (gratis maksimal 3)',
   'Iklan tampil lebih lama (gratis 30 hari)',
-  '5 iklan aktif sekaligus (gratis hanya 1)',
+  'Posting lebih dari 3 listing gratis',
   'Statistik detail per iklan',
   'Badge "Penjual Terverifikasi"',
   'Prioritas dukungan pelanggan',

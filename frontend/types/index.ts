@@ -47,6 +47,7 @@ export interface Listing {
   videos: string[];
   imageCount: number;
   premiumFeatures: PremiumFeatures;
+  sellerPhone?: string;
   views: number;
   saves: number;
   moderationStatus: ModerationStatus;
@@ -119,6 +120,13 @@ export interface SearchParams {
   priceMin?: number;
   priceMax?: number;
   bedrooms?: number;
+  bathrooms?: number;
+  buildingAreaMin?: number;
+  buildingAreaMax?: number;
+  landAreaMin?: number;
+  landAreaMax?: number;
+  legalStatus?: string;
+  amenities?: string[];
   listingType?: ListingType;
   sortBy?: string;
   page?: number;

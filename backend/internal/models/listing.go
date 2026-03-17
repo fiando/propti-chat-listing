@@ -66,6 +66,7 @@ type Listing struct {
 	Videos           []string         `json:"videos" dynamodbav:"videos"`
 	ImageCount       int              `json:"imageCount" dynamodbav:"imageCount"`
 	PremiumFeatures  PremiumFeatures  `json:"premiumFeatures" dynamodbav:"premiumFeatures"`
+	SellerPhone      string           `json:"sellerPhone,omitempty" dynamodbav:"-"`
 	Views            int              `json:"views" dynamodbav:"views"`
 	Saves            int              `json:"saves" dynamodbav:"saves"`
 	ModerationStatus ModerationStatus `json:"moderationStatus" dynamodbav:"moderationStatus"`
@@ -99,15 +100,23 @@ type UpdateListingRequest struct {
 }
 
 type ListingSearchParams struct {
-	Query    string  `json:"q"`
-	Province string  `json:"province"`
-	City     string  `json:"city"`
-	PriceMin float64 `json:"priceMin"`
-	PriceMax float64 `json:"priceMax"`
-	Bedrooms int     `json:"bedrooms"`
-	SortBy   string  `json:"sortBy"`
-	Page     int     `json:"page"`
-	PageSize int     `json:"pageSize"`
+	Query           string      `json:"q"`
+	Province        string      `json:"province"`
+	City            string      `json:"city"`
+	ListingType     ListingType `json:"listingType"`
+	PriceMin        float64     `json:"priceMin"`
+	PriceMax        float64     `json:"priceMax"`
+	Bedrooms        int         `json:"bedrooms"`
+	Bathrooms       int         `json:"bathrooms"`
+	BuildingAreaMin float64     `json:"buildingAreaMin"`
+	BuildingAreaMax float64     `json:"buildingAreaMax"`
+	LandAreaMin     float64     `json:"landAreaMin"`
+	LandAreaMax     float64     `json:"landAreaMax"`
+	LegalStatus     string      `json:"legalStatus"`
+	Amenities       []string    `json:"amenities"`
+	SortBy          string      `json:"sortBy"`
+	Page            int         `json:"page"`
+	PageSize        int         `json:"pageSize"`
 }
 
 type ParseTextRequest struct {

@@ -1,22 +1,20 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { MessageCircle, Sparkles, Loader2, CheckCircle, AlertTriangle, ArrowRight, Edit, MapPin, ClipboardPaste } from 'lucide-react';
 import { parseListingText } from '@/lib/api';
 import type { ParsedListing } from '@/types';
 import { formatPriceFull } from '@/lib/utils';
 import { useToast } from '@/app/toaster';
 
-const EXAMPLE_TEXT = `Dijual rumah 2 lantai, 3KT 2KM
-LT 120m2 LB 90m2 SHM
-Harga 850jt nego
-Lok Depok Beji dkt tol Cijago
-Carport, taman, ruang tamu, dapur
-Hub: 08123456789`;
+const EXAMPLE_TEXT = `Dijual rumah 2 lantai siap huni, LT 120m2 LB 90m2, 3KT 2KM, lebar muka 8m, listrik 2200VA, hadap timur, SHM, harga 850 juta nego. Beji Depok, dekat Tol Cijago dan kampus UI. Fasilitas: carport, taman, ruang tamu, dapur, ruang keluarga. WA 08123456789`;
 
 interface TextParseFormProps {
   onParsed: (result: ParsedListing) => void;
   onManualFill: () => void;
+  initialText?: string;
+  isAuthenticated?: boolean;
+  onRequireAuth?: (text: string) => void;
 }
 
 function formatMultiline(value: string) {
@@ -27,8 +25,14 @@ function formatMultiline(value: string) {
     .join('\n');
 }
 
-export function TextParseForm({ onParsed, onManualFill }: TextParseFormProps) {
-  const [text, setText] = useState('');
+export function TextParseForm({
+  onParsed,
+  onManualFill,
+  initialText = '',
+  isAuthenticated = true,
+  onRequireAuth,
+}: TextParseFormProps) {
+  const [text, setText] = useState(initialText);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ParsedListing | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -41,8 +45,16 @@ export function TextParseForm({ onParsed, onManualFill }: TextParseFormProps) {
     !!locationSuggestion?.district ||
     !!locationSuggestion?.normalizedAddress;
 
+  useEffect(() => {
+    setText((current) => current || initialText);
+  }, [initialText]);
+
   const handleParse = async () => {
     if (!text.trim()) return;
+    if (!isAuthenticated) {
+      onRequireAuth?.(text);
+      return;
+    }
     setLoading(true);
     setError(null);
     setResult(null);
@@ -247,6 +259,20 @@ export function TextParseForm({ onParsed, onManualFill }: TextParseFormProps) {
                 label: 'Sertifikat',
                 value: result.propertyDetails?.legalStatus || '-',
               },
+              {
+                label: 'Lebar Muka',
+                value: result.propertyDetails?.frontWidth
+                  ? `${result.propertyDetails.frontWidth} m`
+                  : '-',
+              },
+              {
+                label: 'Daya Listrik',
+                value: result.propertyDetails?.powerConsumption || '-',
+              },
+              {
+                label: 'Orientasi',
+                value: result.propertyDetails?.orientation || '-',
+              },
               { label: 'Alamat Lengkap', value: formatMultiline(result.address || '-') },
             ].map(({ label, value }) => (
               <div key={label} className="bg-gray-50 rounded-xl p-3">
@@ -262,6 +288,22 @@ export function TextParseForm({ onParsed, onManualFill }: TextParseFormProps) {
               {formatMultiline(result.description) || '-'}
             </div>
           </div>
+
+          {result.propertyDetails?.amenities?.length > 0 && (
+            <div className="bg-gray-50 rounded-xl p-4 mb-5">
+              <div className="text-xs text-gray-500 mb-2">Fasilitas Terdeteksi</div>
+              <div className="flex flex-wrap gap-2">
+                {result.propertyDetails.amenities.map((amenity) => (
+                  <span
+                    key={amenity}
+                    className="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-700 border border-gray-200"
+                  >
+                    {amenity}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Location suggestion */}
           {hasLocationSuggestion && (

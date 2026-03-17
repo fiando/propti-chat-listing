@@ -72,7 +72,7 @@ const TESTIMONIALS = [
 ];
 
 export default async function HomePage() {
-  const homepageListings = await getHomepageListings();
+  const homepageSection = await getHomepageListings();
 
   return (
     <div className="bg-[#F8F9FA]">
@@ -229,40 +229,42 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ── FEATURED LISTINGS ── */}
-      <section className="bg-white py-16 md:py-24">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="flex items-center justify-between mb-10">
-            <div>
-              <span className="inline-block bg-brand-light text-brand-primary text-sm font-semibold px-4 py-1.5 rounded-full mb-3">
-                Properti Terbaru
-              </span>
-              <h2 className="section-title">Properti Pilihan</h2>
-              <p className="section-subtitle">Temukan properti impianmu dari ribuan listing terpercaya</p>
+      {/* ── HOMEPAGE LISTINGS ── */}
+      {homepageSection.items.length > 0 && (
+        <section className="bg-white py-16 md:py-24">
+          <div className="max-w-6xl mx-auto px-4">
+            <div className="flex items-center justify-between mb-10">
+              <div>
+                <span className="inline-block bg-brand-light text-brand-primary text-sm font-semibold px-4 py-1.5 rounded-full mb-3">
+                  {homepageSection.kind === 'featured' ? 'Disorot Minggu Ini' : 'Baru Tayang'}
+                </span>
+                <h2 className="section-title">{homepageSection.title}</h2>
+                <p className="section-subtitle">{homepageSection.subtitle}</p>
+              </div>
+              <Link
+                href="/search"
+                className="hidden md:flex items-center gap-2 text-brand-primary font-semibold hover:text-brand-secondary transition-colors group"
+              >
+                Lihat Semua
+                <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </Link>
             </div>
-            <Link
-              href="/search"
-              className="hidden md:flex items-center gap-2 text-brand-primary font-semibold hover:text-brand-secondary transition-colors group"
-            >
-              Lihat Semua
-              <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </Link>
-          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {homepageListings.map((listing) => (
-              <ListingCard key={listing.listingId} listing={listing} />
-            ))}
-          </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {homepageSection.items.map((listing) => (
+                <ListingCard key={listing.listingId} listing={listing} />
+              ))}
+            </div>
 
-          <div className="text-center mt-8 md:hidden">
-            <Link href="/search" className="btn-secondary inline-flex items-center gap-2">
-              Lihat Semua Properti
-              <ChevronRight className="w-4 h-4" />
-            </Link>
+            <div className="text-center mt-8 md:hidden">
+              <Link href="/search" className="btn-secondary inline-flex items-center gap-2">
+                Lihat Semua Properti
+                <ChevronRight className="w-4 h-4" />
+              </Link>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* ── FEATURES ── */}
       <section className="max-w-6xl mx-auto px-4 py-16 md:py-24">
@@ -285,9 +287,9 @@ export default async function HomePage() {
             {
               icon: <Sparkles className="w-6 h-6 text-brand-gold" />,
               bg: 'bg-amber-50',
-              title: 'Listing Premium',
-              desc: 'Jadikan iklanmu tampil di posisi teratas dengan fitur Featured Listing. Dapatkan 10x lebih banyak calon pembeli.',
-              tag: 'Fitur Premium',
+              title: 'Iklan Unggulan',
+              desc: 'Kalau ingin visibilitas ekstra, boost satu listing tertentu supaya tampil lebih menonjol daripada listing biasa.',
+              tag: 'Boost Opsional',
             },
             {
               icon: <TrendingUp className="w-6 h-6 text-brand-primary" />,

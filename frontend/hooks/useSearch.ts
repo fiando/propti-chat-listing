@@ -5,26 +5,7 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { getListings } from '@/lib/api';
 import type { SearchParams } from '@/types';
-
-function parseSearchParams(searchParams: URLSearchParams): SearchParams {
-  return {
-    q: searchParams.get('q') || undefined,
-    province: searchParams.get('province') || undefined,
-    city: searchParams.get('city') || undefined,
-    listingType: (searchParams.get('listingType') as SearchParams['listingType']) || undefined,
-    priceMin: searchParams.get('priceMin')
-      ? Number(searchParams.get('priceMin'))
-      : undefined,
-    priceMax: searchParams.get('priceMax')
-      ? Number(searchParams.get('priceMax'))
-      : undefined,
-    bedrooms: searchParams.get('bedrooms')
-      ? Number(searchParams.get('bedrooms'))
-      : undefined,
-    sortBy: searchParams.get('sortBy') || undefined,
-    page: searchParams.get('page') ? Number(searchParams.get('page')) : 1,
-  };
-}
+import { parseSearchParams, serializeSearchParams } from '@/lib/search-params';
 
 export function useSearch() {
   const router = useRouter();
@@ -41,12 +22,7 @@ export function useSearch() {
 
   const updateSearch = useCallback(
     (newParams: SearchParams) => {
-      const params = new URLSearchParams();
-      Object.entries(newParams).forEach(([key, value]) => {
-        if (value !== undefined && value !== '' && value !== null) {
-          params.set(key, String(value));
-        }
-      });
+      const params = serializeSearchParams(newParams);
 
       startTransition(() => {
         router.push(`${pathname}?${params.toString()}`);

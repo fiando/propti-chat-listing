@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useSearch } from '@/hooks/useSearch';
 import { useSaveListing, useSavedListings } from '@/hooks/useListings';
@@ -8,15 +8,55 @@ import { SearchBar } from '@/components/search/SearchBar';
 import { FilterPanel } from '@/components/search/FilterPanel';
 import { ListingGrid } from '@/components/listings/ListingGrid';
 import { Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { serializeSearchParams } from '@/lib/search-params';
+import type { SearchParams } from '@/types';
+
+const SORT_OPTIONS = [
+  { value: 'newest', label: 'Terbaru' },
+  { value: 'price_asc', label: 'Harga Terendah' },
+  { value: 'price_desc', label: 'Harga Tertinggi' },
+  { value: 'popular', label: 'Paling Banyak Dilihat' },
+];
 
 function SearchResults() {
   const { params, listings, total, page, isLoading, isFetching, updateSearch, setPage } = useSearch();
   const { status } = useSession();
   const { data: savedData } = useSavedListings({ enabled: status === 'authenticated' });
   const { mutateAsync: toggleSave, isPending: isSaving } = useSaveListing();
+  const [stagedParams, setStagedParams] = useState<SearchParams>(params);
 
   const totalPages = Math.ceil(total / 12);
   const savedIds = savedData?.items.map((listing) => listing.listingId) ?? [];
+  const committedFilterKey = useMemo(
+    () => serializeSearchParams({ ...params, page: 1 }).toString(),
+    [params]
+  );
+  const stagedFilterKey = useMemo(
+    () => serializeSearchParams({ ...stagedParams, page: 1 }).toString(),
+    [stagedParams]
+  );
+
+  // Sync staged params when URL (committed) params actually change.
+  // Using committedFilterKey (serialized string) instead of the `params` object
+  // avoids an infinite re-render loop — `params` is a new reference every render
+  // since parseSearchParams always creates a fresh object.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { setStagedParams(params); }, [committedFilterKey]);
+
+  useEffect(() => {
+    if (committedFilterKey === stagedFilterKey) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      updateSearch({
+        ...stagedParams,
+        page: 1,
+      });
+    }, 400);
+
+    return () => window.clearTimeout(timeout);
+  }, [committedFilterKey, stagedFilterKey, stagedParams, updateSearch]);
 
   const handleSave = async (listingId: string) => {
     await toggleSave({ id: listingId, saved: savedIds.includes(listingId) });
@@ -25,34 +65,64 @@ function SearchResults() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       {/* Search bar */}
-      <div className="mb-6">
-        <SearchBar initialParams={params} onSearch={updateSearch} />
-      </div>
+        <div className="mb-6">
+          <SearchBar
+            initialParams={params}
+            onSearch={(nextParams) => {
+              setStagedParams(nextParams);
+              updateSearch(nextParams);
+            }}
+          />
+        </div>
 
-      <div className="flex flex-col lg:flex-row gap-6">
-        {/* Filter sidebar */}
-        <aside className="lg:w-64 flex-shrink-0">
-          <div className="sticky top-24">
-            <FilterPanel params={params} onChange={updateSearch} />
-          </div>
-        </aside>
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* Filter sidebar */}
+          <aside className="lg:w-64 flex-shrink-0">
+            <div className="sticky top-24">
+              <FilterPanel params={stagedParams} onChange={setStagedParams} />
+            </div>
+          </aside>
 
         {/* Results */}
-        <div className="flex-1 min-w-0">
-          {/* Results header */}
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-lg font-bold text-gray-900">
+          <div className="flex-1 min-w-0">
+            {/* Results header */}
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h1 className="text-lg font-bold text-gray-900">
                 {params.q ? `Hasil pencarian "${params.q}"` : 'Semua Properti'}
               </h1>
-              <p className="text-sm text-gray-500">
-                {isLoading ? 'Mencari...' : `${total.toLocaleString()} properti ditemukan`}
-              </p>
+                <p className="text-sm text-gray-500">
+                  {isLoading ? 'Mencari...' : `${total.toLocaleString()} properti ditemukan`}
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <label htmlFor="sort-results" className="text-sm font-medium text-gray-600">
+                    Urutkan
+                  </label>
+                  <select
+                    id="sort-results"
+                    value={stagedParams.sortBy || 'newest'}
+                    onChange={(event) =>
+                      setStagedParams((current) => ({
+                        ...current,
+                        sortBy: event.target.value,
+                      }))
+                    }
+                    className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-brand-accent focus:outline-none"
+                  >
+                    {SORT_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {isFetching && !isLoading && (
+                  <Loader2 className="w-5 h-5 text-brand-secondary animate-spin" />
+                )}
+              </div>
             </div>
-            {isFetching && !isLoading && (
-              <Loader2 className="w-5 h-5 text-brand-secondary animate-spin" />
-            )}
-          </div>
 
           {isLoading ? (
             <div className="flex items-center justify-center py-16">

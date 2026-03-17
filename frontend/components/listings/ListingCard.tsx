@@ -54,11 +54,6 @@ export function ListingCard({ listing, onSave, isSaved = false }: ListingCardPro
               Unggulan
             </span>
           )}
-          {listing.premiumFeatures?.isPremium && !listing.premiumFeatures?.isFeatured && (
-            <span className="bg-amber-500 text-white text-xs font-bold px-2.5 py-1 rounded-full">
-              Premium
-            </span>
-          )}
         </div>
 
         {/* Save button */}

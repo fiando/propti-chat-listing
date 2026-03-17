@@ -25,6 +25,8 @@ import {
 import Link from 'next/link';
 import { formatPrice, formatDate, LISTING_TYPE_LABELS, PRICE_UNIT_LABELS } from '@/lib/utils';
 import type { Listing } from '@/types';
+import { buildListingContactLinks } from '@/lib/listing-contact';
+import { useToast } from '@/app/toaster';
 
 interface ListingDetailProps {
   listing: Listing;
@@ -50,6 +52,7 @@ export function ListingDetail({
   onDelete,
 }: ListingDetailProps) {
   const [activeImage, setActiveImage] = useState(0);
+  const { toast } = useToast();
 
   const status = STATUS_CONFIG[listing.moderationStatus] || STATUS_CONFIG.pending;
   const priceLabel = formatPrice(listing.price);
@@ -57,6 +60,28 @@ export function ListingDetail({
   const typeLabel = LISTING_TYPE_LABELS[listing.listingType];
 
   const images = listing.images?.length > 0 ? listing.images : [];
+  const { whatsappUrl, phoneUrl } = buildListingContactLinks(listing.sellerPhone || '');
+  const hasSellerContact = Boolean(whatsappUrl && phoneUrl);
+
+  const handleShare = async () => {
+    const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: listing.title,
+          text: `${listing.title} — ${priceLabel}`,
+          url: shareUrl,
+        });
+        return;
+      }
+
+      await navigator.clipboard.writeText(shareUrl);
+      toast('Link iklan berhasil disalin.', 'success');
+    } catch {
+      toast('Gagal membagikan link iklan.', 'error');
+    }
+  };
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
@@ -283,22 +308,30 @@ export function ListingDetail({
           <div className="card p-6 sticky top-20">
             <h3 className="font-bold text-gray-900 mb-4">Hubungi Penjual</h3>
             <div className="space-y-3">
-              <a
-                href="https://wa.me/62"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full flex items-center justify-center gap-2 bg-[#25D366] text-white font-semibold py-3 px-4 rounded-xl hover:opacity-90 transition-opacity"
-              >
-                <MessageCircle className="w-5 h-5" />
-                Chat WhatsApp
-              </a>
-              <a
-                href="tel:+62"
-                className="w-full flex items-center justify-center gap-2 btn-secondary"
-              >
-                <Phone className="w-5 h-5" />
-                Telepon
-              </a>
+              {hasSellerContact ? (
+                <>
+                  <a
+                    href={whatsappUrl || '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full flex items-center justify-center gap-2 bg-[#25D366] text-white font-semibold py-3 px-4 rounded-xl hover:opacity-90 transition-opacity"
+                  >
+                    <MessageCircle className="w-5 h-5" />
+                    Chat WhatsApp
+                  </a>
+                  <a
+                    href={phoneUrl || '#'}
+                    className="w-full flex items-center justify-center gap-2 btn-secondary"
+                  >
+                    <Phone className="w-5 h-5" />
+                    Telepon
+                  </a>
+                </>
+              ) : (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                  Nomor penjual belum tersedia. Kontak akan muncul setelah penjual melengkapi onboarding.
+                </div>
+              )}
             </div>
 
             <div className="flex gap-2 mt-4">
@@ -314,7 +347,10 @@ export function ListingDetail({
                 <Heart className={`w-4 h-4 ${isSaved ? 'fill-red-500' : ''}`} />
                 {isSaving ? 'Memproses...' : isSaved ? 'Tersimpan' : 'Simpan'}
               </button>
-              <button className="flex-1 flex items-center justify-center gap-2 border border-gray-200 text-gray-600 rounded-xl py-2.5 text-sm font-medium hover:bg-gray-50 transition-colors">
+              <button
+                onClick={handleShare}
+                className="flex-1 flex items-center justify-center gap-2 border border-gray-200 text-gray-600 rounded-xl py-2.5 text-sm font-medium hover:bg-gray-50 transition-colors"
+              >
                 <Share2 className="w-4 h-4" />
                 Bagikan
               </button>

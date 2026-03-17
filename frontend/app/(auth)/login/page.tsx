@@ -8,7 +8,17 @@ export const metadata: Metadata = {
   description: 'Login untuk mulai jual beli properti dengan mudah',
 };
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ callbackUrl?: string }>;
+}) {
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const callbackUrl =
+    resolvedSearchParams?.callbackUrl && resolvedSearchParams.callbackUrl.startsWith('/')
+      ? resolvedSearchParams.callbackUrl
+      : '/';
+
   return (
     <div className="min-h-screen bg-gradient-hero flex flex-col">
       {/* Header */}
@@ -63,7 +73,7 @@ export default function LoginPage() {
             </div>
 
             {/* Login button */}
-            <GoogleLoginButton />
+            <GoogleLoginButton callbackUrl={callbackUrl} />
 
             {/* Privacy note */}
             <p className="text-center text-xs text-gray-400 mt-6">

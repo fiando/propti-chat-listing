@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Bell, Loader2, Save, Settings, ShieldCheck, UserRound } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -18,12 +18,14 @@ const DEFAULT_PREFERENCES: UserPreferences = {
 export default function SettingsPage() {
   const { status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { profile, isLoading } = useAuth();
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState<'buyer' | 'seller' | 'both'>('buyer');
   const [notifications, setNotifications] = useState(true);
   const [saved, setSaved] = useState(false);
+  const returnTo = searchParams.get('returnTo');
 
   useEffect(() => {
     if (!profile) {
@@ -39,6 +41,9 @@ export default function SettingsPage() {
     onSuccess: async () => {
       setSaved(true);
       await queryClient.invalidateQueries({ queryKey: ['profile'] });
+      if (returnTo) {
+        router.push(returnTo);
+      }
     },
   });
 
@@ -82,6 +87,13 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {returnTo && (
+        <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          Lengkapi nomor telepon dulu supaya calon pembeli bisa menghubungi kamu. Setelah disimpan,
+          kamu akan dikembalikan ke proses pasang iklan.
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="card p-6">

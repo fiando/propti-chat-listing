@@ -8,6 +8,7 @@ type ModeratorType string
 
 const (
 	ModerationTypeContent ModerationType = "content_check"
+	ModerationTypeMedia   ModerationType = "media_check"
 	ModerationTypeLegal   ModerationType = "legal_check"
 	ModerationTypeSpam    ModerationType = "spam_check"
 

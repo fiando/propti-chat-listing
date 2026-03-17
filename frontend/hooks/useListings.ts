@@ -9,6 +9,7 @@ import {
 import {
   getListings,
   getListing,
+  trackListingView,
   createListing,
   updateListing,
   deleteListing,
@@ -35,10 +36,21 @@ export function useListing(id: string) {
   });
 }
 
-export function useMyListings(params: SearchParams = {}) {
+export function useTrackListingView() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => trackListingView(id),
+    onSuccess: (listing) => {
+      queryClient.setQueryData(['listing', listing.listingId], listing);
+    },
+  });
+}
+
+export function useMyListings(params: SearchParams = {}, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['my-listings', params],
     queryFn: () => getMyListings(params),
+    enabled: options?.enabled ?? true,
   });
 }
 

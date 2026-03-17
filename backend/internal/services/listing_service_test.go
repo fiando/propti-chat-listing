@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/fiando/propti/backend/internal/models"
 	"github.com/fiando/propti/backend/internal/utils"
@@ -81,8 +82,19 @@ func (f *fakeListingStore) ListByUserID(ctx context.Context, userID string, limi
 	}
 	return result, nil
 }
-func (f *fakeListingStore) CountMonthlyByUserID(ctx context.Context, userID string) (int, error) {
-	return 0, nil
+func (f *fakeListingStore) CountActiveByUserID(ctx context.Context, userID string) (int, error) {
+	if f.listingsByUser == nil || f.listingsByUser[userID] == nil {
+		return 0, nil
+	}
+
+	count := 0
+	for _, listing := range f.listingsByUser[userID] {
+		if listing.Status == models.ListingStatusActive {
+			count++
+		}
+	}
+
+	return count, nil
 }
 func (f *fakeListingStore) Delete(ctx context.Context, userID, listingID string) error { return nil }
 func (f *fakeListingStore) Scan(ctx context.Context, params *models.ListingSearchParams) ([]models.Listing, error) {
@@ -124,6 +136,19 @@ func (f *fakeAIService) ParseListingText(ctx context.Context, text string) (*mod
 func (f *fakeAIService) ModerateContent(ctx context.Context, title, description string) (bool, string, []string, error) {
 	f.moderateCalls++
 	return f.moderateOK, f.moderateReason, f.moderateFlags, f.moderationError
+}
+
+type fakeModerationEnqueuer struct {
+	listingIDs []string
+	err        error
+}
+
+func (f *fakeModerationEnqueuer) EnqueueListingModeration(ctx context.Context, listingID string) error {
+	if f.err != nil {
+		return f.err
+	}
+	f.listingIDs = append(f.listingIDs, listingID)
+	return nil
 }
 
 type countingRoundTripper struct {
@@ -193,6 +218,67 @@ func TestCreateListingDoesNotGeocodeDuringSubmit(t *testing.T) {
 	}
 }
 
+func TestCreateListingFreeTierIgnoresArchivedListingsInQuota(t *testing.T) {
+	ctx := context.Background()
+	store := &fakeListingStore{
+		listingsByUser: map[string]map[string]*models.Listing{
+			"user-1": {
+				"listing-1": {
+					ListingID:        "listing-1",
+					UserID:           "user-1",
+					Status:           models.ListingStatusActive,
+					ModerationStatus: models.ModerationStatusApproved,
+				},
+				"listing-2": {
+					ListingID:        "listing-2",
+					UserID:           "user-1",
+					Status:           models.ListingStatusActive,
+					ModerationStatus: models.ModerationStatusPending,
+				},
+				"listing-3": {
+					ListingID:        "listing-3",
+					UserID:           "user-1",
+					Status:           models.ListingStatusArchived,
+					ModerationStatus: models.ModerationStatusRejected,
+				},
+			},
+		},
+	}
+
+	service := NewListingService(
+		store,
+		&fakeUserStore{
+			user: &models.User{
+				UserID: "user-1",
+				Subscription: models.Subscription{
+					Tier: models.SubscriptionFree,
+				},
+			},
+		},
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	_, err := service.CreateListing(ctx, "user-1", &models.CreateListingRequest{
+		Title:       "Rumah minimalis dekat tol Depok",
+		Description: "Rumah siap huni dengan akses cepat ke tol dan stasiun.",
+		Price:       850000000,
+		PriceUnit:   "total",
+		ListingType: models.ListingTypeSell,
+		Location: models.Location{
+			Address:  "Jl. Margonda Raya No. 1",
+			Province: "Jawa Barat",
+			City:     "Depok",
+			District: "Beji",
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected archived listing to not consume free tier slot, got error: %v", err)
+	}
+}
+
 func TestGetListingReturnsNotFoundWhenIndexEntryIsStale(t *testing.T) {
 	ctx := context.Background()
 
@@ -218,6 +304,147 @@ func TestGetListingReturnsNotFoundWhenIndexEntryIsStale(t *testing.T) {
 	listing, err := service.GetListing(ctx, "listing-1")
 	if err != utils.ErrNotFound {
 		t.Fatalf("expected not found for stale index entry, got listing=%v err=%v", listing, err)
+	}
+}
+
+func TestGetListingDoesNotIncrementViewsOnRead(t *testing.T) {
+	ctx := context.Background()
+
+	service := NewListingService(
+		&fakeListingStore{
+			listingsByID: map[string]*models.Listing{
+				"listing-1": {
+					ListingID:        "listing-1",
+					UserID:           "user-1",
+					Title:            "Rumah Depok",
+					Views:            41,
+					Status:           models.ListingStatusActive,
+					ModerationStatus: models.ModerationStatusApproved,
+				},
+			},
+			listingsByUser: map[string]map[string]*models.Listing{
+				"user-1": {
+					"listing-1": {
+						ListingID:        "listing-1",
+						UserID:           "user-1",
+						Title:            "Rumah Depok",
+						Views:            41,
+						Status:           models.ListingStatusActive,
+						ModerationStatus: models.ModerationStatusApproved,
+					},
+				},
+			},
+		},
+		&fakeUserStore{},
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	listing, err := service.GetListing(ctx, "listing-1")
+	if err != nil {
+		t.Fatalf("GetListing returned error: %v", err)
+	}
+	if listing.Views != 41 {
+		t.Fatalf("expected read path to leave views unchanged, got %d", listing.Views)
+	}
+}
+
+func TestRecordListingViewIncrementsViewsForApprovedActiveListings(t *testing.T) {
+	ctx := context.Background()
+	store := &fakeListingStore{
+		listingsByID: map[string]*models.Listing{
+			"listing-1": {
+				ListingID:        "listing-1",
+				UserID:           "user-1",
+				Title:            "Rumah Depok",
+				Views:            8,
+				Status:           models.ListingStatusActive,
+				ModerationStatus: models.ModerationStatusApproved,
+				UpdatedAt:        time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
+			},
+		},
+		listingsByUser: map[string]map[string]*models.Listing{
+			"user-1": {
+				"listing-1": {
+					ListingID:        "listing-1",
+					UserID:           "user-1",
+					Title:            "Rumah Depok",
+					Views:            8,
+					Status:           models.ListingStatusActive,
+					ModerationStatus: models.ModerationStatusApproved,
+					UpdatedAt:        time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
+				},
+			},
+		},
+	}
+
+	service := NewListingService(
+		store,
+		&fakeUserStore{},
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	listing, err := service.RecordListingView(ctx, "listing-1")
+	if err != nil {
+		t.Fatalf("RecordListingView returned error: %v", err)
+	}
+	if listing.Views != 9 {
+		t.Fatalf("expected incremented view count, got %d", listing.Views)
+	}
+	if store.lastListing == nil || store.lastListing.Views != 9 {
+		t.Fatalf("expected incremented listing to be persisted, got %#v", store.lastListing)
+	}
+}
+
+func TestGetListingIncludesSellerPhoneWhenAvailable(t *testing.T) {
+	ctx := context.Background()
+
+	service := NewListingService(
+		&fakeListingStore{
+			listingsByID: map[string]*models.Listing{
+				"listing-1": {
+					ListingID:        "listing-1",
+					UserID:           "user-1",
+					Title:            "Rumah Depok",
+					Status:           models.ListingStatusActive,
+					ModerationStatus: models.ModerationStatusApproved,
+				},
+			},
+			listingsByUser: map[string]map[string]*models.Listing{
+				"user-1": {
+					"listing-1": {
+						ListingID:        "listing-1",
+						UserID:           "user-1",
+						Title:            "Rumah Depok",
+						Status:           models.ListingStatusActive,
+						ModerationStatus: models.ModerationStatusApproved,
+					},
+				},
+			},
+		},
+		&fakeUserStore{
+			user: &models.User{
+				UserID: "user-1",
+				Phone:  "081234567890",
+			},
+		},
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	listing, err := service.GetListing(ctx, "listing-1")
+	if err != nil {
+		t.Fatalf("GetListing returned error: %v", err)
+	}
+	if listing.SellerPhone != "081234567890" {
+		t.Fatalf("expected seller phone to be exposed, got %q", listing.SellerPhone)
 	}
 }
 
@@ -340,7 +567,7 @@ func TestListMyListingsSkipsRejectedListings(t *testing.T) {
 	}
 }
 
-func TestCreateListingRunsModerationAndArchivesRejection(t *testing.T) {
+func TestCreateListingDefersModerationWork(t *testing.T) {
 	ctx := context.Background()
 	store := &fakeListingStore{}
 	ai := &fakeAIService{
@@ -348,6 +575,7 @@ func TestCreateListingRunsModerationAndArchivesRejection(t *testing.T) {
 		moderateReason: "offensive language",
 		moderateFlags:  []string{"hate"},
 	}
+	queue := &fakeModerationEnqueuer{}
 
 	service := NewListingService(
 		store,
@@ -364,6 +592,7 @@ func TestCreateListingRunsModerationAndArchivesRejection(t *testing.T) {
 		nil,
 		nil,
 	)
+	service.SetModerationEnqueuer(queue)
 
 	listing, err := service.CreateListing(ctx, "user-1", &models.CreateListingRequest{
 		Title:       "Offensive title",
@@ -381,35 +610,39 @@ func TestCreateListingRunsModerationAndArchivesRejection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateListing returned error: %v", err)
 	}
-	if ai.moderateCalls != 1 {
-		t.Fatalf("expected moderation to run once, got %d call(s)", ai.moderateCalls)
+	if ai.moderateCalls != 0 {
+		t.Fatalf("expected moderation to be deferred, got %d inline call(s)", ai.moderateCalls)
 	}
-	if listing.ModerationStatus != models.ModerationStatusRejected {
-		t.Fatalf("expected returned listing moderation status rejected, got %q", listing.ModerationStatus)
+	if len(queue.listingIDs) != 1 || queue.listingIDs[0] != listing.ListingID {
+		t.Fatalf("expected moderation queue to receive listing %q, got %#v", listing.ListingID, queue.listingIDs)
 	}
-	if listing.Status != models.ListingStatusArchived {
-		t.Fatalf("expected returned listing status archived after rejection, got %q", listing.Status)
+	if listing.ModerationStatus != models.ModerationStatusPending {
+		t.Fatalf("expected returned listing moderation status pending before async moderation, got %q", listing.ModerationStatus)
+	}
+	if listing.Status != models.ListingStatusActive {
+		t.Fatalf("expected returned listing status to remain active before async moderation, got %q", listing.Status)
 	}
 	if store.lastListing == nil {
 		t.Fatalf("expected persisted listing to be captured")
 	}
-	if store.lastListing.ModerationStatus != models.ModerationStatusRejected {
-		t.Fatalf("expected persisted listing moderation status rejected, got %q", store.lastListing.ModerationStatus)
+	if store.lastListing.ModerationStatus != models.ModerationStatusPending {
+		t.Fatalf("expected persisted listing moderation status pending before async moderation, got %q", store.lastListing.ModerationStatus)
 	}
-	if store.lastListing.Status != models.ListingStatusArchived {
-		t.Fatalf("expected persisted listing status archived after rejection, got %q", store.lastListing.Status)
+	if store.lastListing.Status != models.ListingStatusActive {
+		t.Fatalf("expected persisted listing status to remain active before async moderation, got %q", store.lastListing.Status)
 	}
-	if !strings.Contains(store.lastListing.ModerationReason, "offensive language") {
-		t.Fatalf("expected moderation reason to be recorded, got %q", store.lastListing.ModerationReason)
+	if store.lastListing.ModerationReason != "" {
+		t.Fatalf("expected moderation reason to stay empty until worker runs, got %q", store.lastListing.ModerationReason)
 	}
 }
 
-func TestCreateListingKeepsPendingWhenModerationFails(t *testing.T) {
+func TestCreateListingReturnsImmediatelyWithoutInlineModeration(t *testing.T) {
 	ctx := context.Background()
 	store := &fakeListingStore{}
 	ai := &fakeAIService{
 		moderationError: errors.New("openai unavailable"),
 	}
+	queue := &fakeModerationEnqueuer{}
 
 	service := NewListingService(
 		store,
@@ -426,6 +659,7 @@ func TestCreateListingKeepsPendingWhenModerationFails(t *testing.T) {
 		nil,
 		nil,
 	)
+	service.SetModerationEnqueuer(queue)
 
 	listing, err := service.CreateListing(ctx, "user-1", &models.CreateListingRequest{
 		Title:       "Rumah minimalis dekat tol Depok",
@@ -443,8 +677,11 @@ func TestCreateListingKeepsPendingWhenModerationFails(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateListing returned error: %v", err)
 	}
-	if ai.moderateCalls != 1 {
-		t.Fatalf("expected moderation to run once, got %d call(s)", ai.moderateCalls)
+	if ai.moderateCalls != 0 {
+		t.Fatalf("expected no inline moderation calls, got %d", ai.moderateCalls)
+	}
+	if len(queue.listingIDs) != 1 || queue.listingIDs[0] != listing.ListingID {
+		t.Fatalf("expected moderation queue to receive listing %q, got %#v", listing.ListingID, queue.listingIDs)
 	}
 	if listing.ModerationStatus != models.ModerationStatusPending {
 		t.Fatalf("expected listing to remain pending when moderation fails, got %q", listing.ModerationStatus)
@@ -457,7 +694,7 @@ func TestCreateListingKeepsPendingWhenModerationFails(t *testing.T) {
 	}
 }
 
-func TestUpdateListingRunsModerationAfterRequeue(t *testing.T) {
+func TestUpdateListingRequeuesModerationWithoutInlineExecution(t *testing.T) {
 	ctx := context.Background()
 	store := &fakeListingStore{
 		listingsByID: map[string]*models.Listing{
@@ -493,6 +730,7 @@ func TestUpdateListingRunsModerationAfterRequeue(t *testing.T) {
 		moderateOK:     false,
 		moderateReason: "profanity detected",
 	}
+	queue := &fakeModerationEnqueuer{}
 
 	service := NewListingService(
 		store,
@@ -509,6 +747,7 @@ func TestUpdateListingRunsModerationAfterRequeue(t *testing.T) {
 		nil,
 		nil,
 	)
+	service.SetModerationEnqueuer(queue)
 
 	description := "contains profanity"
 	listing, err := service.UpdateListing(ctx, "user-1", "listing-1", &models.UpdateListingRequest{
@@ -517,23 +756,26 @@ func TestUpdateListingRunsModerationAfterRequeue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpdateListing returned error: %v", err)
 	}
-	if ai.moderateCalls != 1 {
-		t.Fatalf("expected moderation to run once, got %d call(s)", ai.moderateCalls)
+	if ai.moderateCalls != 0 {
+		t.Fatalf("expected moderation to be deferred, got %d inline call(s)", ai.moderateCalls)
 	}
-	if listing.ModerationStatus != models.ModerationStatusRejected {
-		t.Fatalf("expected returned listing moderation status rejected, got %q", listing.ModerationStatus)
+	if len(queue.listingIDs) != 1 || queue.listingIDs[0] != listing.ListingID {
+		t.Fatalf("expected moderation queue to receive listing %q, got %#v", listing.ListingID, queue.listingIDs)
 	}
-	if listing.Status != models.ListingStatusArchived {
-		t.Fatalf("expected returned listing status archived after rejection, got %q", listing.Status)
+	if listing.ModerationStatus != models.ModerationStatusPending {
+		t.Fatalf("expected returned listing moderation status pending after requeue, got %q", listing.ModerationStatus)
+	}
+	if listing.Status != models.ListingStatusActive {
+		t.Fatalf("expected returned listing status to remain active before worker runs, got %q", listing.Status)
 	}
 	if store.lastListing == nil {
 		t.Fatalf("expected persisted listing to be captured")
 	}
-	if store.lastListing.ModerationStatus != models.ModerationStatusRejected {
-		t.Fatalf("expected persisted listing moderation status rejected, got %q", store.lastListing.ModerationStatus)
+	if store.lastListing.ModerationStatus != models.ModerationStatusPending {
+		t.Fatalf("expected persisted listing moderation status pending after requeue, got %q", store.lastListing.ModerationStatus)
 	}
-	if store.lastListing.Status != models.ListingStatusArchived {
-		t.Fatalf("expected persisted listing status archived after rejection, got %q", store.lastListing.Status)
+	if store.lastListing.Status != models.ListingStatusActive {
+		t.Fatalf("expected persisted listing status to remain active before worker runs, got %q", store.lastListing.Status)
 	}
 }
 

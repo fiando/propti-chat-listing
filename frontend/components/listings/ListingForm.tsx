@@ -3,7 +3,7 @@
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Loader2, Plus, Minus } from 'lucide-react';
+import { Loader2, Plus, Minus, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import {
@@ -11,11 +11,15 @@ import {
   ORIENTATION_OPTIONS,
   AMENITIES_OPTIONS,
   cn,
-  formatPriceFull,
 } from '@/lib/utils';
 import { getProvinceSuggestions, getCitySuggestions, getDistrictSuggestions } from '@/lib/api';
 import type { ParsedListing, Location, ListingType } from '@/types';
 import { ImageUpload } from './ImageUpload';
+import {
+  formatListingPriceInput,
+  normalizeAmenityIds,
+  parseListingPriceInput,
+} from '@/lib/listing-form-utils';
 
 const listingSchema = z.object({
   title: z.string().min(10, 'Judul minimal 10 karakter').max(200, 'Judul maksimal 200 karakter'),
@@ -52,6 +56,7 @@ interface ListingFormProps {
     images?: string[];
   };
   initialLocation?: Partial<Location>;
+  initialFormValues?: Partial<ListingFormValues>;
   listingId?: string;
   onSubmit: (data: ListingFormValues) => Promise<void>;
   isLoading?: boolean;
@@ -94,9 +99,27 @@ function CounterField({
   );
 }
 
+function normalizeOrientation(raw: string | undefined): string {
+  if (!raw) return '';
+  const lower = raw.trim().toLowerCase();
+  return ORIENTATION_OPTIONS.find((o) => o.toLowerCase() === lower) ?? '';
+}
+
+function normalizeLegalStatus(raw: string | undefined): string {
+  if (!raw) return '';
+  const upper = raw.trim().toUpperCase();
+  // Match by value (short code) or by label prefix (e.g. "SHM - ...")
+  return (
+    LEGAL_STATUS_OPTIONS.find((o) => o.value.toUpperCase() === upper)?.value ??
+    LEGAL_STATUS_OPTIONS.find((o) => o.label.toUpperCase().startsWith(upper + ' '))?.value ??
+    ''
+  );
+}
+
 export function ListingForm({
   initialData,
   initialLocation,
+  initialFormValues,
   listingId,
   onSubmit,
   isLoading = false,
@@ -105,6 +128,7 @@ export function ListingForm({
 }: ListingFormProps) {
   const [selectedProvinceId, setSelectedProvinceId] = useState('');
   const [selectedCityId, setSelectedCityId] = useState('');
+  const [showAmenitiesPicker, setShowAmenitiesPicker] = useState(false);
 
   const {
     register,
@@ -116,24 +140,32 @@ export function ListingForm({
   } = useForm<ListingFormValues>({
     resolver: zodResolver(listingSchema),
     defaultValues: {
-      title: initialData?.title || '',
-      description: initialData?.description || '',
-      price: initialData?.price || 0,
+      title: initialFormValues?.title || initialData?.title || '',
+      description: initialFormValues?.description || initialData?.description || '',
+      price: (initialFormValues?.price ?? initialData?.price) || 0,
       priceUnit:
-        (initialData?.priceUnit as ListingFormValues['priceUnit']) || 'total',
-      listingType: initialData?.listingType || ('sell' as ListingType),
-      landArea: initialData?.propertyDetails?.landArea || 0,
-      buildingArea: initialData?.propertyDetails?.buildingArea || 0,
-      bedrooms: initialData?.propertyDetails?.bedrooms || 0,
-      bathrooms: initialData?.propertyDetails?.bathrooms || 0,
-      orientation: initialData?.propertyDetails?.orientation || '',
-      legalStatus: initialData?.propertyDetails?.legalStatus || '',
-      amenities: initialData?.propertyDetails?.amenities || [],
-      address: initialLocation?.address || initialData?.address || '',
-      province: initialLocation?.province || '',
-      city: initialLocation?.city || '',
-      district: initialLocation?.district || '',
-      images: initialData?.images || [],
+        initialFormValues?.priceUnit ||
+        (initialData?.priceUnit as ListingFormValues['priceUnit']) ||
+        'total',
+      listingType: initialFormValues?.listingType || initialData?.listingType || ('sell' as ListingType),
+      landArea: (initialFormValues?.landArea ?? initialData?.propertyDetails?.landArea) || 0,
+      buildingArea: (initialFormValues?.buildingArea ?? initialData?.propertyDetails?.buildingArea) || 0,
+      bedrooms: (initialFormValues?.bedrooms ?? initialData?.propertyDetails?.bedrooms) || 0,
+      bathrooms: (initialFormValues?.bathrooms ?? initialData?.propertyDetails?.bathrooms) || 0,
+      frontWidth: initialFormValues?.frontWidth ?? initialData?.propertyDetails?.frontWidth,
+      orientation: normalizeOrientation(initialFormValues?.orientation || initialData?.propertyDetails?.orientation),
+      legalStatus: normalizeLegalStatus(initialFormValues?.legalStatus || initialData?.propertyDetails?.legalStatus),
+      powerConsumption: initialFormValues?.powerConsumption || initialData?.propertyDetails?.powerConsumption || '',
+      amenities: normalizeAmenityIds(
+        (initialFormValues?.amenities as string[] | undefined) ||
+          initialData?.propertyDetails?.amenities ||
+          []
+      ),
+      address: initialFormValues?.address || initialLocation?.address || initialData?.address || '',
+      province: initialFormValues?.province || initialLocation?.province || '',
+      city: initialFormValues?.city || initialLocation?.city || '',
+      district: initialFormValues?.district || initialLocation?.district || '',
+      images: initialFormValues?.images || initialData?.images || [],
     },
   });
 
@@ -178,7 +210,6 @@ export function ListingForm({
   }, [allCities, initialCity, selectedCityId]);
 
   const watchedAmenities = watch('amenities') || [];
-  const watchedPrice = watch('price');
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -250,16 +281,21 @@ export function ListingForm({
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-medium">
                 Rp
               </span>
-              <input
-                {...register('price', { valueAsNumber: true })}
-                type="number"
-                className="input-field pl-10"
-                placeholder="850000000"
+              <Controller
+                name="price"
+                control={control}
+                render={({ field }) => (
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={formatListingPriceInput(field.value || 0)}
+                    onChange={(event) => field.onChange(parseListingPriceInput(event.target.value))}
+                    className="input-field pl-10"
+                    placeholder="850.000.000"
+                  />
+                )}
               />
             </div>
-            {watchedPrice > 0 && (
-              <p className="text-xs text-gray-500 mt-1">{formatPriceFull(watchedPrice)}</p>
-            )}
             {errors.price && <p className="text-red-500 text-xs mt-1">{errors.price.message}</p>}
           </div>
           <div>
@@ -376,8 +412,8 @@ export function ListingForm({
                 <select {...field} className="input-field">
                   <option value="">Pilih sertifikat</option>
                   {LEGAL_STATUS_OPTIONS.map((o) => (
-                    <option key={o} value={o}>
-                      {o}
+                    <option key={o.value} value={o.value}>
+                      {o.label}
                     </option>
                   ))}
                 </select>
@@ -388,38 +424,94 @@ export function ListingForm({
 
         {/* Amenities */}
         <div>
-          <label className="label">Fasilitas</label>
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <div>
+              <label className="label mb-0">Fasilitas</label>
+              <p className="text-xs text-gray-500 mt-1">
+                Pilih fasilitas penting, lalu buka daftar lengkap hanya saat perlu.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowAmenitiesPicker((current) => !current)}
+              className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700 hover:border-brand-primary/40 hover:text-brand-primary transition-colors"
+            >
+              {showAmenitiesPicker ? 'Tutup daftar' : 'Pilih fasilitas'}
+              {showAmenitiesPicker ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+          </div>
+
+          {watchedAmenities.length > 0 ? (
+            <div className="mb-3 flex flex-wrap gap-2">
+              {watchedAmenities.map((amenityId) => {
+                const amenity = AMENITIES_OPTIONS.find((item) => item.id === amenityId);
+                return (
+                  <span
+                    key={amenityId}
+                    className="inline-flex items-center gap-1 rounded-full border border-brand-primary/20 bg-brand-light px-3 py-1 text-xs font-medium text-brand-primary"
+                  >
+                    {amenity?.label || amenityId}
+                  </span>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="mb-3 text-sm text-gray-500">Belum ada fasilitas yang dipilih.</p>
+          )}
+
           <Controller
             name="amenities"
             control={control}
             render={({ field }) => (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {AMENITIES_OPTIONS.map((amenity) => {
-                  const isChecked = field.value?.includes(amenity.id);
-                  return (
-                    <button
-                      key={amenity.id}
-                      type="button"
-                      onClick={() => {
-                        const current = field.value || [];
-                        if (isChecked) {
-                          field.onChange(current.filter((a) => a !== amenity.id));
-                        } else {
-                          field.onChange([...current, amenity.id]);
-                        }
-                      }}
-                      className={cn(
-                        'py-2 px-3 rounded-lg border text-xs font-medium text-left transition-all',
-                        isChecked
-                          ? 'border-brand-primary bg-brand-light text-brand-primary'
-                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                      )}
-                    >
-                      {amenity.label}
-                    </button>
-                  );
-                })}
-              </div>
+              <>
+                {showAmenitiesPicker && (
+                  <div className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <p className="text-xs text-gray-500">
+                        Daftar fasilitas diperluas untuk rumah, apartemen, ruko, gudang, dan properti komersial.
+                      </p>
+                      {field.value?.length ? (
+                        <button
+                          type="button"
+                          onClick={() => field.onChange([])}
+                          className="inline-flex items-center gap-1 text-xs font-medium text-red-500 hover:text-red-600"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Kosongkan
+                        </button>
+                      ) : null}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                      {AMENITIES_OPTIONS.map((amenity) => {
+                        const isChecked = field.value?.includes(amenity.id);
+                        return (
+                          <button
+                            key={amenity.id}
+                            type="button"
+                            onClick={() => {
+                              const current = normalizeAmenityIds(field.value || []);
+                              if (isChecked) {
+                                field.onChange(current.filter((item) => item !== amenity.id));
+                              } else {
+                                field.onChange(normalizeAmenityIds([...current, amenity.id]));
+                              }
+                            }}
+                            className={cn(
+                              'rounded-lg border px-3 py-2 text-left text-xs font-medium transition-all',
+                              isChecked
+                                ? 'border-brand-primary bg-brand-light text-brand-primary'
+                                : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                            )}
+                          >
+                            {amenity.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           />
           {watchedAmenities.length > 0 && (

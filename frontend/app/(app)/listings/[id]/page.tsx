@@ -1,22 +1,43 @@
 'use client';
 
-import { use } from 'react';
-import { useListing, useSaveListing, useSavedListings } from '@/hooks/useListings';
+import { use, useEffect } from 'react';
+import { useListing, useSaveListing, useSavedListings, useTrackListingView } from '@/hooks/useListings';
 import { ListingDetail } from '@/components/listings/ListingDetail';
 import { useDeleteListing } from '@/hooks/useListings';
 import { useRouter } from 'next/navigation';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
+import { markListingViewTracked, shouldTrackListingView } from '@/lib/listing-view-tracking';
 
 export default function ListingDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { data: listing, isLoading, error } = useListing(id);
   const { mutateAsync: deleteListing, isPending: isDeleting } = useDeleteListing();
   const { mutateAsync: toggleSave, isPending: isSaving } = useSaveListing();
+  const { mutateAsync: trackView } = useTrackListingView();
   const router = useRouter();
   const { data: session, status } = useSession();
   const { data: savedData } = useSavedListings({ enabled: status === 'authenticated' });
+
+  const isOwner = session?.user && (listing?.userId === (session as { user?: { id?: string } }).user?.id);
+
+  useEffect(() => {
+    if (!listing || typeof window === 'undefined' || isOwner) {
+      return;
+    }
+    if (!shouldTrackListingView(window.localStorage, id)) {
+      return;
+    }
+
+    void trackView(id)
+      .then(() => {
+        markListingViewTracked(window.localStorage, id);
+      })
+      .catch(() => {
+        // ignore background tracking errors; listing page should remain usable
+      });
+  }, [id, isOwner, listing, trackView]);
 
   const handleDelete = async () => {
     if (!confirm('Yakin ingin menghapus iklan ini?')) return;
@@ -44,7 +65,6 @@ export default function ListingDetailPage({ params }: { params: Promise<{ id: st
     );
   }
 
-  const isOwner = session?.user && (listing.userId === (session as { user?: { id?: string } }).user?.id);
   const savedIds = savedData?.items.map((item) => item.listingId) ?? [];
   const isSaved = savedIds.includes(id);
 

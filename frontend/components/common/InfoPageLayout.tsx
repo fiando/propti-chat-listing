@@ -4,6 +4,10 @@ type InfoSection = {
   title: string;
   paragraphs: string[];
   bullets?: string[];
+  supportLink?: {
+    label: string;
+    href: string;
+  };
 };
 
 type InfoPageLayoutProps = {
@@ -79,6 +83,14 @@ export function InfoPageLayout({
                     <p key={paragraph}>{paragraph}</p>
                   ))}
                 </div>
+                {section.supportLink && (
+                  <a
+                    href={section.supportLink.href}
+                    className="mt-4 inline-flex text-sm font-semibold text-brand-primary transition hover:underline md:text-base"
+                  >
+                    {section.supportLink.label}
+                  </a>
+                )}
                 {section.bullets && section.bullets.length > 0 && (
                   <ul className="mt-4 space-y-2 text-sm leading-7 text-gray-600 md:text-base">
                     {section.bullets.map((bullet) => (

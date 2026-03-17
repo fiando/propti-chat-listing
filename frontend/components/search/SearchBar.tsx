@@ -51,10 +51,12 @@ export function SearchBar({ initialParams = {}, onSearch }: SearchBarProps) {
 
   const handleSearch = () => {
     onSearch({
+      ...initialParams,
       q: q || undefined,
       province: province || undefined,
       city: city || undefined,
       listingType: (listingType as SearchParams['listingType']) || undefined,
+      page: 1,
     });
   };
 
@@ -68,7 +70,14 @@ export function SearchBar({ initialParams = {}, onSearch }: SearchBarProps) {
     setCity('');
     setListingType('');
     setSelectedProvinceId('');
-    onSearch({});
+    onSearch({
+      ...initialParams,
+      q: undefined,
+      province: undefined,
+      city: undefined,
+      listingType: undefined,
+      page: 1,
+    });
   };
 
   const hasFilters = q || province || city || listingType;

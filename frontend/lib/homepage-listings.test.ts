@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { selectHomepageListings } from './homepage-listings.ts';
+import { buildHomepageListingSection } from './homepage-listings.ts';
 
 const listings = [
   {
@@ -57,13 +57,63 @@ const listings = [
   },
 ];
 
-test('selectHomepageListings prefers approved active featured listings, then newest listings', () => {
-  const selected = selectHomepageListings(listings as never[], 3);
-  assert.deepEqual(selected.map((listing) => listing.listingId), ['new-featured', 'old-featured', 'new-standard']);
+test('buildHomepageListingSection returns featured mode when approved featured listings exist', () => {
+  const selected = buildHomepageListingSection(listings as never[], 3);
+
+  assert.equal(selected.kind, 'featured');
+  assert.equal(selected.title, 'Properti Unggulan');
+  assert.deepEqual(selected.items.map((listing) => listing.listingId), [
+    'new-featured',
+    'old-featured',
+    'new-standard',
+  ]);
 });
 
-test('selectHomepageListings falls back to curated listings when no real listings qualify', () => {
-  const selected = selectHomepageListings([], 6);
-  assert.equal(selected.length, 6);
-  assert.ok(selected.every((listing) => listing.title));
+test('buildHomepageListingSection falls back to newest approved listings when no featured listings exist', () => {
+  const selected = buildHomepageListingSection(
+    [
+      {
+        listingId: 'older-standard',
+        title: 'Older Standard',
+        status: 'active',
+        moderationStatus: 'approved',
+        premiumFeatures: { isFeatured: false, isPremium: false },
+        createdAt: '2026-03-09T00:00:00Z',
+        location: { city: 'Depok', district: 'Beji' },
+        propertyDetails: { landArea: 120, buildingArea: 90, bedrooms: 3, bathrooms: 2 },
+        images: [],
+        listingType: 'sell',
+        price: 850000000,
+      },
+      {
+        listingId: 'newer-standard',
+        title: 'Newer Standard',
+        status: 'active',
+        moderationStatus: 'approved',
+        premiumFeatures: { isFeatured: false, isPremium: false },
+        createdAt: '2026-03-11T00:00:00Z',
+        location: { city: 'Bogor', district: 'Cibinong' },
+        propertyDetails: { landArea: 90, buildingArea: 65, bedrooms: 2, bathrooms: 1 },
+        images: [],
+        listingType: 'sell',
+        price: 650000000,
+      },
+    ] as never[],
+    2
+  );
+
+  assert.equal(selected.kind, 'latest');
+  assert.equal(selected.title, 'Properti Terbaru');
+  assert.deepEqual(selected.items.map((listing) => listing.listingId), [
+    'newer-standard',
+    'older-standard',
+  ]);
+});
+
+test('buildHomepageListingSection returns empty mode when no approved active listings exist', () => {
+  const selected = buildHomepageListingSection([], 6);
+
+  assert.equal(selected.kind, 'empty');
+  assert.equal(selected.title, '');
+  assert.deepEqual(selected.items, []);
 });

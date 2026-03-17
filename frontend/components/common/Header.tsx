@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { signOut } from 'next-auth/react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Home,
   Search,
@@ -23,6 +23,26 @@ export function Header() {
   const { session, isAuthenticated, isLoading, isPremium, isSubscriptionLoading } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!profileOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!(event.target instanceof Node)) {
+        return;
+      }
+
+      if (!profileMenuRef.current?.contains(event.target)) {
+        setProfileOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [profileOpen]);
 
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-gray-100 shadow-sm">
@@ -73,7 +93,7 @@ export function Header() {
           {isLoading ? (
             <div className="w-9 h-9 bg-gray-100 rounded-full animate-pulse" />
           ) : isAuthenticated ? (
-            <div className="relative">
+            <div ref={profileMenuRef} className="relative">
               <button
                 onClick={() => setProfileOpen(!profileOpen)}
                 className="flex items-center gap-2 hover:bg-gray-50 rounded-xl px-2 py-1.5 transition-colors"
@@ -97,63 +117,60 @@ export function Header() {
               </button>
 
               {profileOpen && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setProfileOpen(false)} />
-                  <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-20">
-                    <div className="px-4 py-3 border-b border-gray-100">
-                      <p className="font-semibold text-gray-900 text-sm">{session?.user?.name}</p>
-                      <p className="text-xs text-gray-500 truncate">{session?.user?.email}</p>
-                    </div>
-                    <Link
-                      href="/profile"
-                      className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                      onClick={() => setProfileOpen(false)}
-                    >
-                      <User className="w-4 h-4" />
-                      Profil Saya
-                    </Link>
-                    <Link
-                      href="/listings"
-                      className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                      onClick={() => setProfileOpen(false)}
-                    >
-                      <Home className="w-4 h-4" />
-                      Iklan Saya
-                    </Link>
-                    {isSubscriptionLoading ? (
-                      <div className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400">
-                        <Crown className="w-4 h-4" />
-                        Memuat status paket...
-                      </div>
-                    ) : isPremium ? (
-                      <div className="flex items-center gap-3 px-4 py-2.5 text-sm text-brand-gold bg-amber-50/60">
-                        <Crown className="w-4 h-4" />
-                        Paket Premium Aktif
-                      </div>
-                    ) : (
-                      <Link
-                        href="/profile#premium"
-                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-brand-gold hover:bg-amber-50 transition-colors"
-                        onClick={() => setProfileOpen(false)}
-                      >
-                        <Crown className="w-4 h-4" />
-                        Upgrade Premium
-                      </Link>
-                    )}
-                    <div className="border-t border-gray-100 mt-1 pt-1">
-                      <button
-                        onClick={() => {
-                          setProfileOpen(false);
-                          signOut({ callbackUrl: '/' });
-                        }}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors"
-                      >
-                        <LogOut className="w-4 h-4" />
-                        Keluar
-                      </button>
-                    </div>
+                <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-20">
+                  <div className="px-4 py-3 border-b border-gray-100">
+                    <p className="font-semibold text-gray-900 text-sm">{session?.user?.name}</p>
+                    <p className="text-xs text-gray-500 truncate">{session?.user?.email}</p>
                   </div>
-                </>
+                  <Link
+                    href="/profile"
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    onClick={() => setProfileOpen(false)}
+                  >
+                    <User className="w-4 h-4" />
+                    Profil Saya
+                  </Link>
+                  <Link
+                    href="/listings"
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    onClick={() => setProfileOpen(false)}
+                  >
+                    <Home className="w-4 h-4" />
+                    Iklan Saya
+                  </Link>
+                  {isSubscriptionLoading ? (
+                    <div className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400">
+                      <Crown className="w-4 h-4" />
+                      Memuat status paket...
+                    </div>
+                  ) : isPremium ? (
+                    <div className="flex items-center gap-3 px-4 py-2.5 text-sm text-brand-gold bg-amber-50/60">
+                      <Crown className="w-4 h-4" />
+                      Paket Premium Aktif
+                    </div>
+                  ) : (
+                    <Link
+                      href="/profile#premium"
+                      className="flex items-center gap-3 px-4 py-2.5 text-sm text-brand-gold hover:bg-amber-50 transition-colors"
+                      onClick={() => setProfileOpen(false)}
+                    >
+                      <Crown className="w-4 h-4" />
+                      Upgrade Premium
+                    </Link>
+                  )}
+                  <div className="border-t border-gray-100 mt-1 pt-1">
+                    <button
+                      onClick={() => {
+                        setProfileOpen(false);
+                        signOut({ callbackUrl: '/' });
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Keluar
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
           ) : (

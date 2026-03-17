@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
-	"time"
+	"sort"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -11,6 +11,12 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/fiando/propti/backend/internal/models"
 )
+
+type listingScanQuery struct {
+	filterExpression          string
+	expressionAttributeValues map[string]types.AttributeValue
+	expressionAttributeNames  map[string]string
+}
 
 // ListingRepo provides CRUD operations on the propti-listings DynamoDB table.
 type ListingRepo struct {
@@ -114,23 +120,24 @@ func (r *ListingRepo) ListByUserID(ctx context.Context, userID string, limit int
 	return listings, nil
 }
 
-// CountMonthlyByUserID counts how many listings a user has created in the current month.
-func (r *ListingRepo) CountMonthlyByUserID(ctx context.Context, userID string) (int, error) {
-	now := time.Now()
-	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC).Format(time.RFC3339)
-
+// CountActiveByUserID counts listings that still consume a user's active slot.
+func (r *ListingRepo) CountActiveByUserID(ctx context.Context, userID string) (int, error) {
 	result, err := r.db.Client.Query(ctx, &dynamodb.QueryInput{
 		TableName:              aws.String(r.db.ListingsTable),
 		IndexName:              aws.String("userId-createdAt-index"),
-		KeyConditionExpression: aws.String("userId = :uid AND createdAt >= :start"),
+		KeyConditionExpression: aws.String("userId = :uid"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":uid":   &types.AttributeValueMemberS{Value: userID},
-			":start": &types.AttributeValueMemberS{Value: monthStart},
+			":uid":    &types.AttributeValueMemberS{Value: userID},
+			":active": &types.AttributeValueMemberS{Value: string(models.ListingStatusActive)},
 		},
+		ExpressionAttributeNames: map[string]string{
+			"#st": "status",
+		},
+		FilterExpression: aws.String("#st = :active"),
 		Select: types.SelectCount,
 	})
 	if err != nil {
-		return 0, fmt.Errorf("count monthly listings: %w", err)
+		return 0, fmt.Errorf("count active listings: %w", err)
 	}
 	return int(result.Count), nil
 }
@@ -150,39 +157,7 @@ func (r *ListingRepo) Delete(ctx context.Context, userID, listingID string) erro
 
 // Scan returns listings with optional location/price filters (full-table scan — use for dev/small datasets).
 func (r *ListingRepo) Scan(ctx context.Context, params *models.ListingSearchParams) ([]models.Listing, error) {
-	filterExpr := "moderationStatus = :approved AND #st = :active"
-	exprAttrValues := map[string]types.AttributeValue{
-		":approved": &types.AttributeValueMemberS{Value: string(models.ModerationStatusApproved)},
-		":active":   &types.AttributeValueMemberS{Value: string(models.ListingStatusActive)},
-	}
-	exprAttrNames := map[string]string{
-		"#st": "status",
-	}
-
-	if params.Province != "" {
-		exprAttrNames["#loc"] = "location"
-		exprAttrNames["#province"] = "province"
-		filterExpr += " AND #loc.#province = :province"
-		exprAttrValues[":province"] = &types.AttributeValueMemberS{Value: params.Province}
-	}
-	if params.City != "" {
-		exprAttrNames["#loc"] = "location"
-		exprAttrNames["#city"] = "city"
-		filterExpr += " AND #loc.#city = :city"
-		exprAttrValues[":city"] = &types.AttributeValueMemberS{Value: params.City}
-	}
-	if params.PriceMin > 0 {
-		filterExpr += " AND price >= :pmin"
-		exprAttrValues[":pmin"] = &types.AttributeValueMemberN{Value: fmt.Sprintf("%f", params.PriceMin)}
-	}
-	if params.PriceMax > 0 {
-		filterExpr += " AND price <= :pmax"
-		exprAttrValues[":pmax"] = &types.AttributeValueMemberN{Value: fmt.Sprintf("%f", params.PriceMax)}
-	}
-	if params.Bedrooms > 0 {
-		filterExpr += " AND bedrooms = :bed"
-		exprAttrValues[":bed"] = &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", params.Bedrooms)}
-	}
+	query := buildListingScanQuery(params)
 
 	limit := int32(params.PageSize)
 	if limit <= 0 {
@@ -191,9 +166,9 @@ func (r *ListingRepo) Scan(ctx context.Context, params *models.ListingSearchPara
 
 	result, err := r.db.Client.Scan(ctx, &dynamodb.ScanInput{
 		TableName:                 aws.String(r.db.ListingsTable),
-		FilterExpression:          aws.String(filterExpr),
-		ExpressionAttributeValues: exprAttrValues,
-		ExpressionAttributeNames:  exprAttrNames,
+		FilterExpression:          aws.String(query.filterExpression),
+		ExpressionAttributeValues: query.expressionAttributeValues,
+		ExpressionAttributeNames:  query.expressionAttributeNames,
 		Limit:                     aws.Int32(limit),
 	})
 	if err != nil {
@@ -208,7 +183,141 @@ func (r *ListingRepo) Scan(ctx context.Context, params *models.ListingSearchPara
 		}
 		listings = append(listings, l)
 	}
+	sortListings(listings, params.SortBy)
 	return listings, nil
+}
+
+func buildListingScanQuery(params *models.ListingSearchParams) listingScanQuery {
+	filterExpr := "moderationStatus = :approved AND #st = :active"
+	exprAttrValues := map[string]types.AttributeValue{
+		":approved": &types.AttributeValueMemberS{Value: string(models.ModerationStatusApproved)},
+		":active":   &types.AttributeValueMemberS{Value: string(models.ListingStatusActive)},
+	}
+	exprAttrNames := map[string]string{
+		"#st": "status",
+	}
+
+	if params == nil {
+		return listingScanQuery{
+			filterExpression:          filterExpr,
+			expressionAttributeValues: exprAttrValues,
+			expressionAttributeNames:  exprAttrNames,
+		}
+	}
+
+	if params.Query != "" {
+		exprAttrNames["#title"] = "title"
+		exprAttrNames["#description"] = "description"
+		exprAttrNames["#loc"] = "location"
+		exprAttrNames["#address"] = "address"
+		filterExpr += " AND (contains(#title, :query) OR contains(#description, :query) OR contains(#loc.#address, :query))"
+		exprAttrValues[":query"] = &types.AttributeValueMemberS{Value: params.Query}
+	}
+	if params.Province != "" {
+		exprAttrNames["#loc"] = "location"
+		exprAttrNames["#province"] = "province"
+		filterExpr += " AND #loc.#province = :province"
+		exprAttrValues[":province"] = &types.AttributeValueMemberS{Value: params.Province}
+	}
+	if params.City != "" {
+		exprAttrNames["#loc"] = "location"
+		exprAttrNames["#city"] = "city"
+		filterExpr += " AND #loc.#city = :city"
+		exprAttrValues[":city"] = &types.AttributeValueMemberS{Value: params.City}
+	}
+	if params.ListingType != "" {
+		filterExpr += " AND listingType = :listingType"
+		exprAttrValues[":listingType"] = &types.AttributeValueMemberS{Value: string(params.ListingType)}
+	}
+	if params.PriceMin > 0 {
+		filterExpr += " AND price >= :pmin"
+		exprAttrValues[":pmin"] = &types.AttributeValueMemberN{Value: fmt.Sprintf("%f", params.PriceMin)}
+	}
+	if params.PriceMax > 0 {
+		filterExpr += " AND price <= :pmax"
+		exprAttrValues[":pmax"] = &types.AttributeValueMemberN{Value: fmt.Sprintf("%f", params.PriceMax)}
+	}
+	if params.Bedrooms > 0 {
+		exprAttrNames["#details"] = "propertyDetails"
+		exprAttrNames["#bedrooms"] = "bedrooms"
+		filterExpr += " AND #details.#bedrooms >= :bed"
+		exprAttrValues[":bed"] = &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", params.Bedrooms)}
+	}
+	if params.Bathrooms > 0 {
+		exprAttrNames["#details"] = "propertyDetails"
+		exprAttrNames["#bathrooms"] = "bathrooms"
+		filterExpr += " AND #details.#bathrooms >= :bath"
+		exprAttrValues[":bath"] = &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", params.Bathrooms)}
+	}
+	if params.BuildingAreaMin > 0 {
+		exprAttrNames["#details"] = "propertyDetails"
+		exprAttrNames["#buildingArea"] = "buildingArea"
+		filterExpr += " AND #details.#buildingArea >= :buildingAreaMin"
+		exprAttrValues[":buildingAreaMin"] = &types.AttributeValueMemberN{Value: fmt.Sprintf("%f", params.BuildingAreaMin)}
+	}
+	if params.BuildingAreaMax > 0 {
+		exprAttrNames["#details"] = "propertyDetails"
+		exprAttrNames["#buildingArea"] = "buildingArea"
+		filterExpr += " AND #details.#buildingArea <= :buildingAreaMax"
+		exprAttrValues[":buildingAreaMax"] = &types.AttributeValueMemberN{Value: fmt.Sprintf("%f", params.BuildingAreaMax)}
+	}
+	if params.LandAreaMin > 0 {
+		exprAttrNames["#details"] = "propertyDetails"
+		exprAttrNames["#landArea"] = "landArea"
+		filterExpr += " AND #details.#landArea >= :landAreaMin"
+		exprAttrValues[":landAreaMin"] = &types.AttributeValueMemberN{Value: fmt.Sprintf("%f", params.LandAreaMin)}
+	}
+	if params.LandAreaMax > 0 {
+		exprAttrNames["#details"] = "propertyDetails"
+		exprAttrNames["#landArea"] = "landArea"
+		filterExpr += " AND #details.#landArea <= :landAreaMax"
+		exprAttrValues[":landAreaMax"] = &types.AttributeValueMemberN{Value: fmt.Sprintf("%f", params.LandAreaMax)}
+	}
+	if params.LegalStatus != "" {
+		exprAttrNames["#details"] = "propertyDetails"
+		exprAttrNames["#legalStatus"] = "legalStatus"
+		filterExpr += " AND #details.#legalStatus = :legalStatus"
+		exprAttrValues[":legalStatus"] = &types.AttributeValueMemberS{Value: params.LegalStatus}
+	}
+	if len(params.Amenities) > 0 {
+		exprAttrNames["#details"] = "propertyDetails"
+		exprAttrNames["#amenities"] = "amenities"
+		for index, amenity := range params.Amenities {
+			if amenity == "" {
+				continue
+			}
+			key := fmt.Sprintf(":amenity%d", index)
+			filterExpr += fmt.Sprintf(" AND contains(#details.#amenities, %s)", key)
+			exprAttrValues[key] = &types.AttributeValueMemberS{Value: amenity}
+		}
+	}
+
+	return listingScanQuery{
+		filterExpression:          filterExpr,
+		expressionAttributeValues: exprAttrValues,
+		expressionAttributeNames:  exprAttrNames,
+	}
+}
+
+func sortListings(listings []models.Listing, sortBy string) {
+	switch sortBy {
+	case "price_asc":
+		sort.SliceStable(listings, func(i, j int) bool {
+			return listings[i].Price < listings[j].Price
+		})
+	case "price_desc":
+		sort.SliceStable(listings, func(i, j int) bool {
+			return listings[i].Price > listings[j].Price
+		})
+	case "popular":
+		sort.SliceStable(listings, func(i, j int) bool {
+			return listings[i].Views > listings[j].Views
+		})
+	default:
+		sort.SliceStable(listings, func(i, j int) bool {
+			return listings[i].CreatedAt.After(listings[j].CreatedAt)
+		})
+	}
 }
 
 // ScanNearby queries listings near a given latitude/longitude within radiusKm.

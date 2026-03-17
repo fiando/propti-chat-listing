@@ -14,6 +14,7 @@ import type {
   UpdateProfileRequest,
 } from '@/types';
 import { getBackendAuthHeader, getBackendProfilePath } from '@/lib/backend-auth';
+import { getApiErrorMessage } from '@/lib/api-error';
 
 const apiClient = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'https://api.propti.id',
@@ -21,6 +22,20 @@ const apiClient = axios.create({
     'Content-Type': 'application/json',
   },
   timeout: 30000,
+  paramsSerializer: {
+    serialize: (params: Record<string, unknown>) => {
+      const qs = new URLSearchParams();
+      for (const [key, value] of Object.entries(params)) {
+        if (value === undefined || value === null || value === '') continue;
+        if (Array.isArray(value)) {
+          if (value.length > 0) qs.set(key, value.join(','));
+        } else {
+          qs.set(key, String(value));
+        }
+      }
+      return qs.toString();
+    },
+  },
 });
 
 apiClient.interceptors.request.use(async (config) => {
@@ -40,13 +55,11 @@ apiClient.interceptors.response.use(
   (error: AxiosError) => {
     if (error.response?.status === 401) {
       if (typeof window !== 'undefined') {
-        window.location.href = '/login';
+        const callbackUrl = `${window.location.pathname}${window.location.search}`;
+        window.location.href = `/login?callbackUrl=${encodeURIComponent(callbackUrl)}`;
       }
     }
-    const message =
-      (error.response?.data as { message?: string })?.message ||
-      error.message ||
-      'Terjadi kesalahan. Silakan coba lagi.';
+    const message = getApiErrorMessage(error.response?.data, error.message);
     return Promise.reject(new Error(message));
   }
 );
@@ -83,6 +96,11 @@ export async function createListing(data: CreateListingRequest): Promise<Listing
 
 export async function getListing(id: string): Promise<Listing> {
   const response = await apiClient.get<Listing>(`/listings/${id}`);
+  return response.data;
+}
+
+export async function trackListingView(id: string): Promise<Listing> {
+  const response = await apiClient.post<Listing>(`/listings/${id}/view`);
   return response.data;
 }
 

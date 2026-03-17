@@ -3,6 +3,7 @@
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { useMyListings } from '@/hooks/useListings';
 import { useState } from 'react';
 import {
   User,
@@ -25,7 +26,12 @@ export default function ProfilePage() {
   const { status } = useSession();
   const router = useRouter();
   const { profile, user, isPremium, isLoading, isSubscriptionLoading } = useAuth();
+  const { data: myListingsData, isLoading: isMyListingsLoading } = useMyListings(
+    {},
+    { enabled: status === 'authenticated' }
+  );
   const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const activeListingsCount = myListingsData?.items?.length ?? 0;
 
   if (status === 'unauthenticated') {
     router.replace('/login');
@@ -93,8 +99,8 @@ export default function ProfilePage() {
             {[
               {
                 icon: Home,
-                label: 'Iklan Bulan Ini',
-                value: profile.subscription.monthlyListingsUsed,
+                label: 'Iklan Aktif',
+                value: isMyListingsLoading ? 'Memuat...' : activeListingsCount,
               },
               {
                 icon: User,
@@ -159,7 +165,7 @@ export default function ProfilePage() {
               </div>
               <ul className="space-y-2 text-sm text-gray-600">
                 {[
-                  '1 iklan aktif per bulan',
+                  '3 iklan pertama gratis',
                   'Maksimal 3 foto per iklan',
                   'Iklan tayang 30 hari',
                   'Statistik dasar',

@@ -53,6 +53,9 @@ func (h *ListingHandler) Handle(ctx context.Context, req events.APIGatewayProxyR
 	case method == http.MethodGet && isListingPath(path):
 		return h.getListing(ctx, req)
 
+	case method == http.MethodPost && isListingViewPath(path):
+		return h.recordListingView(ctx, req)
+
 	case method == http.MethodPut && isListingPath(path):
 		return h.updateListing(ctx, req)
 
@@ -122,6 +125,24 @@ func (h *ListingHandler) getListing(ctx context.Context, req events.APIGatewayPr
 	}
 
 	listing, err := h.listingService.GetListing(ctx, listingID)
+	if err != nil {
+		if appErr, ok := err.(*utils.AppError); ok {
+			return jsonResponse(appErr.Code, utils.MarshalErrorResponse(appErr)), nil
+		}
+		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
+	}
+
+	body, _ := json.Marshal(listing)
+	return jsonResponse(http.StatusOK, string(body)), nil
+}
+
+func (h *ListingHandler) recordListingView(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	listingID := extractListingID(req)
+	if listingID == "" {
+		return jsonResponse(http.StatusBadRequest, utils.MarshalErrorResponse(utils.ErrBadRequest)), nil
+	}
+
+	listing, err := h.listingService.RecordListingView(ctx, listingID)
 	if err != nil {
 		if appErr, ok := err.(*utils.AppError); ok {
 			return jsonResponse(appErr.Code, utils.MarshalErrorResponse(appErr)), nil
@@ -344,6 +365,11 @@ func isListingSavePath(path string) bool {
 	return len(parts) == 3 && parts[0] == "listings" && parts[1] != "" && parts[2] == "save"
 }
 
+func isListingViewPath(path string) bool {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	return len(parts) == 3 && parts[0] == "listings" && parts[1] != "" && parts[2] == "view"
+}
+
 func extractListingID(req events.APIGatewayProxyRequest) string {
 	if id, ok := req.PathParameters["id"]; ok {
 		return id
@@ -358,10 +384,12 @@ func extractListingID(req events.APIGatewayProxyRequest) string {
 
 func parseSearchParams(req events.APIGatewayProxyRequest) *models.ListingSearchParams {
 	p := &models.ListingSearchParams{
-		Query:    req.QueryStringParameters["q"],
-		Province: req.QueryStringParameters["province"],
-		City:     req.QueryStringParameters["city"],
-		SortBy:   req.QueryStringParameters["sortBy"],
+		Query:       req.QueryStringParameters["q"],
+		Province:    req.QueryStringParameters["province"],
+		City:        req.QueryStringParameters["city"],
+		ListingType: models.ListingType(req.QueryStringParameters["listingType"]),
+		LegalStatus: req.QueryStringParameters["legalStatus"],
+		SortBy:      req.QueryStringParameters["sortBy"],
 	}
 	if v, err := strconv.ParseFloat(req.QueryStringParameters["priceMin"], 64); err == nil {
 		p.PriceMin = v
@@ -372,11 +400,29 @@ func parseSearchParams(req events.APIGatewayProxyRequest) *models.ListingSearchP
 	if v, err := strconv.Atoi(req.QueryStringParameters["bedrooms"]); err == nil {
 		p.Bedrooms = v
 	}
+	if v, err := strconv.Atoi(req.QueryStringParameters["bathrooms"]); err == nil {
+		p.Bathrooms = v
+	}
+	if v, err := strconv.ParseFloat(req.QueryStringParameters["buildingAreaMin"], 64); err == nil {
+		p.BuildingAreaMin = v
+	}
+	if v, err := strconv.ParseFloat(req.QueryStringParameters["buildingAreaMax"], 64); err == nil {
+		p.BuildingAreaMax = v
+	}
+	if v, err := strconv.ParseFloat(req.QueryStringParameters["landAreaMin"], 64); err == nil {
+		p.LandAreaMin = v
+	}
+	if v, err := strconv.ParseFloat(req.QueryStringParameters["landAreaMax"], 64); err == nil {
+		p.LandAreaMax = v
+	}
 	if v, err := strconv.Atoi(req.QueryStringParameters["page"]); err == nil {
 		p.Page = v
 	}
 	if v, err := strconv.Atoi(req.QueryStringParameters["pageSize"]); err == nil {
 		p.PageSize = v
+	}
+	if amenities := strings.TrimSpace(req.QueryStringParameters["amenities"]); amenities != "" {
+		p.Amenities = strings.Split(amenities, ",")
 	}
 	return p
 }
