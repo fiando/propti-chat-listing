@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { MessageCircle, PenLine, ArrowLeft, Phone, X } from 'lucide-react';
+import { MessageCircle, PenLine, ArrowLeft, Phone, X, AlertTriangle, Crown, Loader2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { TextParseForm } from '@/components/listings/TextParseForm';
 import { ListingForm } from '@/components/listings/ListingForm';
-import { useCreateListing } from '@/hooks/useListings';
+import { useCreateListing, useMyListingQuotaSummary } from '@/hooks/useListings';
 import { useAuth } from '@/hooks/useAuth';
 import type { ParsedListing, CreateListingRequest, Location, User } from '@/types';
 import type { ListingFormValues } from '@/components/listings/ListingForm';
@@ -16,7 +17,12 @@ import {
   saveCreateListingDraft,
 } from '@/lib/create-listing-draft';
 import { useToast } from '@/app/toaster';
-import { getCreateListingErrorMessage } from '@/lib/create-listing-errors';
+import {
+  CREATE_LISTING_ACCESS_ERROR_MESSAGE,
+  FREE_TIER_LISTING_LIMIT,
+  getCreateListingAccessState,
+  getCreateListingErrorMessage,
+} from '@/lib/create-listing-errors';
 import { normalizeAmenityIds } from '@/lib/listing-form-utils';
 import { updateProfile } from '@/lib/api';
 import { getPhoneModalSubmitLabel, shouldRequirePhone } from '@/lib/create-listing-phone';
@@ -38,8 +44,44 @@ export default function CreateListingPage() {
   const [isSubmittingListingFromPhoneModal, setIsSubmittingListingFromPhoneModal] = useState(false);
   const queryClient = useQueryClient();
   const { mutateAsync: createListing, isPending } = useCreateListing();
-  const { isPremium, isAuthenticated, profile } = useAuth();
+  const { isPremium, isAuthenticated, isLoading: isAuthLoading, profile } = useAuth();
+  const {
+    data: listingQuotaSummary,
+    isLoading: isListingQuotaLoading,
+    isError: hasListingQuotaError,
+    refetch: refetchListingQuotaSummary,
+  } = useMyListingQuotaSummary(
+    {
+      enabled: isAuthenticated && !isPremium,
+      userId: profile?.userId ?? null,
+      activeLimit: FREE_TIER_LISTING_LIMIT,
+    }
+  );
   const { toast } = useToast();
+  const createAccessState = getCreateListingAccessState({
+    isAuthenticated,
+    isPremium,
+    isAuthLoading,
+    isListingsLoading: isListingQuotaLoading,
+    hasListingsError: hasListingQuotaError,
+    activeListingsCount: listingQuotaSummary?.activeListingsCount,
+  });
+  const activeListingsCount = createAccessState.activeListingsCount;
+  const isCheckingCreateAccess = createAccessState.status === 'checking';
+  const hasCreateAccessError = createAccessState.status === 'error';
+  const isCreateBlocked = createAccessState.status === 'blocked';
+  const visibleStep: Step =
+    isCheckingCreateAccess || hasCreateAccessError || isCreateBlocked ? 'choose' : step;
+
+  useEffect(() => {
+    if (!isCreateBlocked && !hasCreateAccessError) {
+      return;
+    }
+
+    setStep('choose');
+    setShowPhoneModal(false);
+    setPendingSubmitData(null);
+  }, [hasCreateAccessError, isCreateBlocked]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -102,7 +144,7 @@ export default function CreateListingPage() {
     router.push(`/login?callbackUrl=${encodeURIComponent('/listings/create')}`);
   };
 
-  const handleParsed = (result: ParsedListing) => {
+  const handleUseParsedResult = (result: ParsedListing) => {
     setParsedData(result);
     setFormDraft(null);
     setParsedLocation({
@@ -113,6 +155,10 @@ export default function CreateListingPage() {
     });
     setStep('form');
     setDraftRestored(false);
+
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   const handleRequireAuthForParse = (text: string) => {
@@ -166,6 +212,11 @@ export default function CreateListingPage() {
       return;
     }
 
+    if (isCheckingCreateAccess || isCreateBlocked || hasCreateAccessError) {
+      toast(createAccessState.message || CREATE_LISTING_ACCESS_ERROR_MESSAGE, 'error');
+      return;
+    }
+
     if (
       shouldRequirePhone({
         profilePhone: profile?.phone,
@@ -185,6 +236,10 @@ export default function CreateListingPage() {
   };
 
   const handleStartNew = (nextStep: Step) => {
+    if (isCreateBlocked || isCheckingCreateAccess || hasCreateAccessError) {
+      return;
+    }
+
     if (draftRestored) {
       if (typeof window !== 'undefined') {
         clearCreateListingDraft(window.localStorage);
@@ -203,6 +258,13 @@ export default function CreateListingPage() {
     const trimmedPhone = phoneInput.trim();
 
     if (!trimmedPhone || !pendingSubmitData) return;
+
+    if (isCheckingCreateAccess || isCreateBlocked || hasCreateAccessError) {
+      setShowPhoneModal(false);
+      setPendingSubmitData(null);
+      toast(createAccessState.message || CREATE_LISTING_ACCESS_ERROR_MESSAGE, 'error');
+      return;
+    }
 
     setIsSavingPhone(true);
     try {
@@ -235,11 +297,11 @@ export default function CreateListingPage() {
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       {/* Back button */}
-      {(step !== 'choose' || draftRestored) && (
+      {(visibleStep !== 'choose' || (draftRestored && !isCreateBlocked)) && (
         <div className="mb-6 flex items-center justify-between gap-3">
-          {step !== 'choose' ? (
+          {visibleStep !== 'choose' ? (
             <button
-              onClick={() => setStep(step === 'form' && !parsedData ? 'choose' : step === 'form' ? 'parse' : 'choose')}
+              onClick={() => setStep(visibleStep === 'form' && !parsedData ? 'choose' : visibleStep === 'form' ? 'parse' : 'choose')}
               className="flex items-center gap-2 text-gray-500 hover:text-gray-700 text-sm font-medium"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -262,14 +324,14 @@ export default function CreateListingPage() {
       {/* Page header */}
       <div className="mb-8">
         <h1 className="text-2xl font-black text-brand-primary">
-          {step === 'choose' && 'Pasang Iklan Properti'}
-          {step === 'parse' && 'Paste Teks Iklanmu'}
-          {step === 'form' && 'Detail Iklan'}
+          {visibleStep === 'choose' && 'Pasang Iklan Properti'}
+          {visibleStep === 'parse' && 'Paste Teks Iklanmu'}
+          {visibleStep === 'form' && 'Detail Iklan'}
         </h1>
         <p className="text-gray-500 mt-1">
-          {step === 'choose' && 'Pilih cara memasang iklan yang paling mudah untukmu'}
-          {step === 'parse' && 'Copy paste dari WhatsApp atau chat lain, AI kami yang rapikan'}
-          {step === 'form' && 'Lengkapi informasi propertimu'}
+          {visibleStep === 'choose' && 'Pilih cara memasang iklan yang paling mudah untukmu'}
+          {visibleStep === 'parse' && 'Copy paste dari WhatsApp atau chat lain, AI kami yang rapikan'}
+          {visibleStep === 'form' && 'Lengkapi informasi propertimu'}
         </p>
 
         {/* Step indicator */}
@@ -278,9 +340,9 @@ export default function CreateListingPage() {
             <div key={s} className="flex items-center gap-2">
               <div
                 className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                  step === s
+                  visibleStep === s
                     ? 'bg-brand-primary text-white'
-                    : i < ['choose', 'parse', 'form'].indexOf(step)
+                    : i < ['choose', 'parse', 'form'].indexOf(visibleStep)
                     ? 'bg-brand-accent text-white'
                     : 'bg-gray-200 text-gray-400'
                 }`}
@@ -295,11 +357,97 @@ export default function CreateListingPage() {
 
 
       {/* Step: Choose method */}
-      {step === 'choose' && (
+      {visibleStep === 'choose' && (
+        <div className="space-y-4">
+          {isCheckingCreateAccess && (
+            <div className="card flex items-center gap-3 p-4 text-sm text-gray-600">
+              <Loader2 className="h-4 w-4 animate-spin text-brand-primary" />
+              Memeriksa slot listing gratis yang masih tersedia...
+            </div>
+          )}
+
+          {isCreateBlocked && (
+            <div className="rounded-3xl border border-amber-200 bg-amber-50 p-6">
+              <div className="flex items-start gap-4">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-100">
+                  <AlertTriangle className="h-5 w-5 text-amber-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-amber-700">
+                    Batas {FREE_TIER_LISTING_LIMIT} listing gratis sudah terpakai
+                  </p>
+                  <h2 className="mt-1 text-xl font-bold text-gray-900">
+                    Upgrade dulu untuk memasang iklan baru
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-gray-600">
+                     {createAccessState.message}
+                  </p>
+                  <p className="mt-2 text-sm text-gray-500">
+                    Saat ini kamu sudah punya {activeListingsCount} listing aktif di akun gratis.
+                  </p>
+
+                  <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                    <Link
+                      href="/profile#premium"
+                      className="inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-gold px-4 py-3 text-sm font-semibold text-white shadow-md transition hover:brightness-105"
+                    >
+                      <Crown className="h-4 w-4" />
+                      Upgrade ke Premium
+                    </Link>
+                    <Link
+                      href="/listings"
+                      className="inline-flex items-center justify-center rounded-2xl border-2 border-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-white"
+                    >
+                      Kembali ke iklan saya
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {hasCreateAccessError && (
+            <div className="rounded-3xl border border-red-200 bg-red-50 p-6">
+              <div className="flex items-start gap-4">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-red-100">
+                  <AlertTriangle className="h-5 w-5 text-red-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-red-700">
+                    Slot listing aktif belum bisa dipastikan
+                  </p>
+                  <h2 className="mt-1 text-xl font-bold text-gray-900">
+                    Coba cek lagi sebentar lagi
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-gray-600">
+                    {createAccessState.message || CREATE_LISTING_ACCESS_ERROR_MESSAGE}
+                  </p>
+
+                  <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                    <button
+                      type="button"
+                       onClick={() => void refetchListingQuotaSummary()}
+                      className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-100"
+                    >
+                      Coba lagi
+                    </button>
+                    <Link
+                      href="/listings"
+                      className="inline-flex items-center justify-center rounded-2xl border-2 border-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-white"
+                    >
+                      Kembali ke iklan saya
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
         <div className="grid sm:grid-cols-2 gap-4">
           <button
             onClick={() => handleStartNew('parse')}
-            className="card p-6 text-left hover:-translate-y-1 transition-all duration-300 group border-2 border-transparent hover:border-[#25D366]/30"
+            disabled={isCreateBlocked || isCheckingCreateAccess || hasCreateAccessError}
+            className="card p-6 text-left transition-all duration-300 group border-2 border-transparent enabled:hover:-translate-y-1 enabled:hover:border-[#25D366]/30 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <div className="w-14 h-14 bg-[#25D366] rounded-2xl flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform">
               <MessageCircle className="w-7 h-7 text-white" />
@@ -315,7 +463,8 @@ export default function CreateListingPage() {
 
           <button
             onClick={() => handleStartNew('form')}
-            className="card p-6 text-left hover:-translate-y-1 transition-all duration-300 group border-2 border-transparent hover:border-brand-accent/30"
+            disabled={isCreateBlocked || isCheckingCreateAccess || hasCreateAccessError}
+            className="card p-6 text-left transition-all duration-300 group border-2 border-transparent enabled:hover:-translate-y-1 enabled:hover:border-brand-accent/30 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <div className="w-14 h-14 bg-brand-primary rounded-2xl flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform">
               <PenLine className="w-7 h-7 text-white" />
@@ -329,12 +478,13 @@ export default function CreateListingPage() {
             </div>
           </button>
         </div>
+        </div>
       )}
 
       {/* Step: AI parse */}
-      {step === 'parse' && (
+      {visibleStep === 'parse' && (
         <TextParseForm
-          onParsed={handleParsed}
+          onUseParsedResult={handleUseParsedResult}
           onManualFill={() => setStep('form')}
           initialText={parseTextDraft}
           isAuthenticated={isAuthenticated}
@@ -343,7 +493,7 @@ export default function CreateListingPage() {
       )}
 
       {/* Step: Form */}
-      {step === 'form' && (
+      {visibleStep === 'form' && (
         <ListingForm
           initialData={parsedData || undefined}
           initialLocation={parsedLocation || undefined}

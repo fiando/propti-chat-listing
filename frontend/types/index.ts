@@ -130,6 +130,7 @@ export interface SearchParams {
   listingType?: ListingType;
   sortBy?: string;
   page?: number;
+  pageSize?: number;
 }
 
 export interface ListingsResponse {

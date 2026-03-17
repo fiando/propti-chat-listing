@@ -21,6 +21,7 @@ import {
 import { PremiumUpgradeModal } from '@/components/premium/PremiumUpgradeModal';
 import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
+import { getActiveListingCount } from '@/lib/create-listing-errors';
 
 export default function ProfilePage() {
   const { status } = useSession();
@@ -28,10 +29,14 @@ export default function ProfilePage() {
   const { profile, user, isPremium, isLoading, isSubscriptionLoading } = useAuth();
   const { data: myListingsData, isLoading: isMyListingsLoading } = useMyListings(
     {},
-    { enabled: status === 'authenticated' }
+    {
+      enabled: status === 'authenticated',
+      keepPreviousData: false,
+      userId: profile?.userId ?? null,
+    }
   );
   const [showPremiumModal, setShowPremiumModal] = useState(false);
-  const activeListingsCount = myListingsData?.items?.length ?? 0;
+  const activeListingsCount = getActiveListingCount(myListingsData?.items);
 
   if (status === 'unauthenticated') {
     router.replace('/login');

@@ -10,7 +10,7 @@ import { useToast } from '@/app/toaster';
 const EXAMPLE_TEXT = `Dijual rumah 2 lantai siap huni, LT 120m2 LB 90m2, 3KT 2KM, lebar muka 8m, listrik 2200VA, hadap timur, SHM, harga 850 juta nego. Beji Depok, dekat Tol Cijago dan kampus UI. Fasilitas: carport, taman, ruang tamu, dapur, ruang keluarga. WA 08123456789`;
 
 interface TextParseFormProps {
-  onParsed: (result: ParsedListing) => void;
+  onUseParsedResult: (result: ParsedListing) => void;
   onManualFill: () => void;
   initialText?: string;
   isAuthenticated?: boolean;
@@ -26,7 +26,7 @@ function formatMultiline(value: string) {
 }
 
 export function TextParseForm({
-  onParsed,
+  onUseParsedResult,
   onManualFill,
   initialText = '',
   isAuthenticated = true,
@@ -84,7 +84,7 @@ export function TextParseForm({
   };
 
   const handleUseResult = () => {
-    if (result) onParsed(result);
+    if (result) onUseParsedResult(result);
   };
 
   return (
@@ -364,7 +364,7 @@ export function TextParseForm({
               className="flex-1 flex items-center justify-center gap-2 btn-primary"
             >
               <CheckCircle className="w-4 h-4" />
-              Gunakan hasil ini
+              Gunakan hasil parsing
               <ArrowRight className="w-4 h-4" />
             </button>
             <button

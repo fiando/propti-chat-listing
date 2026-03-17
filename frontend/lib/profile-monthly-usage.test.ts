@@ -7,9 +7,10 @@ const profilePage = readFileSync(
   'utf8'
 );
 
-test('profile page shows monthly listing usage instead of active listing count', () => {
-  assert.match(profilePage, /monthlyListingsUsed/);
-  assert.match(profilePage, /Iklan Dipasang Bulan Ini/);
-  assert.doesNotMatch(profilePage, /useMyListings/);
-  assert.doesNotMatch(profilePage, /Iklan Aktif/);
+test('profile page shows active listing count sourced from the current listings query', () => {
+  assert.match(profilePage, /useMyListings/);
+  assert.match(profilePage, /Iklan Aktif/);
+  assert.match(profilePage, /getActiveListingCount\(myListingsData\?\.items\)/);
+  assert.doesNotMatch(profilePage, /monthlyListingsUsed/);
+  assert.doesNotMatch(profilePage, /Iklan Dipasang Bulan Ini/);
 });

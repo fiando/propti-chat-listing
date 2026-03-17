@@ -18,7 +18,9 @@ import {
   unsaveListing,
   getSavedListings,
 } from '@/lib/api';
+import { collectActiveListingCount } from '@/lib/my-listing-access';
 import type { SearchParams, CreateListingRequest } from '@/types';
+import { LISTING_ACCESS_CHECK_PAGE_SIZE } from '@/lib/create-listing-errors';
 
 export function useListings(params: SearchParams = {}) {
   return useQuery({
@@ -46,11 +48,35 @@ export function useTrackListingView() {
   });
 }
 
-export function useMyListings(params: SearchParams = {}, options?: { enabled?: boolean }) {
+export function useMyListings(
+  params: SearchParams = {},
+  options?: { enabled?: boolean; userId?: string | null; keepPreviousData?: boolean }
+) {
   return useQuery({
-    queryKey: ['my-listings', params],
+    queryKey: ['my-listings', options?.userId ?? null, params],
     queryFn: () => getMyListings(params),
     enabled: options?.enabled ?? true,
+    placeholderData: options?.keepPreviousData === false ? undefined : keepPreviousData,
+  });
+}
+
+export function useMyListingQuotaSummary(options?: {
+  enabled?: boolean;
+  userId?: string | null;
+  activeLimit?: number;
+}) {
+  return useQuery({
+    queryKey: ['my-listing-quota-summary', options?.userId ?? null, options?.activeLimit ?? null],
+    queryFn: () =>
+      collectActiveListingCount({
+        limit: options?.activeLimit ?? 3,
+        pageSize: LISTING_ACCESS_CHECK_PAGE_SIZE,
+        fetchPage: ({ page, pageSize }) => getMyListings({ page, pageSize }),
+      }),
+    enabled: options?.enabled ?? true,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    retry: 1,
   });
 }
 
