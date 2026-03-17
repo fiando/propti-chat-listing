@@ -22,8 +22,18 @@ function sortNewestFirst(listings: Listing[]) {
 }
 
 export type HomepageListingSection =
-  | { kind: 'featured'; title: 'Properti Unggulan'; subtitle: string; items: Listing[] }
-  | { kind: 'latest'; title: 'Properti Terbaru'; subtitle: string; items: Listing[] }
+  | {
+      kind: 'featured';
+      title: 'Listing Pilihan';
+      subtitle: string;
+      items: Listing[];
+    }
+  | {
+      kind: 'latest';
+      title: 'Listing Terbaru';
+      subtitle: string;
+      items: Listing[];
+    }
   | { kind: 'empty'; title: ''; subtitle: ''; items: [] };
 
 export function selectHomepageListings(listings: Listing[], limit = DEFAULT_LIMIT): Listing[] {
@@ -55,16 +65,16 @@ export function buildHomepageListingSection(
   if (featured.length > 0) {
     return {
       kind: 'featured',
-      title: 'Properti Unggulan',
-      subtitle: 'Listing teratas dengan visibilitas lebih tinggi untuk calon pembeli serius',
+      title: 'Listing Pilihan',
+      subtitle: 'Properti aktif yang sudah lolos moderasi dan siap dihubungi.',
       items: [...featured, ...nonFeatured].slice(0, limit),
     };
   }
 
   return {
     kind: 'latest',
-    title: 'Properti Terbaru',
-    subtitle: 'Lihat listing terbaru yang sudah lolos moderasi dan siap dihubungi',
+    title: 'Listing Terbaru',
+    subtitle: 'Listing aktif terbaru yang sudah lolos moderasi dan siap dihubungi.',
     items: nonFeatured.slice(0, limit),
   };
 }

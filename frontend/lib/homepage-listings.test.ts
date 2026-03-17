@@ -2,6 +2,28 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildHomepageListingSection } from './homepage-listings.ts';
 
+function createListing(overrides: Partial<(typeof listings)[number]> & { listingId: string }) {
+  return {
+    listingId: 'sample-listing',
+    title: 'Sample Listing',
+    status: 'active',
+    moderationStatus: 'approved',
+    premiumFeatures: { isFeatured: false, isPremium: false },
+    createdAt: '2026-03-10T00:00:00Z',
+    location: { city: 'Depok', district: 'Beji' },
+    propertyDetails: { landArea: 120, buildingArea: 90, bedrooms: 3, bathrooms: 2 },
+    images: [],
+    listingType: 'sell',
+    price: 850000000,
+    ...overrides,
+    premiumFeatures: {
+      isFeatured: false,
+      isPremium: false,
+      ...overrides.premiumFeatures,
+    },
+  };
+}
+
 const listings = [
   {
     listingId: 'old-featured',
@@ -61,12 +83,33 @@ test('buildHomepageListingSection returns featured mode when approved featured l
   const selected = buildHomepageListingSection(listings as never[], 3);
 
   assert.equal(selected.kind, 'featured');
-  assert.equal(selected.title, 'Properti Unggulan');
+  assert.equal(selected.title, 'Listing Pilihan');
+  assert.equal(selected.subtitle, 'Properti aktif yang sudah lolos moderasi dan siap dihubungi.');
   assert.deepEqual(selected.items.map((listing) => listing.listingId), [
     'new-featured',
     'old-featured',
     'new-standard',
   ]);
+});
+
+test('featured homepage section prefers featured listings first and uses credible copy', () => {
+  const section = buildHomepageListingSection([
+    createListing({
+      listingId: 'regular-1',
+      createdAt: '2026-03-15T00:00:00Z',
+      premiumFeatures: { isFeatured: false, isPremium: false },
+    }),
+    createListing({
+      listingId: 'featured-1',
+      createdAt: '2026-03-14T00:00:00Z',
+      premiumFeatures: { isFeatured: true, isPremium: true },
+    }),
+  ] as never[]);
+
+  assert.equal(section.kind, 'featured');
+  assert.equal(section.items[0]?.listingId, 'featured-1');
+  assert.equal(section.title, 'Listing Pilihan');
+  assert.equal(section.subtitle, 'Properti aktif yang sudah lolos moderasi dan siap dihubungi.');
 });
 
 test('buildHomepageListingSection falls back to newest approved listings when no featured listings exist', () => {
@@ -103,7 +146,8 @@ test('buildHomepageListingSection falls back to newest approved listings when no
   );
 
   assert.equal(selected.kind, 'latest');
-  assert.equal(selected.title, 'Properti Terbaru');
+  assert.equal(selected.title, 'Listing Terbaru');
+  assert.equal(selected.subtitle, 'Listing aktif terbaru yang sudah lolos moderasi dan siap dihubungi.');
   assert.deepEqual(selected.items.map((listing) => listing.listingId), [
     'newer-standard',
     'older-standard',
