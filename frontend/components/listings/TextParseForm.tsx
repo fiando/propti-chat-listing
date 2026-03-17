@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { MessageCircle, Sparkles, Loader2, CheckCircle, AlertTriangle, ArrowRight, Edit, MapPin, ClipboardPaste } from 'lucide-react';
 import { parseListingText } from '@/lib/api';
 import type { ParsedListing } from '@/types';
-import { formatPriceFull } from '@/lib/utils';
+import { formatAmenityLabel, formatPriceFull } from '@/lib/utils';
 import { useToast } from '@/app/toaster';
 
 const EXAMPLE_TEXT = `Dijual rumah 2 lantai siap huni, LT 120m2 LB 90m2, 3KT 2KM, lebar muka 8m, listrik 2200VA, hadap timur, SHM, harga 850 juta nego. Beji Depok, dekat Tol Cijago dan kampus UI. Fasilitas: carport, taman, ruang tamu, dapur, ruang keluarga. WA 08123456789`;
@@ -298,7 +298,7 @@ export function TextParseForm({
                     key={amenity}
                     className="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-700 border border-gray-200"
                   >
-                    {amenity}
+                    {formatAmenityLabel(amenity)}
                   </span>
                 ))}
               </div>
@@ -310,7 +310,7 @@ export function TextParseForm({
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
               <p className="text-xs font-semibold text-blue-700 mb-2 flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5" />
-                Saran perbaikan lokasi
+                Saran lokasi
               </p>
               <div className="grid grid-cols-3 gap-2 text-xs">
                 {locationSuggestion?.province && (

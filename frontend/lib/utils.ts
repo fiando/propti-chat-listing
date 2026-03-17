@@ -141,6 +141,26 @@ export const AMENITIES_OPTIONS = [
   { id: 'jalan_lebar', label: 'Akses Jalan Lebar' },
 ];
 
+const AMENITY_LABELS = new Map(AMENITIES_OPTIONS.map((amenity) => [amenity.id, amenity.label]));
+
+export function formatAmenityLabel(value: string): string {
+  const normalizedValue = value.trim();
+
+  if (!normalizedValue) {
+    return '';
+  }
+
+  return (
+    AMENITY_LABELS.get(normalizedValue) ||
+    normalizedValue
+      .replace(/[_-]+/g, ' ')
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ')
+  );
+}
+
 export const INDONESIAN_CITIES = [
   'Jakarta Selatan',
   'Jakarta Utara',

@@ -6,6 +6,7 @@ import {
   normalizeAmenityIds,
   parseListingPriceInput,
 } from './listing-form-utils.ts';
+import { formatAmenityLabel } from './utils.ts';
 
 test('formatListingPriceInput adds thousands separators on the fly', () => {
   assert.equal(formatListingPriceInput(850000000), '850.000.000');
@@ -23,4 +24,9 @@ test('normalizeAmenityIds maps parsed amenity labels into known amenity ids with
     normalizeAmenityIds(['carport', 'taman', 'ruang tamu', 'dapur', 'Ruang Tamu']),
     ['carport', 'taman', 'ruang_tamu', 'dapur']
   );
+});
+
+test('formatAmenityLabel converts underscored ids to readable labels', () => {
+  assert.equal(formatAmenityLabel('ruang_keluarga'), 'Ruang Keluarga');
+  assert.equal(formatAmenityLabel('taman_bermain'), 'Taman Bermain');
 });

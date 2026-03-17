@@ -11,6 +11,7 @@ import {
   ORIENTATION_OPTIONS,
   AMENITIES_OPTIONS,
   cn,
+  formatAmenityLabel,
 } from '@/lib/utils';
 import { getProvinceSuggestions, getCitySuggestions, getDistrictSuggestions } from '@/lib/api';
 import type { ParsedListing, Location, ListingType } from '@/types';
@@ -443,17 +444,14 @@ export function ListingForm({
 
           {watchedAmenities.length > 0 ? (
             <div className="mb-3 flex flex-wrap gap-2">
-              {watchedAmenities.map((amenityId) => {
-                const amenity = AMENITIES_OPTIONS.find((item) => item.id === amenityId);
-                return (
-                  <span
-                    key={amenityId}
-                    className="inline-flex items-center gap-1 rounded-full border border-brand-primary/20 bg-brand-light px-3 py-1 text-xs font-medium text-brand-primary"
-                  >
-                    {amenity?.label || amenityId}
-                  </span>
-                );
-              })}
+              {watchedAmenities.map((amenityId) => (
+                <span
+                  key={amenityId}
+                  className="inline-flex items-center gap-1 rounded-full border border-brand-primary/20 bg-brand-light px-3 py-1 text-xs font-medium text-brand-primary"
+                >
+                  {formatAmenityLabel(amenityId)}
+                </span>
+              ))}
             </div>
           ) : (
             <p className="mb-3 text-sm text-gray-500">Belum ada fasilitas yang dipilih.</p>

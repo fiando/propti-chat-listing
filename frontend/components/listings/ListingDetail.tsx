@@ -23,7 +23,7 @@ import {
   Shield,
 } from 'lucide-react';
 import Link from 'next/link';
-import { formatPrice, formatDate, LISTING_TYPE_LABELS, PRICE_UNIT_LABELS } from '@/lib/utils';
+import { formatAmenityLabel, formatPrice, formatDate, LISTING_TYPE_LABELS, PRICE_UNIT_LABELS } from '@/lib/utils';
 import type { Listing } from '@/types';
 import { buildListingContactLinks } from '@/lib/listing-contact';
 import { useToast } from '@/app/toaster';
@@ -274,7 +274,7 @@ export function ListingDetail({
                   {listing.propertyDetails.amenities.map((a) => (
                     <span key={a} className="flex items-center gap-1.5 bg-brand-light text-brand-primary text-xs font-medium px-3 py-1.5 rounded-full">
                       <CheckCircle className="w-3 h-3" />
-                      {a}
+                      {formatAmenityLabel(a)}
                     </span>
                   ))}
                 </div>
