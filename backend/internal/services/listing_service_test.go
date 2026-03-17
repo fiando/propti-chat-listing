@@ -102,10 +102,19 @@ func (f *fakeListingStore) Scan(ctx context.Context, params *models.ListingSearc
 }
 
 type fakeUserStore struct {
-	user *models.User
+	user      *models.User
+	usersByID map[string]*models.User
 }
 
 func (f *fakeUserStore) GetByID(ctx context.Context, userID string) (*models.User, error) {
+	if f.usersByID != nil {
+		user := f.usersByID[userID]
+		if user == nil {
+			return nil, nil
+		}
+		copy := *user
+		return &copy, nil
+	}
 	return f.user, nil
 }
 
@@ -116,6 +125,9 @@ func (f *fakeUserStore) Put(ctx context.Context, user *models.User) error {
 	}
 	copy := *user
 	f.user = &copy
+	if f.usersByID != nil {
+		f.usersByID[user.UserID] = &copy
+	}
 	return nil
 }
 
@@ -503,6 +515,71 @@ func TestRevealListingContactReturnsSellerPhoneWhenAvailable(t *testing.T) {
 	}
 	if contact.Channel != models.ContactRevealChannelWhatsApp {
 		t.Fatalf("expected contact reveal channel to round-trip, got %q", contact.Channel)
+	}
+}
+
+func TestRevealListingContactRateLimitsExcessiveReveals(t *testing.T) {
+	ctx := context.Background()
+
+	service := NewListingService(
+		&fakeListingStore{
+			listingsByID: map[string]*models.Listing{
+				"listing-1": {
+					ListingID:        "listing-1",
+					UserID:           "seller-1",
+					Title:            "Rumah Depok",
+					Status:           models.ListingStatusActive,
+					ModerationStatus: models.ModerationStatusApproved,
+				},
+			},
+			listingsByUser: map[string]map[string]*models.Listing{
+				"seller-1": {
+					"listing-1": {
+						ListingID:        "listing-1",
+						UserID:           "seller-1",
+						Title:            "Rumah Depok",
+						Status:           models.ListingStatusActive,
+						ModerationStatus: models.ModerationStatusApproved,
+					},
+				},
+			},
+		},
+		&fakeUserStore{
+			usersByID: map[string]*models.User{
+				"viewer-1": {
+					UserID: "viewer-1",
+					Name:   "Pembeli Aktif",
+					ContactRevealThrottle: models.ContactRevealThrottle{
+						WindowStartedAt: time.Now().UTC(),
+						RevealCount:     5,
+					},
+				},
+				"seller-1": {
+					UserID: "seller-1",
+					Name:   "Budi Hartono",
+					Phone:  "081234567890",
+				},
+			},
+		},
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	_, err := service.RevealListingContact(ctx, "viewer-1", "listing-1", models.ContactRevealChannelWhatsApp)
+	if err == nil {
+		t.Fatal("expected rate-limited contact reveal to fail")
+	}
+	appErr, ok := err.(*utils.AppError)
+	if !ok {
+		t.Fatalf("expected AppError, got %T", err)
+	}
+	if appErr.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected 429 rate limit, got %d", appErr.Code)
+	}
+	if !strings.Contains(appErr.Message, "Terlalu banyak membuka kontak penjual") {
+		t.Fatalf("unexpected rate limit message: %q", appErr.Message)
 	}
 }
 

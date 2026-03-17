@@ -19,7 +19,10 @@ const (
 	premiumTierMaxMedia = 30
 
 	minLocationConfidence = 0.7
+	contactRevealLimit    = 5
 )
+
+var contactRevealWindow = 10 * time.Minute
 
 // ListingStore is the storage interface for listing persistence.
 type ListingStore interface {
@@ -279,6 +282,20 @@ func (s *ListingService) RevealListingContact(
 		return nil, utils.ErrNotFound
 	}
 
+	viewer, err := s.userRepo.GetByID(ctx, viewerUserID)
+	if err != nil {
+		return nil, utils.ErrInternal
+	}
+	if viewer == nil {
+		return nil, utils.ErrUnauthorized
+	}
+	if err := s.consumeContactReveal(viewer); err != nil {
+		return nil, err
+	}
+	if err := s.userRepo.Put(ctx, viewer); err != nil {
+		return nil, utils.ErrInternal
+	}
+
 	seller, err := s.userRepo.GetByID(ctx, listing.UserID)
 	if err != nil {
 		return nil, utils.ErrInternal
@@ -300,6 +317,28 @@ func (s *ListingService) RevealListingContact(
 		SellerPhone: seller.Phone,
 		Channel:     channel,
 	}, nil
+}
+
+func (s *ListingService) consumeContactReveal(user *models.User) error {
+	now := time.Now().UTC()
+	throttle := user.ContactRevealThrottle
+
+	if throttle.WindowStartedAt.IsZero() || now.Sub(throttle.WindowStartedAt) >= contactRevealWindow {
+		user.ContactRevealThrottle = models.ContactRevealThrottle{
+			WindowStartedAt: now,
+			RevealCount:     1,
+		}
+		return nil
+	}
+
+	if throttle.RevealCount >= contactRevealLimit {
+		utils.LogWarn("listing contact reveal rate limited", "userId", user.UserID)
+		return utils.NewAppError(429, "Terlalu banyak membuka kontak penjual. Coba lagi dalam 10 menit.")
+	}
+
+	throttle.RevealCount++
+	user.ContactRevealThrottle = throttle
+	return nil
 }
 
 // RecordListingView increments the public impression counter for a listing.

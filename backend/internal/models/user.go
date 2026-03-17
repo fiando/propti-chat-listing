@@ -27,6 +27,11 @@ type Subscription struct {
 	PaymentCustomerID   string           `json:"paymentCustomerId,omitempty" dynamodbav:"paymentCustomerId,omitempty"`
 }
 
+type ContactRevealThrottle struct {
+	WindowStartedAt time.Time `json:"windowStartedAt,omitempty" dynamodbav:"windowStartedAt,omitempty"`
+	RevealCount     int       `json:"revealCount" dynamodbav:"revealCount"`
+}
+
 type User struct {
 	PK              string          `json:"pk" dynamodbav:"PK"`
 	SK              string          `json:"sk" dynamodbav:"SK"`
@@ -40,6 +45,7 @@ type User struct {
 	Preferences     UserPreferences `json:"preferences" dynamodbav:"preferences"`
 	SavedListingIDs []string        `json:"savedListingIds,omitempty" dynamodbav:"savedListingIds,omitempty"`
 	Subscription    Subscription    `json:"subscription" dynamodbav:"subscription"`
+	ContactRevealThrottle ContactRevealThrottle `json:"contactRevealThrottle,omitempty" dynamodbav:"contactRevealThrottle,omitempty"`
 	CreatedAt       time.Time       `json:"createdAt" dynamodbav:"createdAt"`
 	LastLoginAt     time.Time       `json:"lastLoginAt" dynamodbav:"lastLoginAt"`
 }
