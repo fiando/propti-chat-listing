@@ -289,12 +289,6 @@ func (s *ListingService) RevealListingContact(
 	if viewer == nil {
 		return nil, utils.ErrUnauthorized
 	}
-	if err := s.consumeContactReveal(viewer); err != nil {
-		return nil, err
-	}
-	if err := s.userRepo.Put(ctx, viewer); err != nil {
-		return nil, utils.ErrInternal
-	}
 
 	seller, err := s.userRepo.GetByID(ctx, listing.UserID)
 	if err != nil {
@@ -302,6 +296,13 @@ func (s *ListingService) RevealListingContact(
 	}
 	if seller == nil || strings.TrimSpace(seller.Phone) == "" {
 		return nil, utils.NewAppError(404, "seller contact is not available")
+	}
+
+	if err := s.consumeContactReveal(viewer); err != nil {
+		return nil, err
+	}
+	if err := s.userRepo.Put(ctx, viewer); err != nil {
+		return nil, utils.ErrInternal
 	}
 
 	utils.LogInfo(

@@ -518,6 +518,74 @@ func TestRevealListingContactReturnsSellerPhoneWhenAvailable(t *testing.T) {
 	}
 }
 
+func TestRevealListingContactDoesNotConsumeQuotaWhenSellerPhoneUnavailable(t *testing.T) {
+	ctx := context.Background()
+
+	userStore := &fakeUserStore{
+		usersByID: map[string]*models.User{
+			"viewer-1": {
+				UserID: "viewer-1",
+				Name:   "Pembeli Aktif",
+				ContactRevealThrottle: models.ContactRevealThrottle{
+					WindowStartedAt: time.Now().UTC(),
+					RevealCount:     2,
+				},
+			},
+			"seller-1": {
+				UserID: "seller-1",
+				Name:   "Budi Hartono",
+				Phone:  "   ",
+			},
+		},
+	}
+
+	service := NewListingService(
+		&fakeListingStore{
+			listingsByID: map[string]*models.Listing{
+				"listing-1": {
+					ListingID:        "listing-1",
+					UserID:           "seller-1",
+					Title:            "Rumah Depok",
+					Status:           models.ListingStatusActive,
+					ModerationStatus: models.ModerationStatusApproved,
+				},
+			},
+			listingsByUser: map[string]map[string]*models.Listing{
+				"seller-1": {
+					"listing-1": {
+						ListingID:        "listing-1",
+						UserID:           "seller-1",
+						Title:            "Rumah Depok",
+						Status:           models.ListingStatusActive,
+						ModerationStatus: models.ModerationStatusApproved,
+					},
+				},
+			},
+		},
+		userStore,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	_, err := service.RevealListingContact(ctx, "viewer-1", "listing-1", models.ContactRevealChannelWhatsApp)
+	if err == nil {
+		t.Fatal("expected reveal to fail when seller phone is unavailable")
+	}
+	appErr, ok := err.(*utils.AppError)
+	if !ok {
+		t.Fatalf("expected AppError, got %T", err)
+	}
+	if appErr.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for missing seller contact, got %d", appErr.Code)
+	}
+
+	if got := userStore.usersByID["viewer-1"].ContactRevealThrottle.RevealCount; got != 2 {
+		t.Fatalf("expected failed reveal to keep quota usage unchanged, got %d", got)
+	}
+}
+
 func TestRevealListingContactRateLimitsExcessiveReveals(t *testing.T) {
 	ctx := context.Background()
 
