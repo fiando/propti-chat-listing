@@ -2,24 +2,33 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildHomepageListingSection } from './homepage-listings.ts';
 
-function createListing(overrides: Partial<(typeof listings)[number]> & { listingId: string }) {
+const baseListing = {
+  title: 'Sample Listing',
+  status: 'active',
+  moderationStatus: 'approved',
+  createdAt: '2026-03-10T00:00:00Z',
+  location: { city: 'Depok', district: 'Beji' },
+  propertyDetails: { landArea: 120, buildingArea: 90, bedrooms: 3, bathrooms: 2 },
+  images: [],
+  listingType: 'sell',
+  price: 850000000,
+  premiumFeatures: { isFeatured: false, isPremium: false },
+};
+
+type HomepageListingFixture = typeof baseListing & { listingId: string };
+
+function createListing({
+  listingId,
+  premiumFeatures,
+  ...overrides
+}: Partial<HomepageListingFixture> & Pick<HomepageListingFixture, 'listingId'>) {
   return {
-    listingId: 'sample-listing',
-    title: 'Sample Listing',
-    status: 'active',
-    moderationStatus: 'approved',
-    premiumFeatures: { isFeatured: false, isPremium: false },
-    createdAt: '2026-03-10T00:00:00Z',
-    location: { city: 'Depok', district: 'Beji' },
-    propertyDetails: { landArea: 120, buildingArea: 90, bedrooms: 3, bathrooms: 2 },
-    images: [],
-    listingType: 'sell',
-    price: 850000000,
+    ...baseListing,
     ...overrides,
+    listingId,
     premiumFeatures: {
-      isFeatured: false,
-      isPremium: false,
-      ...overrides.premiumFeatures,
+      ...baseListing.premiumFeatures,
+      ...premiumFeatures,
     },
   };
 }
