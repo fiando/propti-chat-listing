@@ -1,23 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-
-const helpersModule = await import('./create-listing-errors.ts').catch(() => ({} as Record<string, unknown>));
-const getActiveListingCount =
-  (helpersModule.getActiveListingCount as
-    | ((listings: Array<{ status?: string } | null | undefined> | null | undefined) => number)
-    | undefined) ??
-  ((listings: Array<{ status?: string } | null | undefined> | null | undefined) =>
-    listings?.length ?? 0);
-const isCreateListingLimitReached =
-  (helpersModule.isCreateListingLimitReached as
-    | ((input: {
-        isPremium?: boolean;
-        listings?: Array<{ status?: string } | null | undefined> | null;
-      }) => boolean)
-    | undefined) ??
-  ((input: { isPremium?: boolean; listings?: Array<{ status?: string } | null | undefined> | null }) =>
-    !input.isPremium && (input.listings?.length ?? 0) >= 3);
+import {
+  getActiveListingCount,
+  isCreateListingLimitReached,
+} from './create-listing-errors.ts';
 
 const profilePage = readFileSync(
   new URL('../app/(app)/profile/page.tsx', import.meta.url),
