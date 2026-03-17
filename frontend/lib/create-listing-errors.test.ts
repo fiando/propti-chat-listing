@@ -1,40 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-
-const helpersModule = await import('./create-listing-errors.ts').catch(() => ({} as Record<string, unknown>));
-
-const getCreateListingErrorMessage =
-  (helpersModule.getCreateListingErrorMessage as
-    | ((error: unknown) => string)
-    | undefined) ??
-  ((error: unknown) => (error instanceof Error ? error.message : 'Terjadi kesalahan saat memasang iklan.'));
-const getCreateListingAccessState =
-  (helpersModule.getCreateListingAccessState as
-    | ((input: {
-        isAuthenticated?: boolean;
-        isPremium?: boolean;
-        isAuthLoading?: boolean;
-        isListingsLoading?: boolean;
-        isListingsFetching?: boolean;
-        hasListingsError?: boolean;
-        listings?: Array<{ status?: string } | null | undefined> | null;
-        totalListings?: number;
-      }) => { status: string; activeListingsCount: number; message?: string })
-    | undefined) ??
-  ((input: {
-    isAuthenticated?: boolean;
-    isPremium?: boolean;
-    isAuthLoading?: boolean;
-    isListingsLoading?: boolean;
-    isListingsFetching?: boolean;
-    hasListingsError?: boolean;
-    listings?: Array<{ status?: string } | null | undefined> | null;
-    totalListings?: number;
-  }) => ({
-    status: input.isPremium ? 'ready' : 'ready',
-    activeListingsCount: input.listings?.filter((listing) => listing?.status === 'active').length ?? 0,
-  }));
+import {
+  CREATE_LISTING_ACCESS_ERROR_MESSAGE,
+  getCreateListingAccessState,
+  getCreateListingErrorMessage,
+} from './create-listing-errors.ts';
 
 const createPageSource = readFileSync(
   new URL('../app/(app)/listings/create/page.tsx', import.meta.url),
@@ -119,7 +90,7 @@ test('fails closed when listing access data is incomplete or the quota check err
     {
       status: 'error',
       activeListingsCount: 1,
-      message: 'Kami belum bisa memastikan slot listing aktifmu. Coba lagi sebentar lagi.',
+      message: CREATE_LISTING_ACCESS_ERROR_MESSAGE,
     }
   );
 
@@ -134,7 +105,34 @@ test('fails closed when listing access data is incomplete or the quota check err
     {
       status: 'error',
       activeListingsCount: 1,
-      message: 'Kami belum bisa memastikan slot listing aktifmu. Coba lagi sebentar lagi.',
+      message: CREATE_LISTING_ACCESS_ERROR_MESSAGE,
+    }
+  );
+});
+
+test('surfaces a retryable access error when the quota request fails or returns no usable summary', () => {
+  assert.deepEqual(
+    getCreateListingAccessState({
+      isAuthenticated: true,
+      isPremium: false,
+      hasListingsError: true,
+    }),
+    {
+      status: 'error',
+      activeListingsCount: 0,
+      message: CREATE_LISTING_ACCESS_ERROR_MESSAGE,
+    }
+  );
+
+  assert.deepEqual(
+    getCreateListingAccessState({
+      isAuthenticated: true,
+      isPremium: false,
+    }),
+    {
+      status: 'error',
+      activeListingsCount: 0,
+      message: CREATE_LISTING_ACCESS_ERROR_MESSAGE,
     }
   );
 });

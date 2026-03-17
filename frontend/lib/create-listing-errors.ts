@@ -45,20 +45,30 @@ export function getCreateListingAccessState(input: {
   limit?: number;
 }): CreateListingAccessState {
   const activeListingsCount = input.activeListingsCount ?? getActiveListingCount(input.listings);
+  const hasResolvedActiveListingsCount = typeof input.activeListingsCount === 'number';
+  const hasResolvedListings = Array.isArray(input.listings);
 
   if (!input.isAuthenticated || input.isPremium) {
     return { status: 'ready', activeListingsCount };
   }
 
-  if (input.isAuthLoading || input.isListingsLoading || input.isListingsFetching || input.listings == null) {
+  if (input.isAuthLoading || input.isListingsLoading || input.isListingsFetching) {
     return { status: 'checking', activeListingsCount };
+  }
+
+  if (input.hasListingsError || (!hasResolvedActiveListingsCount && !hasResolvedListings)) {
+    return {
+      status: 'error',
+      activeListingsCount,
+      message: CREATE_LISTING_ACCESS_ERROR_MESSAGE,
+    };
   }
 
   const listedCount = input.listings?.length ?? 0;
   const hasIncompleteListingData =
-    typeof input.totalListings === 'number' && input.totalListings !== listedCount;
+    hasResolvedListings && typeof input.totalListings === 'number' && input.totalListings !== listedCount;
 
-  if (input.hasListingsError || hasIncompleteListingData) {
+  if (hasIncompleteListingData) {
     return {
       status: 'error',
       activeListingsCount,
