@@ -23,6 +23,7 @@ type UserPreferences struct {
 type Subscription struct {
 	Tier                SubscriptionTier `json:"tier" dynamodbav:"tier"`
 	MonthlyListingsUsed int              `json:"monthlyListingsUsed" dynamodbav:"monthlyListingsUsed"`
+	ActiveListingsCount int              `json:"activeListingsCount" dynamodbav:"-"`
 	RenewDate           *time.Time       `json:"renewDate,omitempty" dynamodbav:"renewDate,omitempty"`
 	PaymentCustomerID   string           `json:"paymentCustomerId,omitempty" dynamodbav:"paymentCustomerId,omitempty"`
 }
@@ -33,21 +34,21 @@ type ContactRevealThrottle struct {
 }
 
 type User struct {
-	PK              string          `json:"pk" dynamodbav:"PK"`
-	SK              string          `json:"sk" dynamodbav:"SK"`
-	UserID          string          `json:"userId" dynamodbav:"userId"`
-	GoogleID        string          `json:"googleId" dynamodbav:"googleId"`
-	Email           string          `json:"email" dynamodbav:"email"`
-	Name            string          `json:"name" dynamodbav:"name"`
-	ProfilePicture  string          `json:"profilePicture" dynamodbav:"profilePicture"`
-	Phone           string          `json:"phone,omitempty" dynamodbav:"phone,omitempty"`
-	Role            UserRole        `json:"role" dynamodbav:"role"`
-	Preferences     UserPreferences `json:"preferences" dynamodbav:"preferences"`
-	SavedListingIDs []string        `json:"savedListingIds,omitempty" dynamodbav:"savedListingIds,omitempty"`
-	Subscription    Subscription    `json:"subscription" dynamodbav:"subscription"`
+	PK                    string                `json:"pk" dynamodbav:"PK"`
+	SK                    string                `json:"sk" dynamodbav:"SK"`
+	UserID                string                `json:"userId" dynamodbav:"userId"`
+	GoogleID              string                `json:"googleId" dynamodbav:"googleId"`
+	Email                 string                `json:"email" dynamodbav:"email"`
+	Name                  string                `json:"name" dynamodbav:"name"`
+	ProfilePicture        string                `json:"profilePicture" dynamodbav:"profilePicture"`
+	Phone                 string                `json:"phone,omitempty" dynamodbav:"phone,omitempty"`
+	Role                  UserRole              `json:"role" dynamodbav:"role"`
+	Preferences           UserPreferences       `json:"preferences" dynamodbav:"preferences"`
+	SavedListingIDs       []string              `json:"savedListingIds,omitempty" dynamodbav:"savedListingIds,omitempty"`
+	Subscription          Subscription          `json:"subscription" dynamodbav:"subscription"`
 	ContactRevealThrottle ContactRevealThrottle `json:"contactRevealThrottle,omitempty" dynamodbav:"contactRevealThrottle,omitempty"`
-	CreatedAt       time.Time       `json:"createdAt" dynamodbav:"createdAt"`
-	LastLoginAt     time.Time       `json:"lastLoginAt" dynamodbav:"lastLoginAt"`
+	CreatedAt             time.Time             `json:"createdAt" dynamodbav:"createdAt"`
+	LastLoginAt           time.Time             `json:"lastLoginAt" dynamodbav:"lastLoginAt"`
 }
 
 type GoogleAuthRequest struct {

@@ -9,7 +9,7 @@ import { getSubscriptionStatus } from '@/lib/subscription-status';
 export function useAuth() {
   const { data: session, status } = useSession();
 
-  const { data: profile, isLoading: isProfileLoading } = useQuery<User>({
+  const { data: profile, isLoading: isProfileLoading, isFetching: isProfileFetching } = useQuery<User>({
     queryKey: ['profile'],
     queryFn: getProfile,
     enabled: status === 'authenticated',
@@ -30,6 +30,7 @@ export function useAuth() {
     profile,
     isAuthenticated,
     isLoading,
+    isProfileFetching,
     isSubscriptionLoading,
     subscriptionStatus,
     isPremium,

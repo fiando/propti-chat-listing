@@ -70,6 +70,7 @@ export interface User {
   subscription: {
     tier: 'free' | 'premium';
     monthlyListingsUsed: number;
+    activeListingsCount?: number;
     renewDate?: string;
   };
   createdAt: string;

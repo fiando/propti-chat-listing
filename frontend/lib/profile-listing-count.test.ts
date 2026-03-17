@@ -18,8 +18,12 @@ const textParseForm = readFileSync(
   new URL('../components/listings/TextParseForm.tsx', import.meta.url),
   'utf8'
 );
-const useListingsHook = readFileSync(
-  new URL('../hooks/useListings.ts', import.meta.url),
+const authHook = readFileSync(
+  new URL('../hooks/useAuth.ts', import.meta.url),
+  'utf8'
+);
+const typesFile = readFileSync(
+  new URL('../types/index.ts', import.meta.url),
   'utf8'
 );
 
@@ -63,14 +67,14 @@ test('create listing page blocks free-tier sellers early using current active li
   assert.match(createPage, /activeListingsCount = createAccessState\.activeListingsCount/);
   assert.match(createPage, /setStep\('choose'\)/);
   assert.doesNotMatch(createPage, /monthlyListingsUsed/);
+  assert.doesNotMatch(createPage, /useMyListingQuotaSummary/);
   assert.match(createPage, /Upgrade ke Premium/);
   assert.match(createPage, /Kembali ke iklan saya/);
-  assert.match(createPage, /useMyListingQuotaSummary/);
-  assert.match(createPage, /activeLimit:\s*FREE_TIER_LISTING_LIMIT/);
-  assert.match(createPage, /userId:\s*profile\?\.userId\s*\?\?\s*null/);
+  assert.match(createPage, /profile\?\.subscription\?\.activeListingsCount/);
+  assert.match(createPage, /isProfileFetching/);
   assert.match(createPage, /Coba lagi/);
-  assert.match(useListingsHook, /queryKey:\s*\['my-listing-quota-summary',\s*options\?\.userId\s*\?\?\s*null,\s*options\?\.activeLimit\s*\?\?\s*null\]/);
-  assert.match(useListingsHook, /invalidateQueries\(\{ queryKey: \['my-listing-quota-summary'\] \}\)/);
+  assert.match(authHook, /isProfileFetching/);
+  assert.match(typesFile, /activeListingsCount\??:\s*number/);
 });
 
 test('parsed-result handoff is explicit and scrolls final review to the top', () => {

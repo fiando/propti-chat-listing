@@ -22,12 +22,18 @@ import (
 type AuthHandler struct {
 	db                *repository.DynamoDB
 	userRepo          *repository.UserRepo
+	listingRepo       *repository.ListingRepo
 	paymentReconciler *services.PaymentReconciler
+}
+
+type activeListingCounter interface {
+	CountActiveByUserID(ctx context.Context, userID string) (int, error)
 }
 
 // NewAuthHandler creates an AuthHandler.
 func NewAuthHandler(db *repository.DynamoDB) *AuthHandler {
 	userRepo := repository.NewUserRepo(db)
+	listingRepo := repository.NewListingRepo(db)
 	dokuBaseURL := "https://api-sandbox.doku.com"
 	if os.Getenv("DOKU_ENV") == "production" {
 		dokuBaseURL = "https://api.doku.com"
@@ -41,6 +47,7 @@ func NewAuthHandler(db *repository.DynamoDB) *AuthHandler {
 	return &AuthHandler{
 		db:                db,
 		userRepo:          userRepo,
+		listingRepo:       listingRepo,
 		paymentReconciler: services.NewPaymentReconciler(userRepo, repository.NewTransactionRepo(db), paymentProvider),
 	}
 }
@@ -146,9 +153,26 @@ func (h *AuthHandler) getUser(ctx context.Context, req events.APIGatewayProxyReq
 	} else if refreshedUser, refreshErr := h.userRepo.GetByID(ctx, userID); refreshErr == nil && refreshedUser != nil {
 		user = refreshedUser
 	}
+	if err := populateActiveListingCount(ctx, h.listingRepo, user); err != nil {
+		utils.LogWarn("count active listings for profile", "userId", userID, "error", err.Error())
+	}
 
 	body, _ := json.Marshal(user)
 	return jsonResponse(http.StatusOK, string(body)), nil
+}
+
+func populateActiveListingCount(ctx context.Context, counter activeListingCounter, user *models.User) error {
+	if user == nil || counter == nil {
+		return nil
+	}
+
+	count, err := counter.CountActiveByUserID(ctx, user.UserID)
+	if err != nil {
+		return err
+	}
+
+	user.Subscription.ActiveListingsCount = count
+	return nil
 }
 
 // updateUser applies a partial update to the authenticated user's profile.

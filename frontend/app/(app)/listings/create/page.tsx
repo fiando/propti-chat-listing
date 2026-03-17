@@ -7,7 +7,7 @@ import { MessageCircle, PenLine, ArrowLeft, Phone, X, AlertTriangle, Crown, Load
 import { useQueryClient } from '@tanstack/react-query';
 import { TextParseForm } from '@/components/listings/TextParseForm';
 import { ListingForm } from '@/components/listings/ListingForm';
-import { useCreateListing, useMyListingQuotaSummary } from '@/hooks/useListings';
+import { useCreateListing } from '@/hooks/useListings';
 import { useAuth } from '@/hooks/useAuth';
 import type { ParsedListing, CreateListingRequest, Location, User } from '@/types';
 import type { ListingFormValues } from '@/components/listings/ListingForm';
@@ -44,29 +44,13 @@ export default function CreateListingPage() {
   const [isSubmittingListingFromPhoneModal, setIsSubmittingListingFromPhoneModal] = useState(false);
   const queryClient = useQueryClient();
   const { mutateAsync: createListing, isPending } = useCreateListing();
-  const { isPremium, isAuthenticated, isLoading: isAuthLoading, profile } = useAuth();
-  const {
-    data: listingQuotaSummary,
-    isLoading: isListingQuotaLoading,
-    isFetching: isListingQuotaFetching,
-    isError: hasListingQuotaError,
-    refetch: refetchListingQuotaSummary,
-  } = useMyListingQuotaSummary(
-    {
-      enabled: isAuthenticated && !isPremium,
-      userId: profile?.userId ?? null,
-      activeLimit: FREE_TIER_LISTING_LIMIT,
-    }
-  );
+  const { isPremium, isAuthenticated, isLoading: isAuthLoading, isProfileFetching, profile } = useAuth();
   const { toast } = useToast();
   const createAccessState = getCreateListingAccessState({
     isAuthenticated,
     isPremium,
-    isAuthLoading,
-    isListingsLoading: isListingQuotaLoading,
-    isListingsFetching: isListingQuotaFetching,
-    hasListingsError: hasListingQuotaError,
-    activeListingsCount: listingQuotaSummary?.activeListingsCount,
+    isAuthLoading: isAuthLoading || isProfileFetching,
+    activeListingsCount: profile?.subscription?.activeListingsCount,
   });
   const activeListingsCount = createAccessState.activeListingsCount;
   const isCheckingCreateAccess = createAccessState.status === 'checking';
@@ -431,7 +415,7 @@ export default function CreateListingPage() {
                   <div className="mt-4 flex flex-col gap-3 sm:flex-row">
                     <button
                       type="button"
-                       onClick={() => void refetchListingQuotaSummary()}
+                      onClick={() => void queryClient.invalidateQueries({ queryKey: ['profile'] })}
                       className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-100"
                     >
                       Coba lagi
