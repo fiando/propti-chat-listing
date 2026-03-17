@@ -39,6 +39,7 @@ export function getCreateListingAccessState(input: {
   isListingsLoading?: boolean;
   isListingsFetching?: boolean;
   hasListingsError?: boolean;
+  hasFreshAccessResult?: boolean;
   activeListingsCount?: number;
   listings?: Array<ListingLimitEntry> | null;
   totalListings?: number;
@@ -53,6 +54,10 @@ export function getCreateListingAccessState(input: {
   }
 
   if (input.isAuthLoading || input.isListingsLoading || input.isListingsFetching) {
+    return { status: 'checking', activeListingsCount };
+  }
+
+  if (input.hasFreshAccessResult === false) {
     return { status: 'checking', activeListingsCount };
   }
 

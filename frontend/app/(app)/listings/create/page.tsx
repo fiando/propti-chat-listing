@@ -44,12 +44,24 @@ export default function CreateListingPage() {
   const [isSubmittingListingFromPhoneModal, setIsSubmittingListingFromPhoneModal] = useState(false);
   const queryClient = useQueryClient();
   const { mutateAsync: createListing, isPending } = useCreateListing();
-  const { isPremium, isAuthenticated, isLoading: isAuthLoading, isProfileFetching, profile } = useAuth();
+  const {
+    isPremium,
+    isAuthenticated,
+    isLoading: isAuthLoading,
+    isProfileError,
+    isProfileFetchedAfterMount,
+    isProfileFetching,
+    profile,
+  } = useAuth();
   const { toast } = useToast();
+  const hasFreshAccessResult =
+    !isAuthenticated || isPremium || isProfileError || isProfileFetchedAfterMount;
   const createAccessState = getCreateListingAccessState({
     isAuthenticated,
     isPremium,
     isAuthLoading: isAuthLoading || isProfileFetching,
+    hasListingsError: isProfileError,
+    hasFreshAccessResult,
     activeListingsCount: profile?.subscription?.activeListingsCount,
   });
   const activeListingsCount = createAccessState.activeListingsCount;

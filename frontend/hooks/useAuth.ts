@@ -9,11 +9,18 @@ import { getSubscriptionStatus } from '@/lib/subscription-status';
 export function useAuth() {
   const { data: session, status } = useSession();
 
-  const { data: profile, isLoading: isProfileLoading, isFetching: isProfileFetching } = useQuery<User>({
+  const {
+    data: profile,
+    isError: isProfileError,
+    isLoading: isProfileLoading,
+    isFetching: isProfileFetching,
+    isFetchedAfterMount: isProfileFetchedAfterMount,
+  } = useQuery<User>({
     queryKey: ['profile'],
     queryFn: getProfile,
     enabled: status === 'authenticated',
     retry: 1,
+    refetchOnMount: 'always',
   });
 
   const isAuthenticated = status === 'authenticated';
@@ -30,6 +37,8 @@ export function useAuth() {
     profile,
     isAuthenticated,
     isLoading,
+    isProfileError,
+    isProfileFetchedAfterMount,
     isProfileFetching,
     isSubscriptionLoading,
     subscriptionStatus,

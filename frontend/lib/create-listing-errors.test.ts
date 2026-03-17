@@ -79,6 +79,21 @@ test('keeps create access unresolved while the quota summary is refetching', () 
   );
 });
 
+test('keeps create access unresolved until this mount has a fresh access result', () => {
+  assert.deepEqual(
+    getCreateListingAccessState({
+      isAuthenticated: true,
+      isPremium: false,
+      hasFreshAccessResult: false,
+      activeListingsCount: 2,
+    }),
+    {
+      status: 'checking',
+      activeListingsCount: 2,
+    }
+  );
+});
+
 test('fails closed when listing access data is incomplete or the quota check errors', () => {
   assert.deepEqual(
     getCreateListingAccessState({

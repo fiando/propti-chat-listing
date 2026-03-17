@@ -71,9 +71,14 @@ test('create listing page blocks free-tier sellers early using current active li
   assert.match(createPage, /Upgrade ke Premium/);
   assert.match(createPage, /Kembali ke iklan saya/);
   assert.match(createPage, /profile\?\.subscription\?\.activeListingsCount/);
+  assert.match(createPage, /hasFreshAccessResult/);
+  assert.match(createPage, /isProfileFetchedAfterMount/);
   assert.match(createPage, /isProfileFetching/);
   assert.match(createPage, /Coba lagi/);
+  assert.match(authHook, /isProfileFetchedAfterMount/);
+  assert.match(authHook, /isProfileError/);
   assert.match(authHook, /isProfileFetching/);
+  assert.match(authHook, /refetchOnMount:\s*'always'/);
   assert.match(typesFile, /activeListingsCount\??:\s*number/);
 });
 
