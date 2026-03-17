@@ -16,6 +16,7 @@ const getCreateListingAccessState =
         isPremium?: boolean;
         isAuthLoading?: boolean;
         isListingsLoading?: boolean;
+        isListingsFetching?: boolean;
         hasListingsError?: boolean;
         listings?: Array<{ status?: string } | null | undefined> | null;
         totalListings?: number;
@@ -26,6 +27,7 @@ const getCreateListingAccessState =
     isPremium?: boolean;
     isAuthLoading?: boolean;
     isListingsLoading?: boolean;
+    isListingsFetching?: boolean;
     hasListingsError?: boolean;
     listings?: Array<{ status?: string } | null | undefined> | null;
     totalListings?: number;
@@ -85,6 +87,23 @@ test('keeps create access unresolved while auth or listing checks are still load
     {
       status: 'checking',
       activeListingsCount: 1,
+    }
+  );
+});
+
+test('keeps create access unresolved while the quota summary is refetching', () => {
+  assert.deepEqual(
+    getCreateListingAccessState({
+      isAuthenticated: true,
+      isPremium: false,
+      isListingsFetching: true,
+      activeListingsCount: 2,
+      listings: [{ status: 'active' }, { status: 'active' }],
+      totalListings: 2,
+    }),
+    {
+      status: 'checking',
+      activeListingsCount: 2,
     }
   );
 });

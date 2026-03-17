@@ -48,6 +48,7 @@ export default function CreateListingPage() {
   const {
     data: listingQuotaSummary,
     isLoading: isListingQuotaLoading,
+    isFetching: isListingQuotaFetching,
     isError: hasListingQuotaError,
     refetch: refetchListingQuotaSummary,
   } = useMyListingQuotaSummary(
@@ -63,6 +64,7 @@ export default function CreateListingPage() {
     isPremium,
     isAuthLoading,
     isListingsLoading: isListingQuotaLoading,
+    isListingsFetching: isListingQuotaFetching,
     hasListingsError: hasListingQuotaError,
     activeListingsCount: listingQuotaSummary?.activeListingsCount,
   });
@@ -74,14 +76,17 @@ export default function CreateListingPage() {
     isCheckingCreateAccess || hasCreateAccessError || isCreateBlocked ? 'choose' : step;
 
   useEffect(() => {
-    if (!isCreateBlocked && !hasCreateAccessError) {
+    if (!isCheckingCreateAccess && !isCreateBlocked && !hasCreateAccessError) {
       return;
     }
 
-    setStep('choose');
     setShowPhoneModal(false);
     setPendingSubmitData(null);
-  }, [hasCreateAccessError, isCreateBlocked]);
+
+    if (isCreateBlocked || hasCreateAccessError) {
+      setStep('choose');
+    }
+  }, [hasCreateAccessError, isCheckingCreateAccess, isCreateBlocked]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
