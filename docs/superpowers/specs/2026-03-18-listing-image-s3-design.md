@@ -127,20 +127,30 @@ The client uploads each normalized image directly to the provided signed PUT URL
 On create or update, the client submits:
 
 - normal listing fields
-- upload tokens for the selected images
+- upload tokens for any newly uploaded images
+- the final ordered image set for the listing
 - featured-image choice
+
+For updates, the final image set may contain a mix of:
+
+- existing persisted image keys the user chose to keep
+- newly uploaded images referenced by upload tokens
+
+Any previously stored image not included in the final submitted set is treated as removed.
 
 The backend must then:
 
 - reject any new base64 image payloads
 - resolve each token and verify ownership, expiry, and unused status
 - verify the referenced S3 staged objects exist
+- verify any retained existing image keys already belong to that listing
 - re-check the final image count against the user tier
-- verify the featured image belongs to the submitted token set
+- verify the featured image belongs to the final submitted image set, whether retained or newly uploaded
 - promote/copy staged objects into permanent listing keys
 - create thumbnail artifacts if needed
 - store only the final object keys and related metadata in the listing record
 - mark tokens as consumed so they cannot be replayed
+- delete or schedule deletion for removed permanent objects that are no longer referenced by the listing
 
 If create/update fails, staged objects remain temporary and are cleaned up later.
 
