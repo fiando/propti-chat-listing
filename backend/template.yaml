@@ -453,8 +453,6 @@ Resources:
           AttributeType: S
         - AttributeName: orderId
           AttributeType: S
-        - AttributeName: orderId
-          AttributeType: S
         - AttributeName: createdAt
           AttributeType: S
       KeySchema:
@@ -469,12 +467,6 @@ Resources:
               KeyType: HASH
             - AttributeName: createdAt
               KeyType: RANGE
-          Projection:
-            ProjectionType: ALL
-        - IndexName: orderId-index
-          KeySchema:
-            - AttributeName: orderId
-              KeyType: HASH
           Projection:
             ProjectionType: ALL
         - IndexName: orderId-index
