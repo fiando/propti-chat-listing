@@ -442,7 +442,7 @@ Resources:
   TransactionsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub "propti-transactions-${Stage}"
+      TableName: !Sub "propti-transactions-v2-${Stage}"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: PK
