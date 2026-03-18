@@ -31,7 +31,7 @@ export const metadata: Metadata = {
       'Paste iklan dari WhatsApp, AI kami ubah jadi listing properti rapi dan siap tayang. Gratis untuk 3 iklan pertama.',
     images: [
       {
-        url: '/og-image.png',
+        url: '/og-image.jpg',
         width: 1200,
         height: 630,
         alt: 'Propti — Platform Properti AI Indonesia',
@@ -43,7 +43,7 @@ export const metadata: Metadata = {
     title: 'Propti — Jual Beli Properti Semudah Chat WhatsApp',
     description:
       'Paste iklan dari WhatsApp, AI kami ubah jadi listing properti rapi dan siap tayang.',
-    images: ['/og-image.png'],
+    images: ['/og-image.jpg'],
   },
   icons: {
     icon: [
