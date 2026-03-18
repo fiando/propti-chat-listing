@@ -1,98 +1,132 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { Upload, X, Image as ImageIcon, Crown, Plus } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Upload, X, Image as ImageIcon, Crown, Plus, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import type { ListingFormImage } from '@/types';
 import { ImageLimits } from '@/types';
+import {
+  createNewListingFormImage,
+  markFeaturedImage,
+  removeListingFormImage,
+} from '@/lib/listing-images';
 
 interface ImageUploadProps {
-  listingId?: string;
-  images: string[];
-  onChange: (images: string[]) => void;
+  images: ListingFormImage[];
+  onChange: (images: ListingFormImage[]) => void;
   maxImages?: number;
 }
 
-// Compress an image file using the canvas API.
-// Images are scaled to at most MAX_IMAGE_PX on the longest side and encoded
-// as JPEG at IMAGE_QUALITY. This runs entirely in-browser with no network
-// round-trip, so there is no user-perceived delay — the compressed preview
-// appears as fast as the original would have.
 const MAX_IMAGE_PX = 1280;
 const IMAGE_QUALITY = 0.82;
 
-function compressImage(file: File, maxPx = MAX_IMAGE_PX, quality = IMAGE_QUALITY): Promise<string> {
+function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = reject;
-    reader.onload = (e) => {
-      const dataUrl = e.target?.result as string;
-      const img = new Image();
-      img.onerror = reject;
-      img.onload = () => {
-        let { width, height } = img;
-        if (width > maxPx || height > maxPx) {
-          if (width >= height) {
-            height = Math.round((height * maxPx) / width);
-            width = maxPx;
-          } else {
-            width = Math.round((width * maxPx) / height);
-            height = maxPx;
-          }
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          // Fallback: use original if canvas is unavailable.
-          resolve(dataUrl);
-          return;
-        }
-        ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', quality));
-      };
-      img.src = dataUrl;
-    };
-    reader.readAsDataURL(file);
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('Gagal memuat foto untuk dikompres.'));
+    image.src = url;
   });
 }
 
-export function ImageUpload({
-  images,
-  onChange,
-  maxImages = 3,
-}: ImageUploadProps) {
+async function compressImage(file: File, maxPx = MAX_IMAGE_PX, quality = IMAGE_QUALITY): Promise<File> {
+  const sourceUrl = URL.createObjectURL(file);
+
+  try {
+    const image = await loadImage(sourceUrl);
+    let { width, height } = image;
+
+    if (width > maxPx || height > maxPx) {
+      if (width >= height) {
+        height = Math.round((height * maxPx) / width);
+        width = maxPx;
+      } else {
+        width = Math.round((width * maxPx) / height);
+        height = maxPx;
+      }
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+
+    const context = canvas.getContext('2d');
+    if (!context) {
+      return file;
+    }
+
+    context.drawImage(image, 0, 0, width, height);
+
+    const blob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(resolve, 'image/jpeg', quality);
+    });
+
+    if (!blob) {
+      return file;
+    }
+
+    const sanitizedName = file.name.replace(/\.[^.]+$/, '') || 'listing-image';
+    return new File([blob], `${sanitizedName}.jpg`, {
+      type: 'image/jpeg',
+      lastModified: file.lastModified,
+    });
+  } finally {
+    URL.revokeObjectURL(sourceUrl);
+  }
+}
+
+export function ImageUpload({ images, onChange, maxImages = 3 }: ImageUploadProps) {
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleFiles = (files: FileList | null) => {
+  const handleFiles = async (files: FileList | null) => {
     if (!files) return;
-    const remaining = maxImages - images.length;
-    const newFiles = Array.from(files).slice(0, remaining);
 
-    Promise.all(newFiles.map((file) => compressImage(file))).then((urls) => {
-      onChange([...images, ...urls]);
-    });
+    const remaining = maxImages - images.length;
+    const selectedFiles = Array.from(files).slice(0, remaining);
+    const compressedFiles = await Promise.all(selectedFiles.map((file) => compressImage(file)));
+    const nextImages = compressedFiles.map((file) =>
+      createNewListingFormImage(file, URL.createObjectURL(file))
+    );
+
+    const mergedImages = [...images, ...nextImages];
+    const hasFeatured = mergedImages.some((image) => image.isFeatured);
+
+    onChange(
+      hasFeatured
+        ? mergedImages
+        : mergedImages.map((image, index) => ({
+            ...image,
+            isFeatured: index === 0,
+          }))
+    );
   };
 
-  const removeImage = (index: number) => {
-    onChange(images.filter((_, i) => i !== index));
+  const removeImage = (imageId: string) => {
+    const imageToRemove = images.find((image) => image.id === imageId);
+    if (imageToRemove?.kind === 'new') {
+      URL.revokeObjectURL(imageToRemove.previewUrl);
+    }
+    onChange(removeListingFormImage(images, imageId));
+  };
+
+  const setFeaturedImage = (imageId: string) => {
+    onChange(markFeaturedImage(images, imageId));
   };
 
   return (
     <div className="space-y-4">
-      {/* Upload area */}
       {images.length < maxImages && (
         <div
-          onDragOver={(e) => {
-            e.preventDefault();
+          onDragOver={(event) => {
+            event.preventDefault();
             setDragging(true);
           }}
           onDragLeave={() => setDragging(false)}
-          onDrop={(e) => {
-            e.preventDefault();
+          onDrop={(event) => {
+            event.preventDefault();
             setDragging(false);
-            handleFiles(e.dataTransfer.files);
+            void handleFiles(event.dataTransfer.files);
           }}
           onClick={() => inputRef.current?.click()}
           className={cn(
@@ -106,8 +140,7 @@ export function ImageUpload({
             <Upload className="w-7 h-7 text-gray-400" />
           </div>
           <p className="font-medium text-gray-700 mb-1">
-            Drag & drop foto atau{' '}
-            <span className="text-brand-primary">klik untuk pilih</span>
+            Drag & drop foto atau <span className="text-brand-primary">klik untuk pilih</span>
           </p>
           <p className="text-xs text-gray-400">
             JPG, PNG, WebP — Maks {maxImages} foto ({images.length}/{maxImages})
@@ -118,39 +151,48 @@ export function ImageUpload({
             accept="image/*"
             multiple
             className="hidden"
-            onChange={(e) => handleFiles(e.target.files)}
+            onChange={(event) => void handleFiles(event.target.files)}
           />
         </div>
       )}
 
-      {/* Image preview grid */}
       {images.length > 0 && (
-        <div className="grid grid-cols-3 gap-3">
-          {images.map((img, i) => (
-            <div key={i} className="relative group aspect-video rounded-xl overflow-hidden bg-gray-100">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+          {images.map((image) => (
+            <div
+              key={image.id}
+              className="relative overflow-hidden rounded-xl border border-gray-200 bg-gray-100"
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={img} alt="" className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <img src={image.previewUrl} alt="" className="aspect-video w-full object-cover" />
+
+              <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-gradient-to-t from-black/70 to-transparent p-3">
                 <button
                   type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeImage(i);
-                  }}
-                  className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white hover:bg-red-600 transition-colors"
+                  onClick={() => setFeaturedImage(image.id)}
+                  className={cn(
+                    'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold transition-colors',
+                    image.isFeatured
+                      ? 'bg-amber-400 text-white'
+                      : 'bg-white/85 text-gray-700 hover:bg-white'
+                  )}
                 >
-                  <X className="w-4 h-4" />
+                  <Star className={cn('h-3.5 w-3.5', image.isFeatured && 'fill-current')} />
+                  {image.isFeatured ? 'Foto utama' : 'Jadikan foto utama'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => removeImage(image.id)}
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500 text-white transition-colors hover:bg-red-600"
+                  aria-label="Hapus foto"
+                >
+                  <X className="h-4 w-4" />
                 </button>
               </div>
-              {i === 0 && (
-                <div className="absolute bottom-1.5 left-1.5 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded">
-                  Utama
-                </div>
-              )}
             </div>
           ))}
 
-          {/* Add more slot */}
           {images.length < maxImages && (
             <button
               type="button"
@@ -158,7 +200,7 @@ export function ImageUpload({
               className="aspect-video rounded-xl border-2 border-dashed border-gray-300 hover:border-brand-accent flex items-center justify-center text-gray-400 hover:text-brand-primary transition-all"
             >
               <div className="text-center">
-                <Plus className="w-6 h-6 mx-auto mb-1" />
+                <Plus className="mx-auto mb-1 h-6 w-6" />
                 <span className="text-xs">Tambah Foto</span>
               </div>
             </button>
@@ -166,25 +208,26 @@ export function ImageUpload({
         </div>
       )}
 
-      {/* Premium upsell */}
       {maxImages <= 3 && (
-        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl p-3">
-          <Crown className="w-5 h-5 text-amber-500 flex-shrink-0" />
+        <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
+          <Crown className="h-5 w-5 flex-shrink-0 text-amber-500" />
           <div>
             <p className="text-xs font-semibold text-amber-700">
               Upgrade ke Premium untuk upload hingga {ImageLimits.premium} foto
             </p>
-            <p className="text-xs text-amber-600">Iklan dengan banyak foto mendapat 3x lebih banyak penonton</p>
+            <p className="text-xs text-amber-600">
+              Iklan dengan banyak foto mendapat 3x lebih banyak penonton
+            </p>
           </div>
         </div>
       )}
 
-      {/* Empty state */}
       {images.length === 0 && (
-        <div className="flex items-center gap-3 bg-blue-50 border border-blue-100 rounded-xl p-3">
-          <ImageIcon className="w-5 h-5 text-blue-400 flex-shrink-0" />
+        <div className="flex items-center gap-3 rounded-xl border border-blue-100 bg-blue-50 p-3">
+          <ImageIcon className="h-5 w-5 flex-shrink-0 text-blue-400" />
           <p className="text-xs text-blue-600">
-            Iklan dengan foto mendapat <strong>10x lebih banyak</strong> penonton. Tambahkan minimal 1 foto!
+            Iklan dengan foto mendapat <strong>10x lebih banyak</strong> penonton. Tambahkan minimal
+            1 foto!
           </p>
         </div>
       )}

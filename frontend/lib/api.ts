@@ -7,6 +7,7 @@ import type {
   SearchParams,
   User,
   CreateListingRequest,
+  UpdateListingRequest,
   FeatureListingRequest,
   PaymentResponse,
   LocationSuggestion,
@@ -14,6 +15,8 @@ import type {
   ContactRevealChannel,
   RevealListingContactResponse,
   UpdateProfileRequest,
+  UploadPrepareRequest,
+  UploadPrepareResponse,
 } from '@/types';
 import { getBackendAuthHeader, getBackendProfilePath } from '@/lib/backend-auth';
 import { getApiErrorMessage } from '@/lib/api-error';
@@ -101,6 +104,11 @@ export async function getListing(id: string): Promise<Listing> {
   return response.data;
 }
 
+export async function getOwnerListing(id: string): Promise<Listing> {
+  const response = await apiClient.get<Listing>(`/users/me/listings/${id}`);
+  return response.data;
+}
+
 export async function trackListingView(id: string): Promise<Listing> {
   const response = await apiClient.post<Listing>(`/listings/${id}/view`);
   return response.data;
@@ -123,7 +131,7 @@ export async function getListings(params: SearchParams): Promise<ListingsRespons
 
 export async function updateListing(
   id: string,
-  data: Partial<CreateListingRequest>
+  data: UpdateListingRequest
 ): Promise<Listing> {
   const response = await apiClient.put<Listing>(`/listings/${id}`, data);
   return response.data;
@@ -133,15 +141,19 @@ export async function deleteListing(id: string): Promise<void> {
   await apiClient.delete(`/listings/${id}`);
 }
 
-export async function getUploadUrl(
-  listingId: string,
-  filename: string
-): Promise<{ uploadUrl: string; fileUrl: string }> {
-  const response = await apiClient.post<{ uploadUrl: string; fileUrl: string }>(
-    `/listings/${listingId}/upload-url`,
-    { filename }
-  );
+export async function prepareListingUpload(
+  data: UploadPrepareRequest
+): Promise<UploadPrepareResponse> {
+  const response = await apiClient.post<UploadPrepareResponse>('/listings/upload-prepare', data);
   return response.data;
+}
+
+export async function uploadListingImage(presignedUrl: string, file: File): Promise<void> {
+  await axios.put(presignedUrl, file, {
+    headers: {
+      'Content-Type': file.type || 'application/octet-stream',
+    },
+  });
 }
 
 export async function featureListing(
