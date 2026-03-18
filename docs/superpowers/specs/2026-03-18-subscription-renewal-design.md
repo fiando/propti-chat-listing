@@ -113,7 +113,9 @@ It should route the user into the existing premium purchase flow, reusing the cu
 
 In this phase, the CTA is primarily shown for `expiring_soon` and `expired` users. Active users outside the 7-day window do not need a prominent renewal action yet.
 
-This is not just a UI decision. It is also a business rule for phase 1: renewal purchase initiation is only allowed when the user is in `expiring_soon` or `expired` state.
+This is not just a UI decision. It is also a business rule for phase 1: renewal purchase initiation is only allowed when an already-premium user is in `expiring_soon` or `expired` state.
+
+This rule does **not** apply to free users. A free user can still start a first-time premium purchase at any time through the existing upgrade flow.
 
 ### Copy updates
 
@@ -159,13 +161,14 @@ True auto-renew is out of scope because the current live payment setup does not 
 
 For the selected flow:
 
-- renewal is available once the user enters the 7-day reminder window, or any time after expiry
+- first-time premium purchase for free users remains available at any time
+- renewal for already-premium users is available once the user enters the 7-day reminder window, or any time after expiry
 - if payment succeeds before expiry, the new premium period extends from the current expiry date
 - if payment succeeds after expiry, the new premium period starts from payment success time
 
 This keeps the behavior predictable and avoids penalizing users who renew a few days early.
 
-Requests to initiate renewal earlier than the 7-day window should be rejected consistently by backend validation, with a clear user-facing message that renewal opens 7 days before expiry.
+Requests from already-premium users to initiate renewal earlier than the 7-day window should be rejected consistently by backend validation, with a clear user-facing message that renewal opens 7 days before expiry.
 
 Renewal continues to use the existing premium package and duration rules. This phase does not introduce alternative package lengths or a separate renewal product.
 
