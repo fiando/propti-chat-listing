@@ -348,9 +348,7 @@ export function ListingDetail({
               {revealedContact?.sellerPhone ? (
                 <p className="mt-1 text-sm text-gray-600">{revealedContact.sellerPhone}</p>
               ) : isAuthenticated ? (
-                <p className="mt-1 text-sm text-gray-500">
-                  Nomor baru dibuka saat kamu memilih WhatsApp atau Telepon.
-                </p>
+                <div></div>
               ) : (
                 <p className="mt-1 text-sm text-gray-500">Masuk untuk melihat nomor dan menghubungi penjual.</p>
               )}
@@ -388,7 +386,7 @@ export function ListingDetail({
                 </>
               ) : (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                  Nomor penjual belum tersedia. Kontak akan muncul setelah penjual melengkapi onboarding.
+                  Nomor penjual belum tersedia.
                 </div>
               )}
             </div>
