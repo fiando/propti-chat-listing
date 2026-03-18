@@ -1,24 +1,39 @@
 'use client';
 
 import { use } from 'react';
-import { useListing, useUpdateListing } from '@/hooks/useListings';
+import { useOwnerListing, useUpdateListing } from '@/hooks/useListings';
 import { ListingForm } from '@/components/listings/ListingForm';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import type { CreateListingRequest } from '@/types';
+import type { UpdateListingRequest } from '@/types';
 import type { ListingFormValues } from '@/components/listings/ListingForm';
+import { normalizeAmenityIds } from '@/lib/listing-form-utils';
+import {
+  normalizeListingFormImages,
+  uploadPendingListingImages,
+} from '@/lib/listing-images';
+import { prepareListingUpload, uploadListingImage } from '@/lib/api';
 
 export default function EditListingPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
-  const { data: listing, isLoading } = useListing(resolvedParams.id);
+  const { data: listing, isLoading } = useOwnerListing(resolvedParams.id);
   const { mutateAsync: updateListing, isPending } = useUpdateListing(resolvedParams.id);
   const router = useRouter();
   const { isPremium } = useAuth();
 
   const handleSubmit = async (data: ListingFormValues) => {
-    const payload: Partial<CreateListingRequest> = {
+    const uploadPayload = await uploadPendingListingImages(
+      data.images,
+      {
+        prepareUpload: prepareListingUpload,
+        uploadObject: uploadListingImage,
+      },
+      resolvedParams.id
+    );
+
+    const payload: UpdateListingRequest = {
       title: data.title,
       description: data.description,
       price: data.price,
@@ -33,7 +48,7 @@ export default function EditListingPage({ params }: { params: Promise<{ id: stri
         orientation: data.orientation,
         legalStatus: data.legalStatus,
         powerConsumption: data.powerConsumption,
-        amenities: data.amenities,
+        amenities: normalizeAmenityIds(data.amenities),
       },
       location: {
         address: data.address,
@@ -41,8 +56,13 @@ export default function EditListingPage({ params }: { params: Promise<{ id: stri
         city: data.city,
         district: data.district,
       },
-      images: data.images,
+      images: uploadPayload.legacyImages,
+      retainedImageIds: uploadPayload.retainedImageIds,
+      newImageUploadSessionIds: uploadPayload.newImageUploadSessionIds,
+      featuredImageId: uploadPayload.featuredImageId,
+      featuredUploadSessionId: uploadPayload.featuredUploadSessionId,
     };
+
     await updateListing(payload);
     router.push(`/listings/${resolvedParams.id}`);
   };
@@ -75,7 +95,7 @@ export default function EditListingPage({ params }: { params: Promise<{ id: stri
     listingType: listing.listingType,
     propertyDetails: listing.propertyDetails,
     address: listing.location?.address || '',
-    images: listing.images || [],
+    images: normalizeListingFormImages(listing.images),
   };
 
   const initialLocation = {
@@ -101,7 +121,6 @@ export default function EditListingPage({ params }: { params: Promise<{ id: stri
       <ListingForm
         initialData={initialData}
         initialLocation={initialLocation}
-        listingId={resolvedParams.id}
         onSubmit={handleSubmit}
         isLoading={isPending}
         mode="edit"

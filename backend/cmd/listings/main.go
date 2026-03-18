@@ -26,6 +26,7 @@ func main() {
 	listingRepo := repository.NewListingRepo(db)
 	userRepo := repository.NewUserRepo(db)
 	moderationRepo := repository.NewModerationRepo(db)
+	uploadSessionRepo := repository.NewUploadSessionRepo(db)
 
 	s3Svc, err := services.NewS3Service(ctx, os.Getenv("S3_MEDIA_BUCKET"))
 	if err != nil {
@@ -46,6 +47,8 @@ func main() {
 		panic(err)
 	}
 	listingSvc := services.NewListingService(listingRepo, userRepo, aiSvc, s3Svc, mapsSvc, locationCatalog)
+	listingSvc.SetUploadSessionStore(uploadSessionRepo)
+	uploadSessionSvc := services.NewUploadSessionService(uploadSessionRepo, userRepo, listingRepo, s3Svc)
 	moderationQueue, err := services.NewLambdaModerationEnqueuer(ctx, os.Getenv("LISTINGS_FUNCTION_NAME"))
 	if err != nil {
 		utils.LogError("init moderation queue", err)
@@ -65,9 +68,9 @@ func main() {
 	if moderator, ok := aiSvc.(services.ContentModerator); ok {
 		textModerator = moderator
 	}
-	moderationSvc := services.NewModerationService(textModerator, imageModerator, moderationRepo, listingRepo)
+	moderationSvc := services.NewModerationService(textModerator, imageModerator, moderationRepo, listingRepo, s3Svc)
 
-	listingHandler := handlers.NewListingHandler(listingSvc, userRepo)
+	listingHandler := handlers.NewListingHandler(listingSvc, uploadSessionSvc, services.NewListingMediaPresenter(s3Svc))
 	searchHandler := handlers.NewSearchHandler(listingRepo, mapsSvc, locationCatalog)
 
 	// Route /search/* and /locations/* to searchHandler; all others to listingHandler.

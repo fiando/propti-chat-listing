@@ -21,8 +21,9 @@ import {
   getCreateListingErrorMessage,
 } from '@/lib/create-listing-errors';
 import { normalizeAmenityIds } from '@/lib/listing-form-utils';
-import { updateProfile } from '@/lib/api';
+import { prepareListingUpload, updateProfile, uploadListingImage } from '@/lib/api';
 import { getPhoneModalSubmitLabel, shouldRequirePhone } from '@/lib/create-listing-phone';
+import { uploadPendingListingImages } from '@/lib/listing-images';
 
 type Step = 'choose' | 'parse' | 'form';
 
@@ -124,12 +125,24 @@ export function CreateListingClient({
       return;
     }
 
+    const sanitizedFormValues = draft.formValues
+      ? {
+          ...draft.formValues,
+          images: [],
+        }
+      : formDraft
+      ? {
+          ...formDraft,
+          images: [],
+        }
+      : undefined;
+
     saveCreateListingDraft(window.localStorage, {
       step: draft.step,
       parseText: draft.parseText ?? parseTextDraft,
       parsedData: parsedData ?? undefined,
       parsedLocation: parsedLocation ?? undefined,
-      formValues: draft.formValues ?? formDraft ?? undefined,
+      formValues: sanitizedFormValues,
     });
   };
 
@@ -161,6 +174,14 @@ export function CreateListingClient({
   };
 
   const submitListing = async (data: ListingFormValues) => {
+    const uploadPayload = await uploadPendingListingImages(
+      data.images,
+      {
+        prepareUpload: prepareListingUpload,
+        uploadObject: uploadListingImage,
+      }
+    );
+
     const payload: CreateListingRequest = {
       title: data.title,
       description: data.description,
@@ -184,7 +205,8 @@ export function CreateListingClient({
         city: data.city,
         district: data.district,
       },
-      images: data.images,
+      newImageUploadSessionIds: uploadPayload.newImageUploadSessionIds,
+      featuredUploadSessionId: uploadPayload.featuredUploadSessionId,
     };
 
     const listing = await createListing(payload);

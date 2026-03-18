@@ -10,11 +10,12 @@ import (
 
 // DynamoDB holds a DynamoDB client and the resolved table names.
 type DynamoDB struct {
-	Client            *dynamodb.Client
-	ListingsTable     string
-	UsersTable        string
-	TransactionsTable string
-	ModerationsTable  string
+	Client              *dynamodb.Client
+	ListingsTable       string
+	UsersTable          string
+	TransactionsTable   string
+	ModerationsTable    string
+	UploadSessionsTable string
 }
 
 // NewDynamoDB creates a DynamoDB helper using the ambient AWS config.
@@ -25,11 +26,12 @@ func NewDynamoDB(ctx context.Context) (*DynamoDB, error) {
 	}
 
 	return &DynamoDB{
-		Client:            dynamodb.NewFromConfig(cfg),
-		ListingsTable:     getEnv("DYNAMODB_LISTINGS_TABLE", "propti-listings"),
-		UsersTable:        getEnv("DYNAMODB_USERS_TABLE", "propti-users"),
-		TransactionsTable: getEnv("DYNAMODB_TRANSACTIONS_TABLE", "propti-transactions"),
-		ModerationsTable:  getEnv("DYNAMODB_MODERATIONS_TABLE", "propti-moderations"),
+		Client:              dynamodb.NewFromConfig(cfg),
+		ListingsTable:       getEnv("DYNAMODB_LISTINGS_TABLE", "propti-listings"),
+		UsersTable:          getEnv("DYNAMODB_USERS_TABLE", "propti-users"),
+		TransactionsTable:   getEnv("DYNAMODB_TRANSACTIONS_TABLE", "propti-transactions"),
+		ModerationsTable:    getEnv("DYNAMODB_MODERATIONS_TABLE", "propti-moderations"),
+		UploadSessionsTable: getEnv("DYNAMODB_UPLOAD_SESSIONS_TABLE", "propti-upload-sessions"),
 	}, nil
 }
 

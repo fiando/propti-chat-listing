@@ -16,10 +16,12 @@ type fakeImageModerator struct {
 	reason   string
 	flags    []string
 	err      error
+	bytes    [][]byte
 }
 
-func (f *fakeImageModerator) ModerateImages(ctx context.Context, images []string) (bool, string, []string, error) {
+func (f *fakeImageModerator) ModerateImages(ctx context.Context, images [][]byte) (bool, string, []string, error) {
 	f.calls++
+	f.bytes = append(f.bytes, images...)
 	return f.approved, f.reason, f.flags, f.err
 }
 
@@ -35,6 +37,11 @@ func (f *fakeModerationStore) Put(ctx context.Context, moderation *models.Modera
 
 func TestModerationServiceRejectsListingWhenImageIsNotPropertyRelated(t *testing.T) {
 	ctx := context.Background()
+	media := &fakeMediaService{
+		bytesByKey: map[string][]byte{
+			"listings/listing-1/image-1": []byte("image-bytes"),
+		},
+	}
 	store := &fakeListingStore{
 		listingsByID: map[string]*models.Listing{
 			"listing-1": {
@@ -44,8 +51,10 @@ func TestModerationServiceRejectsListingWhenImageIsNotPropertyRelated(t *testing
 				Description:      "Dekat tol dan sekolah",
 				Status:           models.ListingStatusActive,
 				ModerationStatus: models.ModerationStatusPending,
-				Images:           []string{"data:image/jpeg;base64,ZmFrZQ=="},
-				UpdatedAt:        time.Now().UTC(),
+				Images: models.ImageEntries{
+					{ImageID: "image-1", S3Key: "listings/listing-1/image-1", ThumbnailKey: "thumbnails/listing-1/image-1", IsFeatured: true},
+				},
+				UpdatedAt: time.Now().UTC(),
 			},
 		},
 		listingsByUser: map[string]map[string]*models.Listing{
@@ -57,8 +66,10 @@ func TestModerationServiceRejectsListingWhenImageIsNotPropertyRelated(t *testing
 					Description:      "Dekat tol dan sekolah",
 					Status:           models.ListingStatusActive,
 					ModerationStatus: models.ModerationStatusPending,
-					Images:           []string{"data:image/jpeg;base64,ZmFrZQ=="},
-					UpdatedAt:        time.Now().UTC(),
+					Images: models.ImageEntries{
+						{ImageID: "image-1", S3Key: "listings/listing-1/image-1", ThumbnailKey: "thumbnails/listing-1/image-1", IsFeatured: true},
+					},
+					UpdatedAt: time.Now().UTC(),
 				},
 			},
 		},
@@ -73,7 +84,7 @@ func TestModerationServiceRejectsListingWhenImageIsNotPropertyRelated(t *testing
 	}
 	moderationStore := &fakeModerationStore{}
 
-	service := NewModerationService(textModerator, imageModerator, moderationStore, store)
+	service := NewModerationService(textModerator, imageModerator, moderationStore, store, media)
 
 	listing, err := service.ModerateListing(ctx, "listing-1")
 	if err != nil {
@@ -93,6 +104,18 @@ func TestModerationServiceRejectsListingWhenImageIsNotPropertyRelated(t *testing
 	}
 	if moderationStore.records[1].Type != models.ModerationTypeMedia {
 		t.Fatalf("expected second moderation record to be media check, got %q", moderationStore.records[1].Type)
+	}
+	if len(imageModerator.bytes) != 1 || string(imageModerator.bytes[0]) != "image-bytes" {
+		t.Fatalf("expected moderation to use downloaded S3 bytes, got %#v", imageModerator.bytes)
+	}
+	if listing.Images[0].S3Key != "rejected/listing-1/image-1" {
+		t.Fatalf("expected rejected image key to be moved, got %#v", listing.Images[0])
+	}
+	if listing.Images[0].ThumbnailKey != "" {
+		t.Fatalf("expected rejected listing to clear thumbnail exposure, got %#v", listing.Images[0])
+	}
+	if len(media.copies) == 0 {
+		t.Fatal("expected rejected moderation to move objects into rejected prefix")
 	}
 }
 

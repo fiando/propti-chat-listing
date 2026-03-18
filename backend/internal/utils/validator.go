@@ -76,18 +76,24 @@ func ValidatePagination(page, pageSize int) (int, int) {
 	return page, pageSize
 }
 
+// MediaLimits are the canonical per-listing media caps for each subscription tier.
+const (
+	MaxFreeMediaItems    = 3
+	MaxPremiumMediaItems = 15
+)
+
 // ValidateMediaLimits checks media caps per subscription tier.
 // Free tier: 3 items total; premium tier: 15 items total.
 func ValidateMediaLimits(isPremium bool, images, videos []string) error {
 	total := len(images) + len(videos)
 	if isPremium {
-		if total > 15 {
-			return fmt.Errorf("premium tier allows at most 12 media items per listing (got %d)", total)
+		if total > MaxPremiumMediaItems {
+			return fmt.Errorf("premium tier allows at most %d media items per listing (got %d)", MaxPremiumMediaItems, total)
 		}
 		return nil
 	}
-	if total > 3 {
-		return fmt.Errorf("free tier allows at most 3 media items per listing (got %d)", total)
+	if total > MaxFreeMediaItems {
+		return fmt.Errorf("free tier allows at most %d media items per listing (got %d)", MaxFreeMediaItems, total)
 	}
 	return nil
 }

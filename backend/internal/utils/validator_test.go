@@ -29,13 +29,15 @@ func TestValidateMediaLimits(t *testing.T) {
 		{name: "free: 4 media rejected", isPremium: false, images: 4, videos: 0, wantErr: true, errSubstr: "free tier"},
 		{name: "free: 2 img + 2 vid rejected", isPremium: false, images: 2, videos: 2, wantErr: true, errSubstr: "free tier"},
 
-		// Premium tier
+		// Premium tier — canonical cap: 15 total media items
 		{name: "premium: 0 media OK", isPremium: true, images: 0, videos: 0, wantErr: false},
 		{name: "premium: 3 media OK", isPremium: true, images: 3, videos: 0, wantErr: false},
-		{name: "premium: 30 media OK", isPremium: true, images: 30, videos: 0, wantErr: false},
-		{name: "premium: 20 img + 10 vid OK", isPremium: true, images: 20, videos: 10, wantErr: false},
-		{name: "premium: 31 media rejected", isPremium: true, images: 31, videos: 0, wantErr: true, errSubstr: "premium tier"},
-		{name: "premium: 25 img + 6 vid rejected", isPremium: true, images: 25, videos: 6, wantErr: true, errSubstr: "premium tier"},
+		{name: "premium: 15 media OK", isPremium: true, images: 15, videos: 0, wantErr: false},
+		{name: "premium: 10 img + 5 vid OK", isPremium: true, images: 10, videos: 5, wantErr: false},
+		{name: "premium: 16 media rejected", isPremium: true, images: 16, videos: 0, wantErr: true, errSubstr: "premium tier"},
+		{name: "premium: 10 img + 6 vid rejected", isPremium: true, images: 10, videos: 6, wantErr: true, errSubstr: "premium tier"},
+		{name: "premium: 30 media rejected", isPremium: true, images: 30, videos: 0, wantErr: true, errSubstr: "premium tier"},
+		{name: "premium: rejection message cites correct limit", isPremium: true, images: 16, videos: 0, wantErr: true, errSubstr: "15"},
 	}
 
 	for _, tc := range tests {
