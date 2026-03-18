@@ -158,6 +158,18 @@ Resources:
             RestApiId: !Ref ProptiApi
             Path: /listings/{id}
             Method: GET
+        RecordListingView:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /listings/{id}/view
+            Method: POST
+        RevealListingContact:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /listings/{id}/contact-reveal
+            Method: POST
         UpdateListing:
           Type: Api
           Properties:

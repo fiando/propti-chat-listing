@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"os"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -49,5 +51,21 @@ func TestParseSearchParamsSupportsComprehensiveFilters(t *testing.T) {
 	}
 	if !reflect.DeepEqual(params.Amenities, []string{"carport", "kolam_renang"}) {
 		t.Fatalf("unexpected amenities: %#v", params.Amenities)
+	}
+}
+
+func TestTemplateExposesListingViewAndContactRevealRoutes(t *testing.T) {
+	template, err := os.ReadFile("../../template.yaml")
+	if err != nil {
+		t.Fatalf("read template: %v", err)
+	}
+
+	content := string(template)
+
+	if !strings.Contains(content, "Path: /listings/{id}/view") {
+		t.Fatal("expected SAM template to expose POST /listings/{id}/view")
+	}
+	if !strings.Contains(content, "Path: /listings/{id}/contact-reveal") {
+		t.Fatal("expected SAM template to expose POST /listings/{id}/contact-reveal")
 	}
 }
