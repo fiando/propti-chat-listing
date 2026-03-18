@@ -15,6 +15,7 @@ Globals:
         DYNAMODB_USERS_TABLE: !Ref UsersTable
         DYNAMODB_TRANSACTIONS_TABLE: !Ref TransactionsTable
         DYNAMODB_MODERATIONS_TABLE: !Ref ModerationsTable
+        DYNAMODB_UPLOAD_SESSIONS_TABLE: !Ref UploadSessionsTable
         S3_MEDIA_BUCKET: !Ref MediaBucket
         JWT_SECRET: !Ref JWTSecret
         OPENAI_API_KEY: !Ref OpenAIAPIKey
@@ -146,6 +147,12 @@ Resources:
             RestApiId: !Ref ProptiApi
             Path: /listings
             Method: POST
+        PrepareUpload:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /listings/upload-prepare
+            Method: POST
         ListListings:
           Type: Api
           Properties:
@@ -205,6 +212,12 @@ Resources:
           Properties:
             RestApiId: !Ref ProptiApi
             Path: /users/me/listings
+            Method: GET
+        GetMyListing:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /users/me/listings/{id}
             Method: GET
         SavedListings:
           Type: Api
@@ -329,6 +342,7 @@ Resources:
                   - !Sub "${TransactionsTable.Arn}/index/*"
                   - !GetAtt ModerationsTable.Arn
                   - !Sub "${ModerationsTable.Arn}/index/*"
+                  - !GetAtt UploadSessionsTable.Arn
         - PolicyName: ProptiS3Policy
           PolicyDocument:
             Version: "2012-10-17"
@@ -491,6 +505,20 @@ Resources:
       PointInTimeRecoverySpecification:
         PointInTimeRecoveryEnabled: true
 
+  UploadSessionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "propti-upload-sessions-${Stage}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: sessionId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: sessionId
+          KeyType: HASH
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
   # ──────────────────────────────────────────────────────────────
   # S3 Bucket for Media
   # ──────────────────────────────────────────────────────────────
@@ -568,6 +596,10 @@ Outputs:
   ModerationsTableName:
     Description: DynamoDB moderations table name
     Value: !Ref ModerationsTable
+
+  UploadSessionsTableName:
+    Description: DynamoDB upload session table name
+    Value: !Ref UploadSessionsTable
 
   MediaBucketName:
     Description: S3 media bucket name

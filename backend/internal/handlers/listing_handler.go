@@ -10,26 +10,45 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 
 	"github.com/fiando/propti/backend/internal/models"
-	"github.com/fiando/propti/backend/internal/repository"
 	"github.com/fiando/propti/backend/internal/services"
 	"github.com/fiando/propti/backend/internal/utils"
 )
 
-// ListingHandler handles listing CRUD, text parsing and media upload URLs.
-type ListingHandler struct {
-	listingService *services.ListingService
-	userRepo       *repository.UserRepo
+type listingService interface {
+	CreateListing(ctx context.Context, userID string, req *models.CreateListingRequest) (*models.Listing, error)
+	ListListings(ctx context.Context, params *models.ListingSearchParams) ([]models.Listing, error)
+	ListMyListings(ctx context.Context, userID string, params *models.ListingSearchParams) ([]models.Listing, error)
+	ListSavedListings(ctx context.Context, userID string, params *models.ListingSearchParams) ([]models.Listing, error)
+	GetListing(ctx context.Context, listingID string) (*models.Listing, error)
+	GetOwnerListing(ctx context.Context, userID, listingID string) (*models.Listing, error)
+	RecordListingView(ctx context.Context, listingID string) (*models.Listing, error)
+	RevealListingContact(ctx context.Context, viewerUserID, listingID string, channel models.ContactRevealChannel) (*models.ListingContactReveal, error)
+	UpdateListing(ctx context.Context, userID, listingID string, req *models.UpdateListingRequest) (*models.Listing, error)
+	DeleteListing(ctx context.Context, userID, listingID string) error
+	SaveListing(ctx context.Context, userID, listingID string) error
+	UnsaveListing(ctx context.Context, userID, listingID string) error
+	ParseListingText(ctx context.Context, text string) (*models.ParseTextResponse, error)
+	GetUploadURL(ctx context.Context, userID, listingID, filename, contentType string) (string, string, error)
 }
 
-// NewListingHandler creates a ListingHandler.
-func NewListingHandler(listingService *services.ListingService, userRepo *repository.UserRepo) *ListingHandler {
+type uploadPrepareService interface {
+	PrepareUpload(ctx context.Context, userID string, req *models.UploadPrepareRequest) (*models.UploadPrepareResponse, error)
+}
+
+type ListingHandler struct {
+	listingService listingService
+	uploadService  uploadPrepareService
+	presenter      *services.ListingMediaPresenter
+}
+
+func NewListingHandler(listingService listingService, uploadService uploadPrepareService, presenter *services.ListingMediaPresenter) *ListingHandler {
 	return &ListingHandler{
 		listingService: listingService,
-		userRepo:       userRepo,
+		uploadService:  uploadService,
+		presenter:      presenter,
 	}
 }
 
-// Handle routes API Gateway requests to the appropriate sub-handler.
 func (h *ListingHandler) Handle(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	path := req.Path
 	method := req.HTTPMethod
@@ -37,46 +56,36 @@ func (h *ListingHandler) Handle(ctx context.Context, req events.APIGatewayProxyR
 	switch {
 	case method == http.MethodOptions:
 		return jsonResponse(http.StatusOK, ""), nil
-
 	case method == http.MethodPost && path == "/listings":
 		return h.createListing(ctx, req)
-
+	case method == http.MethodPost && path == "/listings/upload-prepare":
+		return h.prepareUpload(ctx, req)
 	case method == http.MethodGet && path == "/listings":
 		return h.listListings(ctx, req)
-
 	case method == http.MethodGet && path == "/users/me/listings":
 		return h.listMyListings(ctx, req)
-
 	case method == http.MethodGet && path == "/users/me/saved":
 		return h.listSavedListings(ctx, req)
-
+	case method == http.MethodGet && isOwnerListingPath(path):
+		return h.getOwnerListing(ctx, req)
 	case method == http.MethodGet && isListingPath(path):
 		return h.getListing(ctx, req)
-
 	case method == http.MethodPost && isListingViewPath(path):
 		return h.recordListingView(ctx, req)
-
 	case method == http.MethodPost && isListingContactRevealPath(path):
 		return h.revealListingContact(ctx, req)
-
 	case method == http.MethodPut && isListingPath(path):
 		return h.updateListing(ctx, req)
-
 	case method == http.MethodDelete && isListingPath(path):
 		return h.deleteListing(ctx, req)
-
 	case method == http.MethodPost && isListingSavePath(path):
 		return h.saveListing(ctx, req)
-
 	case method == http.MethodDelete && isListingSavePath(path):
 		return h.unsaveListing(ctx, req)
-
 	case method == http.MethodPost && path == "/listings/parse-text":
 		return h.parseText(ctx, req)
-
 	case method == http.MethodPost && strings.HasSuffix(path, "/upload-url"):
 		return h.getUploadURL(ctx, req)
-
 	default:
 		return jsonResponse(http.StatusNotFound, utils.MarshalErrorResponse(utils.ErrNotFound)), nil
 	}
@@ -95,14 +104,32 @@ func (h *ListingHandler) createListing(ctx context.Context, req events.APIGatewa
 
 	listing, err := h.listingService.CreateListing(ctx, userID, &createReq)
 	if err != nil {
-		if appErr, ok := err.(*utils.AppError); ok {
-			return jsonResponse(appErr.Code, utils.MarshalErrorResponse(appErr)), nil
-		}
-		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
+		return appErrorResponse(err), nil
+	}
+	return h.ownerListingResponse(ctx, http.StatusCreated, listing)
+}
+
+func (h *ListingHandler) prepareUpload(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	userID, err := extractUserID(req)
+	if err != nil {
+		return jsonResponse(http.StatusUnauthorized, utils.MarshalErrorResponse(utils.ErrUnauthorized)), nil
+	}
+	if h.uploadService == nil {
+		return jsonResponse(http.StatusServiceUnavailable, utils.MarshalErrorResponse(utils.NewAppError(503, "upload prepare unavailable"))), nil
 	}
 
-	body, _ := json.Marshal(listing)
-	return jsonResponse(http.StatusCreated, string(body)), nil
+	var uploadReq models.UploadPrepareRequest
+	if err := json.Unmarshal([]byte(req.Body), &uploadReq); err != nil {
+		return jsonResponse(http.StatusBadRequest, utils.MarshalErrorResponse(utils.ErrBadRequest)), nil
+	}
+
+	resp, err := h.uploadService.PrepareUpload(ctx, userID, &uploadReq)
+	if err != nil {
+		return appErrorResponse(err), nil
+	}
+
+	body, _ := json.Marshal(resp)
+	return jsonResponse(http.StatusOK, string(body)), nil
 }
 
 func (h *ListingHandler) listListings(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
@@ -112,9 +139,13 @@ func (h *ListingHandler) listListings(ctx context.Context, req events.APIGateway
 		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
 	}
 
+	respListings, err := h.presenter.PresentSummaryCollection(ctx, listings)
+	if err != nil {
+		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
+	}
 	body, _ := json.Marshal(map[string]any{
-		"listings": listings,
-		"total":    len(listings),
+		"listings": respListings,
+		"total":    len(respListings),
 		"page":     params.Page,
 		"pageSize": params.PageSize,
 	})
@@ -129,14 +160,32 @@ func (h *ListingHandler) getListing(ctx context.Context, req events.APIGatewayPr
 
 	listing, err := h.listingService.GetListing(ctx, listingID)
 	if err != nil {
-		if appErr, ok := err.(*utils.AppError); ok {
-			return jsonResponse(appErr.Code, utils.MarshalErrorResponse(appErr)), nil
-		}
-		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
+		return appErrorResponse(err), nil
 	}
 
-	body, _ := json.Marshal(listing)
+	resp, err := h.presenter.PresentPublicDetail(ctx, listing)
+	if err != nil {
+		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
+	}
+	body, _ := json.Marshal(resp)
 	return jsonResponse(http.StatusOK, string(body)), nil
+}
+
+func (h *ListingHandler) getOwnerListing(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	userID, err := extractUserID(req)
+	if err != nil {
+		return jsonResponse(http.StatusUnauthorized, utils.MarshalErrorResponse(utils.ErrUnauthorized)), nil
+	}
+	listingID := extractListingID(req)
+	if listingID == "" {
+		return jsonResponse(http.StatusBadRequest, utils.MarshalErrorResponse(utils.ErrBadRequest)), nil
+	}
+
+	listing, err := h.listingService.GetOwnerListing(ctx, userID, listingID)
+	if err != nil {
+		return appErrorResponse(err), nil
+	}
+	return h.ownerListingResponse(ctx, http.StatusOK, listing)
 }
 
 func (h *ListingHandler) recordListingView(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
@@ -147,13 +196,14 @@ func (h *ListingHandler) recordListingView(ctx context.Context, req events.APIGa
 
 	listing, err := h.listingService.RecordListingView(ctx, listingID)
 	if err != nil {
-		if appErr, ok := err.(*utils.AppError); ok {
-			return jsonResponse(appErr.Code, utils.MarshalErrorResponse(appErr)), nil
-		}
-		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
+		return appErrorResponse(err), nil
 	}
 
-	body, _ := json.Marshal(listing)
+	resp, err := h.presenter.PresentPublicSummary(ctx, listing)
+	if err != nil {
+		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
+	}
+	body, _ := json.Marshal(resp)
 	return jsonResponse(http.StatusOK, string(body)), nil
 }
 
@@ -175,10 +225,7 @@ func (h *ListingHandler) revealListingContact(ctx context.Context, req events.AP
 
 	contact, err := h.listingService.RevealListingContact(ctx, userID, listingID, revealReq.Channel)
 	if err != nil {
-		if appErr, ok := err.(*utils.AppError); ok {
-			return jsonResponse(appErr.Code, utils.MarshalErrorResponse(appErr)), nil
-		}
-		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
+		return appErrorResponse(err), nil
 	}
 
 	body, _ := json.Marshal(contact)
@@ -194,15 +241,16 @@ func (h *ListingHandler) listMyListings(ctx context.Context, req events.APIGatew
 	params := parseSearchParams(req)
 	listings, err := h.listingService.ListMyListings(ctx, userID, params)
 	if err != nil {
-		if appErr, ok := err.(*utils.AppError); ok {
-			return jsonResponse(appErr.Code, utils.MarshalErrorResponse(appErr)), nil
-		}
-		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
+		return appErrorResponse(err), nil
 	}
 
+	respListings, err := h.presenter.PresentSummaryCollection(ctx, listings)
+	if err != nil {
+		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
+	}
 	body, _ := json.Marshal(map[string]any{
-		"listings": listings,
-		"total":    len(listings),
+		"listings": respListings,
+		"total":    len(respListings),
 		"page":     params.Page,
 		"pageSize": params.PageSize,
 	})
@@ -218,15 +266,16 @@ func (h *ListingHandler) listSavedListings(ctx context.Context, req events.APIGa
 	params := parseSearchParams(req)
 	listings, err := h.listingService.ListSavedListings(ctx, userID, params)
 	if err != nil {
-		if appErr, ok := err.(*utils.AppError); ok {
-			return jsonResponse(appErr.Code, utils.MarshalErrorResponse(appErr)), nil
-		}
-		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
+		return appErrorResponse(err), nil
 	}
 
+	respListings, err := h.presenter.PresentSummaryCollection(ctx, listings)
+	if err != nil {
+		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
+	}
 	body, _ := json.Marshal(map[string]any{
-		"listings": listings,
-		"total":    len(listings),
+		"listings": respListings,
+		"total":    len(respListings),
 		"page":     params.Page,
 		"pageSize": params.PageSize,
 	})
@@ -251,14 +300,9 @@ func (h *ListingHandler) updateListing(ctx context.Context, req events.APIGatewa
 
 	listing, err := h.listingService.UpdateListing(ctx, userID, listingID, &updateReq)
 	if err != nil {
-		if appErr, ok := err.(*utils.AppError); ok {
-			return jsonResponse(appErr.Code, utils.MarshalErrorResponse(appErr)), nil
-		}
-		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
+		return appErrorResponse(err), nil
 	}
-
-	body, _ := json.Marshal(listing)
-	return jsonResponse(http.StatusOK, string(body)), nil
+	return h.ownerListingResponse(ctx, http.StatusOK, listing)
 }
 
 func (h *ListingHandler) deleteListing(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
@@ -273,12 +317,8 @@ func (h *ListingHandler) deleteListing(ctx context.Context, req events.APIGatewa
 	}
 
 	if err := h.listingService.DeleteListing(ctx, userID, listingID); err != nil {
-		if appErr, ok := err.(*utils.AppError); ok {
-			return jsonResponse(appErr.Code, utils.MarshalErrorResponse(appErr)), nil
-		}
-		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
+		return appErrorResponse(err), nil
 	}
-
 	return jsonResponse(http.StatusNoContent, ""), nil
 }
 
@@ -294,12 +334,8 @@ func (h *ListingHandler) saveListing(ctx context.Context, req events.APIGatewayP
 	}
 
 	if err := h.listingService.SaveListing(ctx, userID, listingID); err != nil {
-		if appErr, ok := err.(*utils.AppError); ok {
-			return jsonResponse(appErr.Code, utils.MarshalErrorResponse(appErr)), nil
-		}
-		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
+		return appErrorResponse(err), nil
 	}
-
 	return jsonResponse(http.StatusNoContent, ""), nil
 }
 
@@ -315,17 +351,12 @@ func (h *ListingHandler) unsaveListing(ctx context.Context, req events.APIGatewa
 	}
 
 	if err := h.listingService.UnsaveListing(ctx, userID, listingID); err != nil {
-		if appErr, ok := err.(*utils.AppError); ok {
-			return jsonResponse(appErr.Code, utils.MarshalErrorResponse(appErr)), nil
-		}
-		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
+		return appErrorResponse(err), nil
 	}
-
 	return jsonResponse(http.StatusNoContent, ""), nil
 }
 
 func (h *ListingHandler) parseText(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	// Parse-text is available to authenticated users only.
 	if _, err := extractUserID(req); err != nil {
 		return jsonResponse(http.StatusUnauthorized, utils.MarshalErrorResponse(utils.ErrUnauthorized)), nil
 	}
@@ -340,10 +371,7 @@ func (h *ListingHandler) parseText(ctx context.Context, req events.APIGatewayPro
 
 	result, err := h.listingService.ParseListingText(ctx, parseReq.Text)
 	if err != nil {
-		if appErr, ok := err.(*utils.AppError); ok {
-			return jsonResponse(appErr.Code, utils.MarshalErrorResponse(appErr)), nil
-		}
-		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
+		return appErrorResponse(err), nil
 	}
 
 	body, _ := json.Marshal(result)
@@ -373,22 +401,37 @@ func (h *ListingHandler) getUploadURL(ctx context.Context, req events.APIGateway
 
 	uploadURL, key, err := h.listingService.GetUploadURL(ctx, userID, listingID, body.Filename, body.ContentType)
 	if err != nil {
-		if appErr, ok := err.(*utils.AppError); ok {
-			return jsonResponse(appErr.Code, utils.MarshalErrorResponse(appErr)), nil
-		}
-		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
+		return appErrorResponse(err), nil
 	}
 
 	resp, _ := json.Marshal(map[string]string{"uploadUrl": uploadURL, "key": key})
 	return jsonResponse(http.StatusOK, string(resp)), nil
 }
 
-// --- path helpers ---
+func (h *ListingHandler) ownerListingResponse(ctx context.Context, statusCode int, listing *models.Listing) (events.APIGatewayProxyResponse, error) {
+	resp, err := h.presenter.PresentOwnerDetail(ctx, listing)
+	if err != nil {
+		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
+	}
+	body, _ := json.Marshal(resp)
+	return jsonResponse(statusCode, string(body)), nil
+}
+
+func appErrorResponse(err error) events.APIGatewayProxyResponse {
+	if appErr, ok := err.(*utils.AppError); ok {
+		return jsonResponse(appErr.Code, utils.MarshalErrorResponse(appErr))
+	}
+	return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal))
+}
 
 func isListingPath(path string) bool {
-	// Matches /listings/{id} but NOT /listings/parse-text
 	parts := strings.Split(strings.Trim(path, "/"), "/")
-	return len(parts) == 2 && parts[0] == "listings" && parts[1] != "parse-text"
+	return len(parts) == 2 && parts[0] == "listings" && parts[1] != "parse-text" && parts[1] != "upload-prepare"
+}
+
+func isOwnerListingPath(path string) bool {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	return len(parts) == 4 && parts[0] == "users" && parts[1] == "me" && parts[2] == "listings" && parts[3] != ""
 }
 
 func isListingSavePath(path string) bool {
@@ -410,10 +453,12 @@ func extractListingID(req events.APIGatewayProxyRequest) string {
 	if id, ok := req.PathParameters["id"]; ok {
 		return id
 	}
-	// Fallback: parse from path.
 	parts := strings.Split(strings.Trim(req.Path, "/"), "/")
-	if len(parts) >= 2 {
+	if len(parts) >= 2 && parts[0] == "listings" {
 		return parts[1]
+	}
+	if len(parts) >= 4 && parts[0] == "users" && parts[2] == "listings" {
+		return parts[3]
 	}
 	return ""
 }

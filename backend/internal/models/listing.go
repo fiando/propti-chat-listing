@@ -62,7 +62,7 @@ type Listing struct {
 	Status           ListingStatus    `json:"status" dynamodbav:"status"`
 	PropertyDetails  PropertyDetails  `json:"propertyDetails" dynamodbav:"propertyDetails"`
 	Location         Location         `json:"location" dynamodbav:"location"`
-	Images           []string         `json:"images" dynamodbav:"images"`
+	Images           ImageEntries     `json:"-" dynamodbav:"images"`
 	Videos           []string         `json:"videos" dynamodbav:"videos"`
 	ImageCount       int              `json:"imageCount" dynamodbav:"imageCount"`
 	PremiumFeatures  PremiumFeatures  `json:"premiumFeatures" dynamodbav:"premiumFeatures"`
@@ -78,27 +78,33 @@ type Listing struct {
 }
 
 type CreateListingRequest struct {
-	Title           string          `json:"title"`
-	Description     string          `json:"description"`
-	Price           float64         `json:"price"`
-	PriceUnit       string          `json:"priceUnit"`
-	ListingType     ListingType     `json:"listingType"`
-	PropertyDetails PropertyDetails `json:"propertyDetails"`
-	Location        Location        `json:"location"`
-	Images          []string        `json:"images"`
-	Videos          []string        `json:"videos"`
+	Title                    string          `json:"title"`
+	Description              string          `json:"description"`
+	Price                    float64         `json:"price"`
+	PriceUnit                string          `json:"priceUnit"`
+	ListingType              ListingType     `json:"listingType"`
+	PropertyDetails          PropertyDetails `json:"propertyDetails"`
+	Location                 Location        `json:"location"`
+	Images                   []string        `json:"images,omitempty"`
+	Videos                   []string        `json:"videos"`
+	NewImageUploadSessionIDs []string        `json:"newImageUploadSessionIds,omitempty"`
+	FeaturedUploadSessionID  string          `json:"featuredUploadSessionId,omitempty"`
 }
 
 type UpdateListingRequest struct {
-	Title           *string          `json:"title,omitempty"`
-	Description     *string          `json:"description,omitempty"`
-	Price           *float64         `json:"price,omitempty"`
-	PriceUnit       *string          `json:"priceUnit,omitempty"`
-	Status          *ListingStatus   `json:"status,omitempty"`
-	PropertyDetails *PropertyDetails `json:"propertyDetails,omitempty"`
-	Location        *Location        `json:"location,omitempty"`
-	Images          []string         `json:"images,omitempty"`
-	Videos          []string         `json:"videos,omitempty"`
+	Title                    *string          `json:"title,omitempty"`
+	Description              *string          `json:"description,omitempty"`
+	Price                    *float64         `json:"price,omitempty"`
+	PriceUnit                *string          `json:"priceUnit,omitempty"`
+	Status                   *ListingStatus   `json:"status,omitempty"`
+	PropertyDetails          *PropertyDetails `json:"propertyDetails,omitempty"`
+	Location                 *Location        `json:"location,omitempty"`
+	Images                   []string         `json:"images,omitempty"`
+	Videos                   []string         `json:"videos,omitempty"`
+	RetainedImageIDs         []string         `json:"retainedImageIds,omitempty"`
+	NewImageUploadSessionIDs []string         `json:"newImageUploadSessionIds,omitempty"`
+	FeaturedImageID          *string          `json:"featuredImageId,omitempty"`
+	FeaturedUploadSessionID  *string          `json:"featuredUploadSessionId,omitempty"`
 }
 
 type ListingSearchParams struct {

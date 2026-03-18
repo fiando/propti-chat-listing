@@ -13,7 +13,7 @@ import (
 )
 
 type ImageModerator interface {
-	ModerateImages(ctx context.Context, images []string) (approved bool, reason string, flags []string, err error)
+	ModerateImages(ctx context.Context, images [][]byte) (approved bool, reason string, flags []string, err error)
 }
 
 type ModerationRecordStore interface {
@@ -26,6 +26,7 @@ type ModerationService struct {
 	imageModerator ImageModerator
 	moderationRepo ModerationRecordStore
 	listingRepo    ListingStore
+	mediaStore     MediaStorage
 }
 
 func NewModerationService(
@@ -33,12 +34,14 @@ func NewModerationService(
 	imageModerator ImageModerator,
 	moderationRepo ModerationRecordStore,
 	listingRepo ListingStore,
+	mediaStore MediaStorage,
 ) *ModerationService {
 	return &ModerationService{
 		textModerator:  textModerator,
 		imageModerator: imageModerator,
 		moderationRepo: moderationRepo,
 		listingRepo:    listingRepo,
+		mediaStore:     mediaStore,
 	}
 }
 
@@ -70,6 +73,9 @@ func (s *ModerationService) ModerateListing(ctx context.Context, listingID strin
 
 	current.UpdatedAt = time.Now().UTC()
 	if len(rejectionReasons) > 0 {
+		if err := s.moveRejectedMedia(ctx, current); err != nil {
+			return nil, err
+		}
 		current.ModerationStatus = models.ModerationStatusRejected
 		current.Status = models.ListingStatusArchived
 		current.ModerationReason = strings.Join(rejectionReasons, " | ")
@@ -118,7 +124,15 @@ func (s *ModerationService) moderateImages(ctx context.Context, listing *models.
 		return fmt.Errorf("image moderator not configured")
 	}
 
-	approved, reason, flags, err := s.imageModerator.ModerateImages(ctx, listing.Images)
+	images, err := s.loadListingImages(ctx, listing.Images)
+	if err != nil {
+		return fmt.Errorf("load listing images: %w", err)
+	}
+	if len(images) == 0 {
+		return nil
+	}
+
+	approved, reason, flags, err := s.imageModerator.ModerateImages(ctx, images)
 	if err != nil {
 		return fmt.Errorf("moderate listing images: %w", err)
 	}
@@ -129,6 +143,65 @@ func (s *ModerationService) moderateImages(ctx context.Context, listing *models.
 	}
 	if !approved && joinedReason != "" {
 		*rejectionReasons = append(*rejectionReasons, joinedReason)
+	}
+
+	return nil
+}
+
+func (s *ModerationService) loadListingImages(ctx context.Context, images models.ImageEntries) ([][]byte, error) {
+	result := make([][]byte, 0, len(images))
+	for _, image := range images {
+		switch {
+		case image.S3Key != "":
+			if s.mediaStore == nil {
+				return nil, fmt.Errorf("media store not configured")
+			}
+			body, err := s.mediaStore.GetObjectBytes(ctx, image.S3Key)
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, body)
+		case image.LegacyValue != "":
+			body, err := decodeListingImage(image.LegacyValue)
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, body)
+		}
+	}
+	return result, nil
+}
+
+func (s *ModerationService) moveRejectedMedia(ctx context.Context, listing *models.Listing) error {
+	if s.mediaStore == nil {
+		return nil
+	}
+
+	for index := range listing.Images {
+		image := &listing.Images[index]
+		if image.IsLegacy() || image.S3Key == "" {
+			continue
+		}
+
+		rejectedKey := BuildRejectedKey(listing.ListingID, image.ImageID)
+		if err := s.mediaStore.CopyObject(ctx, image.S3Key, rejectedKey); err != nil {
+			return err
+		}
+		if err := s.mediaStore.DeleteObject(ctx, image.S3Key); err != nil {
+			return err
+		}
+		if image.ThumbnailKey != "" {
+			rejectedThumbnailKey := BuildRejectedKey(listing.ListingID, image.ImageID+"-thumbnail")
+			if err := s.mediaStore.CopyObject(ctx, image.ThumbnailKey, rejectedThumbnailKey); err != nil {
+				return err
+			}
+			if err := s.mediaStore.DeleteObject(ctx, image.ThumbnailKey); err != nil {
+				return err
+			}
+		}
+
+		image.S3Key = rejectedKey
+		image.ThumbnailKey = ""
 	}
 
 	return nil
