@@ -17,7 +17,7 @@ const (
 	freeTierMaxListings = 3
 
 	minLocationConfidence = 0.7
-	contactRevealLimit    = 5
+	contactRevealLimit    = 10
 )
 
 var contactRevealWindow = 10 * time.Minute

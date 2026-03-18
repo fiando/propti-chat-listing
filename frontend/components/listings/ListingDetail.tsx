@@ -27,6 +27,7 @@ import Link from 'next/link';
 import { formatAmenityLabel, formatPrice, formatDate, LISTING_TYPE_LABELS, PRICE_UNIT_LABELS } from '@/lib/utils';
 import type { Listing, ContactRevealChannel, RevealListingContactResponse } from '@/types';
 import { buildListingContactLinks } from '@/lib/listing-contact';
+import { getCachedRevealedContact, getOrLoadRevealedContact } from '@/lib/revealed-contact-cache';
 import { useToast } from '@/app/toaster';
 import { useRevealListingContact } from '@/hooks/useListings';
 import { getListingGalleryImages } from '@/lib/listing-images';
@@ -57,10 +58,12 @@ export function ListingDetail({
   onDelete,
 }: ListingDetailProps) {
   const [activeImage, setActiveImage] = useState(0);
-  const [revealedContact, setRevealedContact] = useState<RevealListingContactResponse | null>(null);
+  const [revealedContact, setRevealedContact] = useState<RevealListingContactResponse | null>(() =>
+    getCachedRevealedContact(listing.listingId)
+  );
   const router = useRouter();
   const { toast } = useToast();
-  const { mutateAsync: revealListingContact, isPending: isRevealingContact } = useRevealListingContact();
+  const { mutateAsync: revealListingContact } = useRevealListingContact();
 
   const status = STATUS_CONFIG[listing.moderationStatus] || STATUS_CONFIG.pending;
   const priceLabel = formatPrice(listing.price);
@@ -78,7 +81,9 @@ export function ListingDetail({
     }
 
     try {
-      const contact = await revealListingContact({ id: listing.listingId, channel });
+      const contact = await getOrLoadRevealedContact(listing.listingId, () =>
+        revealListingContact({ id: listing.listingId, channel })
+      );
       setRevealedContact(contact);
 
       const nextLinks = buildListingContactLinks(contact.sellerPhone);
@@ -360,20 +365,18 @@ export function ListingDetail({
                   <button
                     type="button"
                     onClick={() => void handleRevealContact('whatsapp')}
-                    disabled={isRevealingContact}
                     className="w-full flex items-center justify-center gap-2 bg-[#25D366] text-white font-semibold py-3 px-4 rounded-xl hover:opacity-90 transition-opacity"
                   >
                     <MessageCircle className="w-5 h-5" />
-                    {isRevealingContact ? 'Membuka kontak...' : 'Chat WhatsApp'}
+                    Chat WhatsApp
                   </button>
                   <button
                     type="button"
                     onClick={() => void handleRevealContact('phone')}
-                    disabled={isRevealingContact}
                     className="w-full flex items-center justify-center gap-2 btn-secondary"
                   >
                     <Phone className="w-5 h-5" />
-                    {isRevealingContact ? 'Membuka kontak...' : 'Telepon'}
+                    Telepon
                   </button>
                   {!isAuthenticated && (
                     <button

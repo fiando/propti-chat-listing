@@ -619,7 +619,7 @@ func TestRevealListingContactRateLimitsExcessiveReveals(t *testing.T) {
 					Name:   "Pembeli Aktif",
 					ContactRevealThrottle: models.ContactRevealThrottle{
 						WindowStartedAt: time.Now().UTC(),
-						RevealCount:     5,
+						RevealCount:     contactRevealLimit,
 					},
 				},
 				"seller-1": {

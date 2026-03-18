@@ -22,3 +22,16 @@ test('extracts backend error field when message is absent', () => {
     'free tier allows at most 3 listing(s)'
   );
 });
+
+test('keeps the backend rate-limit message for contact reveal errors', () => {
+  assert.equal(
+    getApiErrorMessage(
+      {
+        error: 'Terlalu banyak membuka kontak penjual. Coba lagi dalam 10 menit.',
+        code: 429,
+      },
+      'Request failed with status code 429'
+    ),
+    'Terlalu banyak membuka kontak penjual. Coba lagi dalam 10 menit.'
+  );
+});
