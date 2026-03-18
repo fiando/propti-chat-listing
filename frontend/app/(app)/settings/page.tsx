@@ -178,7 +178,11 @@ export default function SettingsPage() {
           </div>
         )}
 
-        <button type="submit" disabled={updateMutation.isPending} className="btn-primary inline-flex items-center gap-2 disabled:opacity-60">
+        <button
+          type="submit"
+          disabled={updateMutation.isPending}
+          className="btn-primary w-full inline-flex items-center justify-center gap-2 disabled:opacity-60"
+        >
           {updateMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
           Simpan Pengaturan
         </button>

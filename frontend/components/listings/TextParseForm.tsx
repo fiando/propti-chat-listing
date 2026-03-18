@@ -112,6 +112,7 @@ export function TextParseForm({
           />
           {text && (
             <button
+              type="button"
               onClick={() => setText('')}
               className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-xs"
             >
@@ -134,6 +135,7 @@ export function TextParseForm({
             </button>
           </div>
           <button
+            type="button"
             onClick={() => setText(EXAMPLE_TEXT)}
             className="text-brand-secondary hover:text-brand-primary transition-colors"
           >
@@ -143,6 +145,7 @@ export function TextParseForm({
 
         <div className="flex flex-col sm:flex-row gap-3 mt-4">
           <button
+            type="button"
             onClick={handleParse}
             disabled={!text.trim() || loading}
             className="flex-1 flex items-center justify-center gap-2 bg-[#25D366] text-white font-semibold py-3 px-6 rounded-xl hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
@@ -160,6 +163,7 @@ export function TextParseForm({
             )}
           </button>
           <button
+            type="button"
             onClick={onManualFill}
             className="flex items-center justify-center gap-2 border-2 border-gray-200 text-gray-600 font-medium py-3 px-4 rounded-xl hover:bg-gray-50 transition-colors text-sm"
           >
@@ -348,8 +352,8 @@ export function TextParseForm({
                 Perlu diverifikasi:
               </p>
               <ul className="space-y-1">
-                {result.warnings.map((w, i) => (
-                  <li key={i} className="text-xs text-amber-600">
+                {result.warnings.map((w) => (
+                  <li key={w} className="text-xs text-amber-600">
                     • {w}
                   </li>
                 ))}
@@ -357,22 +361,16 @@ export function TextParseForm({
             </div>
           )}
 
-          {/* Action buttons */}
-          <div className="flex flex-col sm:flex-row gap-3">
+          {/* Action button */}
+          <div>
             <button
+              type="button"
               onClick={handleUseResult}
-              className="flex-1 flex items-center justify-center gap-2 btn-primary"
+              className="w-full flex items-center justify-center gap-2 btn-primary"
             >
               <CheckCircle className="w-4 h-4" />
               Gunakan hasil parsing
               <ArrowRight className="w-4 h-4" />
-            </button>
-            <button
-              onClick={onManualFill}
-              className="flex items-center justify-center gap-2 border-2 border-gray-200 text-gray-600 font-medium py-3 px-4 rounded-xl hover:bg-gray-50 transition-colors text-sm"
-            >
-              <Edit className="w-4 h-4" />
-              Edit Manual
             </button>
           </div>
         </div>

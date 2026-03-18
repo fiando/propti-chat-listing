@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -9,9 +10,11 @@ import {
   Plus,
   Heart,
   User,
+  Settings,
   LogOut,
   ChevronDown,
   Crown,
+  Loader2,
   Menu,
   X,
 } from 'lucide-react';
@@ -20,10 +23,26 @@ import { useAuth } from '@/hooks/useAuth';
 import { ProptiLogo } from './ProptiLogo';
 
 export function Header() {
+  const pathname = usePathname();
   const { session, isAuthenticated, isLoading, isPremium, isSubscriptionLoading } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [pendingRoute, setPendingRoute] = useState<string | null>(null);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
+
+  const isRoutePending = (route: string) => pendingRoute === route;
+
+  const startRoutePending = (route: string) => {
+    setPendingRoute(route);
+  };
+
+  const getAuthHref = (href: string) => {
+    if (isAuthenticated) {
+      return href;
+    }
+
+    return `/login?callbackUrl=${encodeURIComponent(href)}`;
+  };
 
   useEffect(() => {
     if (!profileOpen) {
@@ -44,6 +63,20 @@ export function Header() {
     return () => document.removeEventListener('mousedown', handlePointerDown);
   }, [profileOpen]);
 
+  useEffect(() => {
+    if (!pendingRoute) {
+      return;
+    }
+
+    if (
+      pathname === pendingRoute ||
+      (pendingRoute === '/profile' && pathname.startsWith('/profile')) ||
+      (pendingRoute === '/listings/create' && pathname.startsWith('/listings/create'))
+    ) {
+      setPendingRoute(null);
+    }
+  }, [pathname, pendingRoute]);
+
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-gray-100 shadow-sm">
       <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -61,23 +94,6 @@ export function Header() {
             <Search className="w-4 h-4" />
             Cari Properti
           </Link>
-          {isAuthenticated && (
-            <>
-              <Link
-                href="/listings"
-                className="text-gray-600 hover:text-brand-primary font-medium transition-colors text-sm"
-              >
-                Iklan Saya
-              </Link>
-              <Link
-                href="/saved"
-                className="text-gray-600 hover:text-brand-primary font-medium transition-colors text-sm flex items-center gap-1.5"
-              >
-                <Heart className="w-4 h-4" />
-                Tersimpan
-              </Link>
-            </>
-          )}
         </nav>
 
         {/* Auth area */}
@@ -85,16 +101,27 @@ export function Header() {
           <Link
             href="/listings/create"
             className="hidden md:flex items-center gap-2 btn-primary text-sm py-2 px-4"
+            onClick={() => startRoutePending('/listings/create')}
           >
-            <Plus className="w-4 h-4" />
-            Pasang Iklan
+            {isRoutePending('/listings/create') ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Memuat...
+              </>
+            ) : (
+              <>
+                <Plus className="w-4 h-4" />
+                Pasang Iklan
+              </>
+            )}
           </Link>
 
           {isLoading ? (
-            <div className="w-9 h-9 bg-gray-100 rounded-full animate-pulse" />
+            <div className="hidden md:block w-9 h-9 bg-gray-100 rounded-full animate-pulse" />
           ) : isAuthenticated ? (
-            <div ref={profileMenuRef} className="relative">
+            <div ref={profileMenuRef} className="relative hidden md:block">
               <button
+                type="button"
                 onClick={() => setProfileOpen(!profileOpen)}
                 className="flex items-center gap-2 hover:bg-gray-50 rounded-xl px-2 py-1.5 transition-colors"
               >
@@ -125,10 +152,22 @@ export function Header() {
                   <Link
                     href="/profile"
                     className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                    onClick={() => setProfileOpen(false)}
+                    onClick={() => {
+                      startRoutePending('/profile');
+                      setProfileOpen(false);
+                    }}
                   >
-                    <User className="w-4 h-4" />
-                    Profil Saya
+                    {isRoutePending('/profile') ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Memuat...
+                      </>
+                    ) : (
+                      <>
+                        <User className="w-4 h-4" />
+                        Profil Saya
+                      </>
+                    )}
                   </Link>
                   <Link
                     href="/listings"
@@ -137,6 +176,22 @@ export function Header() {
                   >
                     <Home className="w-4 h-4" />
                     Iklan Saya
+                  </Link>
+                  <Link
+                    href="/saved"
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    onClick={() => setProfileOpen(false)}
+                  >
+                    <Heart className="w-4 h-4" />
+                    Tersimpan
+                  </Link>
+                  <Link
+                    href="/settings"
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    onClick={() => setProfileOpen(false)}
+                  >
+                    <Settings className="w-4 h-4" />
+                    Pengaturan
                   </Link>
                   {isSubscriptionLoading ? (
                     <div className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400">
@@ -160,6 +215,7 @@ export function Header() {
                   )}
                   <div className="border-t border-gray-100 mt-1 pt-1">
                     <button
+                      type="button"
                       onClick={() => {
                         setProfileOpen(false);
                         signOut({ callbackUrl: '/' });
@@ -174,13 +230,14 @@ export function Header() {
               )}
             </div>
           ) : (
-            <Link href="/login" className="btn-primary text-sm py-2 px-4">
+            <Link href="/login" className="hidden md:inline-flex btn-primary text-sm py-2 px-4">
               Masuk
             </Link>
           )}
 
           {/* Mobile menu button */}
           <button
+            type="button"
             onClick={() => setMenuOpen(!menuOpen)}
             className="md:hidden w-9 h-9 flex items-center justify-center rounded-xl hover:bg-gray-100 transition-colors"
           >
@@ -201,12 +258,52 @@ export function Header() {
             Cari Properti
           </Link>
           <Link
-            href="/listings/create"
+            href={getAuthHref('/listings/create')}
             className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-brand-primary text-white font-semibold text-sm"
+            onClick={() => {
+              startRoutePending('/listings/create');
+              setMenuOpen(false);
+            }}
+          >
+            {isRoutePending('/listings/create') ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Memuat...
+              </>
+            ) : (
+              <>
+                <Plus className="w-4 h-4" />
+                Pasang Iklan Gratis
+              </>
+            )}
+          </Link>
+          <Link
+            href={getAuthHref('/profile')}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 hover:bg-gray-50 font-medium text-sm"
+            onClick={() => {
+              startRoutePending('/profile');
+              setMenuOpen(false);
+            }}
+          >
+            {isRoutePending('/profile') ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Memuat...
+              </>
+            ) : (
+              <>
+                <User className="w-4 h-4" />
+                Profil Saya
+              </>
+            )}
+          </Link>
+          <Link
+            href={getAuthHref('/saved')}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 hover:bg-gray-50 font-medium text-sm"
             onClick={() => setMenuOpen(false)}
           >
-            <Plus className="w-4 h-4" />
-            Pasang Iklan Gratis
+            <Heart className="w-4 h-4" />
+            Tersimpan
           </Link>
           {isAuthenticated && (
             <>
@@ -219,13 +316,24 @@ export function Header() {
                 Iklan Saya
               </Link>
               <Link
-                href="/saved"
+                href="/settings"
                 className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 hover:bg-gray-50 font-medium text-sm"
                 onClick={() => setMenuOpen(false)}
               >
-                <Heart className="w-4 h-4" />
-                Tersimpan
+                <Settings className="w-4 h-4" />
+                Pengaturan
               </Link>
+              <button
+                type="button"
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-red-500 hover:bg-red-50 font-medium text-sm"
+                onClick={() => {
+                  setMenuOpen(false);
+                  signOut({ callbackUrl: '/' });
+                }}
+              >
+                <LogOut className="w-4 h-4" />
+                Keluar
+              </button>
             </>
           )}
         </div>

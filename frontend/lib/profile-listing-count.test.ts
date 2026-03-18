@@ -10,16 +10,40 @@ const profilePage = readFileSync(
   new URL('../app/(app)/profile/page.tsx', import.meta.url),
   'utf8'
 );
+const profileClient = readFileSync(
+  new URL('../components/profile/ProfilePageClient.tsx', import.meta.url),
+  'utf8'
+);
 const createPage = readFileSync(
   new URL('../app/(app)/listings/create/page.tsx', import.meta.url),
+  'utf8'
+);
+const createClient = readFileSync(
+  new URL('../components/listings/CreateListingClient.tsx', import.meta.url),
+  'utf8'
+);
+const header = readFileSync(
+  new URL('../components/common/Header.tsx', import.meta.url),
   'utf8'
 );
 const textParseForm = readFileSync(
   new URL('../components/listings/TextParseForm.tsx', import.meta.url),
   'utf8'
 );
-const authHook = readFileSync(
-  new URL('../hooks/useAuth.ts', import.meta.url),
+const mobileNav = readFileSync(
+  new URL('../components/common/MobileNav.tsx', import.meta.url),
+  'utf8'
+);
+const homePage = readFileSync(
+  new URL('../app/(app)/page.tsx', import.meta.url),
+  'utf8'
+);
+const savedPage = readFileSync(
+  new URL('../app/(app)/saved/page.tsx', import.meta.url),
+  'utf8'
+);
+const settingsPage = readFileSync(
+  new URL('../app/(app)/settings/page.tsx', import.meta.url),
   'utf8'
 );
 const typesFile = readFileSync(
@@ -27,13 +51,13 @@ const typesFile = readFileSync(
   'utf8'
 );
 
-test('profile page uses my listings count instead of stale monthlyListingsUsed subscription field', () => {
-  assert.match(profilePage, /useMyListings/);
+test('profile page is server-first and reads active listing count from subscription payload', () => {
+  assert.doesNotMatch(profilePage, /'use client'/);
+  assert.doesNotMatch(profilePage, /useSession/);
+  assert.doesNotMatch(profilePage, /useMyListings/);
   assert.doesNotMatch(profilePage, /monthlyListingsUsed/);
-  assert.match(profilePage, /Iklan Aktif/);
-  assert.match(profilePage, /getActiveListingCount\(myListingsData\?\.items\)/);
-  assert.match(profilePage, /keepPreviousData:\s*false/);
-  assert.match(profilePage, /userId:\s*profile\?\.userId\s*\?\?\s*null/);
+  assert.match(profileClient, /subscription\.activeListingsCount/);
+  assert.match(profileClient, /subscription\.tier/);
 });
 
 test('counts only active listings toward the free-tier create limit', () => {
@@ -62,27 +86,75 @@ test('counts only active listings toward the free-tier create limit', () => {
   );
 });
 
-test('create listing page blocks free-tier sellers early using current active listings count', () => {
-  assert.match(createPage, /getCreateListingAccessState/);
-  assert.match(createPage, /activeListingsCount = createAccessState\.activeListingsCount/);
-  assert.match(createPage, /setStep\('choose'\)/);
-  assert.doesNotMatch(createPage, /monthlyListingsUsed/);
-  assert.doesNotMatch(createPage, /useMyListingQuotaSummary/);
-  assert.match(createPage, /Upgrade ke Premium/);
-  assert.match(createPage, /Kembali ke iklan saya/);
-  assert.match(createPage, /profile\?\.subscription\?\.activeListingsCount/);
-  assert.match(createPage, /hasFreshAccessResult/);
-  assert.match(createPage, /isProfileFetchedAfterMount/);
-  assert.match(createPage, /isProfileFetching/);
-  assert.match(createPage, /Coba lagi/);
-  assert.match(authHook, /isProfileFetchedAfterMount/);
-  assert.match(authHook, /isProfileError/);
-  assert.match(authHook, /isProfileFetching/);
-  assert.match(authHook, /refetchOnMount:\s*'always'/);
+test('create listing page is server-first and passes initial access state to client shell', () => {
+  assert.doesNotMatch(createPage, /'use client'/);
+  assert.match(createPage, /CreateListingClient/);
+  assert.match(createPage, /initialCreateAccessState/);
+  assert.doesNotMatch(createPage, /Memeriksa slot listing gratis/);
+  assert.doesNotMatch(createClient, /isProfileFetchedAfterMount/);
+  assert.doesNotMatch(createClient, /isProfileFetching/);
+  assert.doesNotMatch(createClient, /refetchOnMount:\s*'always'/);
   assert.match(typesFile, /activeListingsCount\??:\s*number/);
+});
+
+test('header keeps one mobile trigger and moves account links into profile dropdown', () => {
+  assert.match(header, /\{\/\* Mobile menu button \*\//);
+  assert.match(header, /Menu/);
+  assert.match(header, /href="\/listings"/);
+  assert.match(header, /href="\/saved"/);
+  assert.doesNotMatch(header, /<Heart className="w-4 h-4"\/>\s*\n\s*Tersimpan\s*\n\s*<\/Link>\s*\n\s*<\/>(?:.|\n)*\{\/\* Desktop nav \*\}/);
+});
+
+test('profile and create routes expose route-level loading skeletons', () => {
+  const profileLoading = readFileSync(
+    new URL('../app/(app)/profile/loading.tsx', import.meta.url),
+    'utf8'
+  );
+  const createLoading = readFileSync(
+    new URL('../app/(app)/listings/create/loading.tsx', import.meta.url),
+    'utf8'
+  );
+
+  assert.match(profileLoading, /animate-pulse/);
+  assert.match(createLoading, /animate-pulse/);
+  assert.match(profileLoading, /Memuat profil/);
+  assert.match(createLoading, /Menyiapkan form iklan/);
+});
+
+test('header gives immediate feedback when navigating to slow SSR pages', () => {
+  assert.match(header, /pendingRoute/);
+  assert.match(header, /startRoutePending\('/);
+  assert.match(header, /Memuat\.\.\./);
+});
+
+test('header mobile menu keeps saved/profile visible for guests via login callback links', () => {
+  assert.match(header, /getAuthHref\('\/profile'\)/);
+  assert.match(header, /getAuthHref\('\/saved'\)/);
+  assert.match(header, /encodeURIComponent\(href\)/);
 });
 
 test('parsed-result handoff is explicit and scrolls final review to the top', () => {
   assert.match(textParseForm, /Gunakan hasil parsing/);
-  assert.match(createPage, /window\.scrollTo\(\{ top: 0, behavior: 'smooth' \}\)/);
+  assert.doesNotMatch(textParseForm, /Edit Manual/);
+  assert.match(textParseForm, /className="w-full flex items-center justify-center gap-2 btn-primary"/);
+  assert.match(createClient, /window\.scrollTo\(\{ top: 0, behavior: 'smooth' \}\)/);
+});
+
+test('guest users still see saved/profile in mobile nav and are redirected to login callback', () => {
+  assert.doesNotMatch(mobileNav, /if \(item\.requiresAuth && !session\) return null/);
+  assert.match(mobileNav, /getHref\(item\.href, item\.requiresAuth\)/);
+  assert.match(mobileNav, /encodeURIComponent\(href\)/);
+});
+
+test('search CTA copy is consistent and parser CTA points to create listing', () => {
+  assert.match(homePage, /Cari Properti/);
+  assert.doesNotMatch(homePage, /Jelajahi Properti/);
+  assert.doesNotMatch(savedPage, /Jelajahi Properti/);
+  assert.match(savedPage, /Cari Properti/);
+  assert.doesNotMatch(homePage, /Masuk & coba parser/);
+  assert.match(homePage, /Paste listing saya/);
+});
+
+test('settings save button is full-width block', () => {
+  assert.match(settingsPage, /className="btn-primary w-full inline-flex items-center justify-center gap-2 disabled:opacity-60"/);
 });

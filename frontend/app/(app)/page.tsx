@@ -149,7 +149,7 @@ export default async function HomePage() {
         </div>
 
         <div className="absolute bottom-0 left-0 right-0">
-          <svg viewBox="0 0 1440 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg viewBox="0 0 1440 60" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <path d="M0 60L1440 60L1440 30C1440 30 1080 0 720 0C360 0 0 30 0 30L0 60Z" fill="#F8F9FA" />
           </svg>
         </div>
@@ -238,7 +238,7 @@ export default async function HomePage() {
               className="inline-flex items-center gap-2 bg-[#25D366] text-white font-semibold px-6 py-3 rounded-xl hover:opacity-90 transition-opacity shadow-lg"
             >
               <MessageCircle className="w-4 h-4" />
-              Coba parser listing
+              Paste listing saya
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
@@ -328,17 +328,17 @@ export default async function HomePage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
-              href="/login"
+              href="/listings/create"
               className="flex items-center justify-center gap-2 bg-white text-brand-primary font-bold px-8 py-4 rounded-2xl hover:bg-brand-light transition-all shadow-xl text-lg"
             >
               <MessageCircle className="w-5 h-5 text-[#25D366]" />
-              Masuk & coba parser
+              Paste listing saya
             </Link>
             <Link
               href="/search"
               className="flex items-center justify-center gap-2 border-2 border-white/40 text-white font-bold px-8 py-4 rounded-2xl hover:bg-white/10 transition-all text-lg"
             >
-              Jelajahi Properti
+              Cari Properti
             </Link>
           </div>
           <p className="text-white/50 text-sm mt-6">

@@ -18,12 +18,18 @@ export function MobileNav() {
   const pathname = usePathname();
   const { data: session } = useSession();
 
+  const getHref = (href: string, requiresAuth?: boolean) => {
+    if (!requiresAuth || session) {
+      return href;
+    }
+
+    return `/login?callbackUrl=${encodeURIComponent(href)}`;
+  };
+
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-100 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
       <div className="flex items-center justify-around px-2 h-16">
         {NAV_ITEMS.map((item) => {
-          if (item.requiresAuth && !session) return null;
-
           const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
 
           if (item.isPrimary) {
@@ -44,7 +50,7 @@ export function MobileNav() {
           return (
             <Link
               key={item.href}
-              href={item.href}
+              href={getHref(item.href, item.requiresAuth)}
               className={cn(
                 'flex flex-col items-center gap-1 px-3 py-1 rounded-xl transition-colors',
                 isActive ? 'text-brand-primary' : 'text-gray-400 hover:text-gray-600'
@@ -57,15 +63,6 @@ export function MobileNav() {
             </Link>
           );
         })}
-        {!session && (
-          <Link
-            href="/login"
-            className="flex flex-col items-center gap-1 px-3 py-1 rounded-xl text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <User className="w-5 h-5" />
-            <span className="text-xs font-medium">Masuk</span>
-          </Link>
-        )}
       </div>
     </nav>
   );
