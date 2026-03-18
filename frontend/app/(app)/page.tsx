@@ -286,7 +286,7 @@ export default async function HomePage() {
           <span className="inline-block bg-brand-light text-brand-primary text-sm font-semibold px-4 py-1.5 rounded-full mb-4">
             Bukti Produk
           </span>
-          <h2 className="section-title">Yang Bisa Anda Cek Langsung di Propti</h2>
+          <h2 className="section-title">Yang Bisa kamu Cek Langsung di Propti</h2>
           <p className="section-subtitle max-w-2xl mx-auto">
             Fokus kami bukan klaim besar, tapi alur produk yang memudahkan input listing dan menjaga
             kualitas tampilannya.

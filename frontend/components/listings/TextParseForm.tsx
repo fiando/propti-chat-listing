@@ -175,7 +175,7 @@ export function TextParseForm({
           <div className="w-16 h-16 bg-brand-light rounded-full flex items-center justify-center mx-auto mb-4">
             <Sparkles className="w-8 h-8 text-brand-primary animate-pulse" />
           </div>
-          <h3 className="font-semibold text-gray-900 mb-2">Sedang merapikan detail dari chat Anda</h3>
+          <h3 className="font-semibold text-gray-900 mb-2">Sedang merapikan detail dari chat kamu</h3>
           <p className="text-gray-500 text-sm">Harap tunggu sebentar...</p>
           <div className="mt-4 flex justify-center gap-1">
             {[0, 1, 2].map((i) => (

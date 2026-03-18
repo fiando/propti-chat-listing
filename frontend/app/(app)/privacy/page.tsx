@@ -10,7 +10,7 @@ const sections = [
   {
     title: 'Data yang kami gunakan',
     paragraphs: [
-      'Kami menggunakan data yang kamu berikan saat membuat akun, mengelola profil, dan memasang listing agar layanan Propti dapat berjalan dengan baik.',
+      'Kami menggunakan data yang Anda berikan saat membuat akun, mengelola profil, dan memasang listing agar layanan Propti dapat berjalan dengan baik.',
       'Data ini dapat mencakup identitas akun, isi listing, media yang diunggah, serta interaksi dasar di dalam platform.',
     ],
   },

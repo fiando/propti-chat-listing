@@ -10,14 +10,14 @@ const sections = [
   {
     title: 'Penggunaan layanan',
     paragraphs: [
-      'Dengan menggunakan Propti, kamu setuju untuk memakai layanan ini secara sah, wajar, dan sesuai tujuan platform sebagai sarana pencarian serta pemasaran properti.',
-      'Kamu bertanggung jawab atas informasi, foto, dan materi lain yang kamu unggah ke dalam platform.',
+      'Dengan menggunakan Propti, Anda setuju untuk memakai layanan ini secara sah, wajar, dan sesuai tujuan platform sebagai sarana pencarian serta pemasaran properti.',
+      'Anda bertanggung jawab atas informasi, foto, dan materi lain yang Anda unggah ke dalam platform.',
     ],
   },
   {
     title: 'Akurasi informasi listing',
     paragraphs: [
-      'Kamu wajib memastikan bahwa detail properti yang dipublikasikan akurat, tidak menyesatkan, dan memiliki hak untuk dipasarkan.',
+      'Anda wajib memastikan bahwa detail properti yang dipublikasikan akurat, tidak menyesatkan, dan memiliki hak untuk dipasarkan.',
     ],
     bullets: [
       'Tidak boleh memuat informasi palsu, menipu, atau merugikan pihak lain.',
@@ -45,7 +45,7 @@ export default function TermsPage() {
     <InfoPageLayout
       eyebrow="Dokumen Legal"
       title="Syarat & Ketentuan penggunaan Propti"
-      description="Halaman ini merangkum ketentuan dasar yang berlaku saat kamu menggunakan Propti untuk mencari atau memasarkan properti."
+      description="Halaman ini merangkum ketentuan dasar yang berlaku saat Anda menggunakan Propti untuk mencari atau memasarkan properti."
       sections={sections}
       primaryCta={{ label: 'Kebijakan Privasi', href: '/privacy' }}
       secondaryCta={{ label: 'FAQ', href: '/faq' }}
