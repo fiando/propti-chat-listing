@@ -15,8 +15,6 @@ import (
 
 const (
 	freeTierMaxListings = 3
-	freeTierMaxMedia    = 3
-	premiumTierMaxMedia = 30
 
 	minLocationConfidence = 0.7
 	contactRevealLimit    = 5
