@@ -8,7 +8,7 @@ import {
 } from './create-listing-errors.ts';
 
 const createPageSource = readFileSync(
-  new URL('../app/(app)/listings/create/page.tsx', import.meta.url),
+  new URL('../components/listings/CreateListingClient.tsx', import.meta.url),
   'utf8'
 );
 

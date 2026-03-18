@@ -51,7 +51,7 @@ export default function SavedPage() {
             Simpan listing yang kamu suka agar lebih mudah dibuka lagi nanti.
           </p>
           <Link href="/search" className="btn-primary inline-flex">
-            Jelajahi Properti
+            Cari Properti
           </Link>
         </div>
       ) : (
