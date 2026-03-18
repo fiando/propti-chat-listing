@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Heart, MapPin, Bed, Bath, Maximize2, Home, Eye, Star } from 'lucide-react';
 import { cn, formatPrice, LISTING_TYPE_LABELS } from '@/lib/utils';
 import type { Listing } from '@/types';
+import { getListingCardImage } from '@/lib/listing-images';
 
 interface ListingCardProps {
   listing: Listing;
@@ -25,15 +26,16 @@ export function ListingCard({ listing, onSave, isSaved = false }: ListingCardPro
 
   const typeLabel = LISTING_TYPE_LABELS[listing.listingType];
   const typeBg = listing.listingType === 'sell' ? 'bg-brand-primary' : 'bg-blue-600';
+  const listingImage = getListingCardImage(listing);
 
   return (
     <Link href={`/listings/${listing.listingId}`} className="card block group cursor-pointer">
       {/* Image */}
       <div className="relative h-48 bg-gradient-to-br from-brand-primary/20 to-brand-secondary/30 rounded-t-2xl overflow-hidden">
-        {listing.images?.[0] ? (
+        {listingImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={listing.images[0]}
+            src={listingImage}
             alt={listing.title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />

@@ -22,7 +22,6 @@ const (
 
 var contactRevealWindow = 10 * time.Minute
 
-// ListingStore is the storage interface for listing persistence.
 type ListingStore interface {
 	Put(ctx context.Context, listing *models.Listing) error
 	GetByID(ctx context.Context, userID, listingID string) (*models.Listing, error)
@@ -33,13 +32,11 @@ type ListingStore interface {
 	Scan(ctx context.Context, params *models.ListingSearchParams) ([]models.Listing, error)
 }
 
-// UserStore is the storage interface for user persistence.
 type UserStore interface {
 	GetByID(ctx context.Context, userID string) (*models.User, error)
 	Put(ctx context.Context, user *models.User) error
 }
 
-// AIParseService is the interface for AI-based listing text parsing.
 type AIParseService interface {
 	ParseListingText(ctx context.Context, text string) (*models.ParsedListing, error)
 }
@@ -52,28 +49,28 @@ type ModerationEnqueuer interface {
 	EnqueueListingModeration(ctx context.Context, listingID string) error
 }
 
-// LocationNormalizer validates and normalizes AI-suggested location data against a catalog.
 type LocationNormalizer interface {
 	NormalizeSuggestion(province, city, district string) models.ParsedLocationSuggestion
 }
 
-// ListingService orchestrates listing lifecycle operations.
 type ListingService struct {
-	listingRepo     ListingStore
-	userRepo        UserStore
-	aiService       AIParseService
-	s3Service       *S3Service
-	mapsService     *GoogleMapsService
-	locationCatalog LocationNormalizer
-	moderationQueue ModerationEnqueuer
+	listingRepo       ListingStore
+	userRepo          UserStore
+	aiService         AIParseService
+	mediaStore        MediaStorage
+	mapsService       *GoogleMapsService
+	locationCatalog   LocationNormalizer
+	moderationQueue   ModerationEnqueuer
+	uploadSessionRepo UploadSessionStore
+	idGenerator       func() string
+	now               func() time.Time
 }
 
-// NewListingService creates a fully-wired ListingService.
 func NewListingService(
 	listingRepo ListingStore,
 	userRepo UserStore,
 	aiService AIParseService,
-	s3Service *S3Service,
+	mediaStore MediaStorage,
 	mapsService *GoogleMapsService,
 	locationCatalog LocationNormalizer,
 ) *ListingService {
@@ -81,9 +78,13 @@ func NewListingService(
 		listingRepo:     listingRepo,
 		userRepo:        userRepo,
 		aiService:       aiService,
-		s3Service:       s3Service,
+		mediaStore:      mediaStore,
 		mapsService:     mapsService,
 		locationCatalog: locationCatalog,
+		idGenerator:     uuid.NewString,
+		now: func() time.Time {
+			return time.Now().UTC()
+		},
 	}
 }
 
@@ -91,14 +92,19 @@ func (s *ListingService) SetModerationEnqueuer(enqueuer ModerationEnqueuer) {
 	s.moderationQueue = enqueuer
 }
 
-// ensure concrete repository types satisfy the service interfaces.
+func (s *ListingService) SetUploadSessionStore(store UploadSessionStore) {
+	s.uploadSessionRepo = store
+}
+
 var _ ListingStore = (*repository.ListingRepo)(nil)
 var _ UserStore = (*repository.UserRepo)(nil)
 
-// CreateListing validates limits and persists a new listing.
 func (s *ListingService) CreateListing(ctx context.Context, userID string, req *models.CreateListingRequest) (*models.Listing, error) {
 	if err := utils.ValidateCreateListingRequest(req); err != nil {
 		return nil, utils.WrapError(utils.ErrBadRequest, err)
+	}
+	if containsLegacyImagePayload(req.Images) {
+		return nil, utils.NewAppError(400, "base64 image payloads are no longer accepted; use upload sessions")
 	}
 
 	user, err := s.userRepo.GetByID(ctx, userID)
@@ -107,8 +113,6 @@ func (s *ListingService) CreateListing(ctx context.Context, userID string, req *
 	}
 
 	isPremium := user.Subscription.Tier == models.SubscriptionPremium
-
-	// Enforce free-tier listing limit.
 	if !isPremium {
 		count, err := s.listingRepo.CountActiveByUserID(ctx, userID)
 		if err != nil {
@@ -120,14 +124,17 @@ func (s *ListingService) CreateListing(ctx context.Context, userID string, req *
 		}
 	}
 
-	// Enforce free-tier media limit.
-	if err := utils.ValidateMediaLimits(isPremium, req.Images, req.Videos); err != nil {
+	if err := utils.ValidateMediaLimits(isPremium, req.NewImageUploadSessionIDs, req.Videos); err != nil {
 		return nil, utils.WrapError(utils.ErrBadRequest, err)
 	}
 
-	listingID := uuid.NewString()
-	now := time.Now().UTC()
+	listingID := s.idGenerator()
+	images, err := s.resolveUploadImages(ctx, userID, listingID, req.NewImageUploadSessionIDs, req.FeaturedUploadSessionID)
+	if err != nil {
+		return nil, err
+	}
 
+	now := s.now()
 	listing := &models.Listing{
 		PK:               fmt.Sprintf("%s#%s", userID, listingID),
 		SK:               listingID,
@@ -141,9 +148,9 @@ func (s *ListingService) CreateListing(ctx context.Context, userID string, req *
 		Status:           models.ListingStatusActive,
 		PropertyDetails:  req.PropertyDetails,
 		Location:         req.Location,
-		Images:           req.Images,
+		Images:           images,
 		Videos:           req.Videos,
-		ImageCount:       len(req.Images),
+		ImageCount:       len(images),
 		PremiumFeatures:  models.PremiumFeatures{IsPremium: isPremium},
 		ModerationStatus: models.ModerationStatusPending,
 		CreatedAt:        now,
@@ -163,7 +170,6 @@ func (s *ListingService) CreateListing(ctx context.Context, userID string, req *
 	return listing, nil
 }
 
-// UpdateListing applies partial updates to an existing listing.
 func (s *ListingService) UpdateListing(ctx context.Context, userID, listingID string, req *models.UpdateListingRequest) (*models.Listing, error) {
 	listing, err := s.listingRepo.GetByID(ctx, userID, listingID)
 	if err != nil {
@@ -174,6 +180,9 @@ func (s *ListingService) UpdateListing(ctx context.Context, userID, listingID st
 	}
 	if listing.UserID != userID {
 		return nil, utils.ErrForbidden
+	}
+	if containsLegacyImagePayload(req.Images) {
+		return nil, utils.NewAppError(400, "base64 image payloads are no longer accepted; use upload sessions")
 	}
 
 	user, _ := s.userRepo.GetByID(ctx, userID)
@@ -200,29 +209,15 @@ func (s *ListingService) UpdateListing(ctx context.Context, userID, listingID st
 	if req.Location != nil {
 		listing.Location = *req.Location
 	}
-	if req.Images != nil || req.Videos != nil {
-		newImages := req.Images
-		if newImages == nil {
-			newImages = listing.Images
-		}
-		newVideos := req.Videos
-		if newVideos == nil {
-			newVideos = listing.Videos
-		}
-		if err := utils.ValidateMediaLimits(isPremium, newImages, newVideos); err != nil {
-			return nil, utils.WrapError(utils.ErrBadRequest, err)
-		}
-		if req.Images != nil {
-			listing.Images = req.Images
-			listing.ImageCount = len(req.Images)
-		}
-		if req.Videos != nil {
-			listing.Videos = req.Videos
-		}
+	if req.Videos != nil {
+		listing.Videos = req.Videos
 	}
 
-	listing.UpdatedAt = time.Now().UTC()
-	// Re-queue for moderation when content changes.
+	if err := s.applyImageUpdate(ctx, listing, req, isPremium); err != nil {
+		return nil, err
+	}
+
+	listing.UpdatedAt = s.now()
 	listing.ModerationStatus = models.ModerationStatusPending
 	listing.ModerationReason = ""
 
@@ -238,7 +233,6 @@ func (s *ListingService) UpdateListing(ctx context.Context, userID, listingID st
 	return listing, nil
 }
 
-// GetListing fetches a listing by ID.
 func (s *ListingService) GetListing(ctx context.Context, listingID string) (*models.Listing, error) {
 	listing, err := s.getCurrentListingByListingID(ctx, listingID)
 	if err != nil {
@@ -255,6 +249,25 @@ func (s *ListingService) GetListing(ctx context.Context, listingID string) (*mod
 		listing.HasSellerPhone = strings.TrimSpace(seller.Phone) != ""
 	}
 
+	return listing, nil
+}
+
+func (s *ListingService) GetOwnerListing(ctx context.Context, userID, listingID string) (*models.Listing, error) {
+	listing, err := s.listingRepo.GetByID(ctx, userID, listingID)
+	if err != nil {
+		return nil, utils.ErrInternal
+	}
+	if listing == nil {
+		return nil, utils.ErrNotFound
+	}
+	if listing.UserID != userID {
+		return nil, utils.ErrForbidden
+	}
+	if seller, err := s.userRepo.GetByID(ctx, listing.UserID); err == nil && seller != nil {
+		listing.SellerName = seller.Name
+		listing.SellerPhone = seller.Phone
+		listing.HasSellerPhone = strings.TrimSpace(seller.Phone) != ""
+	}
 	return listing, nil
 }
 
@@ -319,7 +332,7 @@ func (s *ListingService) RevealListingContact(
 }
 
 func (s *ListingService) consumeContactReveal(user *models.User) error {
-	now := time.Now().UTC()
+	now := s.now()
 	throttle := user.ContactRevealThrottle
 
 	if throttle.WindowStartedAt.IsZero() || now.Sub(throttle.WindowStartedAt) >= contactRevealWindow {
@@ -340,7 +353,6 @@ func (s *ListingService) consumeContactReveal(user *models.User) error {
 	return nil
 }
 
-// RecordListingView increments the public impression counter for a listing.
 func (s *ListingService) RecordListingView(ctx context.Context, listingID string) (*models.Listing, error) {
 	listing, err := s.getCurrentListingByListingID(ctx, listingID)
 	if err != nil {
@@ -354,7 +366,7 @@ func (s *ListingService) RecordListingView(ctx context.Context, listingID string
 	}
 
 	listing.Views++
-	listing.UpdatedAt = time.Now().UTC()
+	listing.UpdatedAt = s.now()
 	if err := s.listingRepo.Put(ctx, listing); err != nil {
 		return nil, utils.ErrInternal
 	}
@@ -404,7 +416,6 @@ func joinModerationReason(reason string, flags []string) string {
 	return reason
 }
 
-// ListListings returns paginated listings with optional filters.
 func (s *ListingService) ListListings(ctx context.Context, params *models.ListingSearchParams) ([]models.Listing, error) {
 	params.Page, params.PageSize = utils.ValidatePagination(params.Page, params.PageSize)
 	listings, err := s.listingRepo.Scan(ctx, params)
@@ -415,12 +426,10 @@ func (s *ListingService) ListListings(ctx context.Context, params *models.Listin
 	return listings, nil
 }
 
-// SearchListings delegates to ListListings (uses the same DynamoDB scan with filters).
 func (s *ListingService) SearchListings(ctx context.Context, params *models.ListingSearchParams) ([]models.Listing, error) {
 	return s.ListListings(ctx, params)
 }
 
-// ListMyListings returns the authenticated user's listings.
 func (s *ListingService) ListMyListings(ctx context.Context, userID string, params *models.ListingSearchParams) ([]models.Listing, error) {
 	params.Page, params.PageSize = utils.ValidatePagination(params.Page, params.PageSize)
 
@@ -457,7 +466,6 @@ func (s *ListingService) ListMyListings(ctx context.Context, userID string, para
 	return filtered, nil
 }
 
-// ListSavedListings returns the authenticated user's saved listings.
 func (s *ListingService) ListSavedListings(ctx context.Context, userID string, params *models.ListingSearchParams) ([]models.Listing, error) {
 	params.Page, params.PageSize = utils.ValidatePagination(params.Page, params.PageSize)
 
@@ -496,7 +504,6 @@ func (s *ListingService) ListSavedListings(ctx context.Context, userID string, p
 	return listings, nil
 }
 
-// SaveListing adds a listing to the authenticated user's saved listings.
 func (s *ListingService) SaveListing(ctx context.Context, userID, listingID string) error {
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
@@ -526,7 +533,7 @@ func (s *ListingService) SaveListing(ctx context.Context, userID, listingID stri
 	}
 
 	listing.Saves++
-	listing.UpdatedAt = time.Now().UTC()
+	listing.UpdatedAt = s.now()
 	if err := s.listingRepo.Put(ctx, listing); err != nil {
 		return utils.ErrInternal
 	}
@@ -534,7 +541,6 @@ func (s *ListingService) SaveListing(ctx context.Context, userID, listingID stri
 	return nil
 }
 
-// UnsaveListing removes a listing from the authenticated user's saved listings.
 func (s *ListingService) UnsaveListing(ctx context.Context, userID, listingID string) error {
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
@@ -571,7 +577,7 @@ func (s *ListingService) UnsaveListing(ctx context.Context, userID, listingID st
 	if listing.Saves > 0 {
 		listing.Saves--
 	}
-	listing.UpdatedAt = time.Now().UTC()
+	listing.UpdatedAt = s.now()
 	if err := s.listingRepo.Put(ctx, listing); err != nil {
 		return utils.ErrInternal
 	}
@@ -579,7 +585,6 @@ func (s *ListingService) UnsaveListing(ctx context.Context, userID, listingID st
 	return nil
 }
 
-// DeleteListing removes a listing after ownership verification.
 func (s *ListingService) DeleteListing(ctx context.Context, userID, listingID string) error {
 	listing, err := s.listingRepo.GetByID(ctx, userID, listingID)
 	if err != nil {
@@ -596,17 +601,19 @@ func (s *ListingService) DeleteListing(ctx context.Context, userID, listingID st
 		return utils.ErrInternal
 	}
 
-	// Best-effort cleanup of associated S3 objects.
-	if s.s3Service != nil {
-		keys, _ := s.s3Service.ListObjects(ctx, fmt.Sprintf("listings/%s/", listingID))
-		for _, k := range keys {
-			_ = s.s3Service.DeleteObject(ctx, k)
+	if s.mediaStore != nil {
+		for _, image := range listing.Images {
+			if image.S3Key != "" {
+				_ = s.mediaStore.DeleteObject(ctx, image.S3Key)
+			}
+			if image.ThumbnailKey != "" {
+				_ = s.mediaStore.DeleteObject(ctx, image.ThumbnailKey)
+			}
 		}
 	}
 	return nil
 }
 
-// GetUploadURL generates a presigned S3 PUT URL for listing media after verifying ownership.
 func (s *ListingService) GetUploadURL(ctx context.Context, userID, listingID, filename, contentType string) (string, string, error) {
 	listing, err := s.getCurrentListingByListingID(ctx, listingID)
 	if err != nil {
@@ -619,17 +626,12 @@ func (s *ListingService) GetUploadURL(ctx context.Context, userID, listingID, fi
 		return "", "", utils.ErrForbidden
 	}
 
-	key := listingMediaKey(listingID, filename)
-	uploadURL, err := s.s3Service.GetPresignedUploadURL(ctx, key, contentType)
+	key := BuildPermanentKey(listingID, filename)
+	uploadURL, err := s.mediaStore.GetPresignedUploadURL(ctx, key, contentType)
 	if err != nil {
 		return "", "", utils.ErrInternal
 	}
 	return uploadURL, key, nil
-}
-
-// listingMediaKey builds the S3 key for listing media.
-func listingMediaKey(listingID, filename string) string {
-	return fmt.Sprintf("listings/%s/%s", listingID, filename)
 }
 
 func min(a, b int) int {
@@ -639,7 +641,6 @@ func min(a, b int) int {
 	return b
 }
 
-// FeatureListing marks a listing as featured/promoted until the given expiry.
 func (s *ListingService) FeatureListing(ctx context.Context, userID, listingID, featureType string, until time.Time) error {
 	listing, err := s.listingRepo.GetByID(ctx, userID, listingID)
 	if err != nil {
@@ -662,15 +663,13 @@ func (s *ListingService) FeatureListing(ctx context.Context, userID, listingID, 
 		return utils.NewAppError(400, "unknown feature type")
 	}
 
-	listing.UpdatedAt = time.Now().UTC()
+	listing.UpdatedAt = s.now()
 	if err := s.listingRepo.Put(ctx, listing); err != nil {
 		return utils.ErrInternal
 	}
 	return nil
 }
 
-// ParseListingText delegates to the AI service and enriches the result with
-// validated location suggestions from the catalog.
 func (s *ListingService) ParseListingText(ctx context.Context, text string) (*models.ParseTextResponse, error) {
 	if s.aiService == nil {
 		return nil, utils.NewAppError(503, "AI service unavailable")
@@ -688,8 +687,6 @@ func (s *ListingService) ParseListingText(ctx context.Context, text string) (*mo
 			parsed.LocationSuggestion.City,
 			parsed.LocationSuggestion.District,
 		)
-		// NormalizedAddress from the AI is intentionally preserved; catalog
-		// normalization only updates the structured Province/City/District fields.
 		suggestion.NormalizedAddress = parsed.LocationSuggestion.NormalizedAddress
 		parsed.LocationSuggestion = suggestion
 	}
@@ -698,12 +695,205 @@ func (s *ListingService) ParseListingText(ctx context.Context, text string) (*mo
 		parsed.RequiresManualReview = true
 	}
 
-	// Confidence mirrors the AI's overall parse confidence; RequiresCorrection
-	// can additionally be driven by low location-validation confidence
-	// independently of the AI score.
 	return &models.ParseTextResponse{
 		Parsed:             *parsed,
 		RequiresCorrection: parsed.RequiresManualReview,
 		Confidence:         parsed.Confidence,
 	}, nil
+}
+
+func (s *ListingService) applyImageUpdate(ctx context.Context, listing *models.Listing, req *models.UpdateListingRequest, isPremium bool) error {
+	imagesChanged := req.RetainedImageIDs != nil || req.NewImageUploadSessionIDs != nil || req.FeaturedImageID != nil || req.FeaturedUploadSessionID != nil
+	if !imagesChanged {
+		return utils.ValidateMediaLimits(isPremium, make([]string, len(listing.Images)), listing.Videos)
+	}
+
+	currentByID := make(map[string]models.ImageEntry, len(listing.Images))
+	for _, image := range listing.Images {
+		if image.ImageID != "" {
+			currentByID[image.ImageID] = image
+		}
+	}
+
+	retainedIDs := req.RetainedImageIDs
+	if retainedIDs == nil {
+		retainedIDs = make([]string, 0, len(listing.Images))
+		for _, image := range listing.Images {
+			if image.ImageID != "" {
+				retainedIDs = append(retainedIDs, image.ImageID)
+			}
+		}
+	}
+
+	retained := make(models.ImageEntries, 0, len(retainedIDs))
+	retainedSet := make(map[string]struct{}, len(retainedIDs))
+	for _, imageID := range retainedIDs {
+		image, ok := currentByID[imageID]
+		if !ok {
+			return utils.NewAppError(400, fmt.Sprintf("retained image %s was not found", imageID))
+		}
+		retained = append(retained, image)
+		retainedSet[imageID] = struct{}{}
+	}
+
+	newFeaturedUploadSessionID := ""
+	if req.FeaturedUploadSessionID != nil {
+		newFeaturedUploadSessionID = *req.FeaturedUploadSessionID
+	}
+	newImages, err := s.resolveUploadImages(ctx, listing.UserID, listing.ListingID, req.NewImageUploadSessionIDs, newFeaturedUploadSessionID)
+	if err != nil {
+		return err
+	}
+
+	combined := append(retained, newImages...)
+	if err := utils.ValidateMediaLimits(isPremium, make([]string, len(combined)), listing.Videos); err != nil {
+		return utils.WrapError(utils.ErrBadRequest, err)
+	}
+
+	if req.FeaturedImageID != nil {
+		found := false
+		for index := range combined {
+			combined[index].IsFeatured = combined[index].ImageID == *req.FeaturedImageID
+			found = found || combined[index].IsFeatured
+		}
+		if !found && len(combined) > 0 {
+			return utils.NewAppError(400, "featuredImageId was not found in final image set")
+		}
+	} else if req.FeaturedUploadSessionID == nil {
+		enforceSingleFeatured(combined, featuredImageID(listing.Images))
+	}
+	if !hasFeatured(combined) && len(combined) > 0 {
+		combined[0].IsFeatured = true
+	}
+
+	for _, image := range listing.Images {
+		if _, ok := retainedSet[image.ImageID]; ok {
+			continue
+		}
+		if image.S3Key != "" && s.mediaStore != nil {
+			if err := s.mediaStore.DeleteObject(ctx, image.S3Key); err != nil {
+				return utils.ErrInternal
+			}
+		}
+		if image.ThumbnailKey != "" && s.mediaStore != nil {
+			if err := s.mediaStore.DeleteObject(ctx, image.ThumbnailKey); err != nil {
+				return utils.ErrInternal
+			}
+		}
+	}
+
+	listing.Images = combined
+	listing.ImageCount = len(combined)
+	return nil
+}
+
+func (s *ListingService) resolveUploadImages(ctx context.Context, userID, listingID string, sessionIDs []string, featuredUploadSessionID string) (models.ImageEntries, error) {
+	if len(sessionIDs) == 0 {
+		return nil, nil
+	}
+	if s.uploadSessionRepo == nil {
+		return nil, utils.ErrInternal
+	}
+	if s.mediaStore == nil {
+		return nil, utils.ErrInternal
+	}
+
+	images := make(models.ImageEntries, 0, len(sessionIDs))
+	for _, sessionID := range sessionIDs {
+		session, err := s.uploadSessionRepo.GetBySessionID(ctx, sessionID)
+		if err != nil {
+			return nil, utils.ErrInternal
+		}
+		if session == nil || session.ExpiresAt.Before(s.now()) {
+			return nil, utils.NewAppError(404, "upload session not found or expired")
+		}
+		if session.UserID != userID {
+			return nil, utils.NewAppError(403, "upload session does not belong to the authenticated user")
+		}
+		if session.ConsumedAt != nil {
+			return nil, utils.NewAppError(409, "upload session has already been consumed")
+		}
+
+		head, err := s.mediaStore.HeadObject(ctx, session.StagingKey)
+		if err != nil {
+			return nil, utils.NewAppError(404, "uploaded object was not found")
+		}
+		if head.ContentType != session.ExpectedContentType {
+			return nil, utils.NewAppError(400, "uploaded object content type does not match prepared session")
+		}
+		if head.SizeBytes > session.ExpectedMaxSize {
+			return nil, utils.NewAppError(400, "uploaded object size exceeds prepared session limit")
+		}
+
+		imageID := s.idGenerator()
+		permanentKey := BuildPermanentKey(listingID, imageID)
+		thumbnailKey := BuildThumbnailKey(listingID, imageID)
+		if err := s.mediaStore.CopyObject(ctx, session.StagingKey, permanentKey); err != nil {
+			return nil, utils.ErrInternal
+		}
+		if err := s.mediaStore.CopyObject(ctx, session.StagingKey, thumbnailKey); err != nil {
+			return nil, utils.ErrInternal
+		}
+		if err := s.mediaStore.DeleteObject(ctx, session.StagingKey); err != nil {
+			return nil, utils.ErrInternal
+		}
+		consumedAt := s.now()
+		if err := s.uploadSessionRepo.Consume(ctx, sessionID, listingID, consumedAt); err != nil {
+			return nil, utils.ErrInternal
+		}
+
+		images = append(images, models.ImageEntry{
+			ImageID:      imageID,
+			S3Key:        permanentKey,
+			ThumbnailKey: thumbnailKey,
+			ContentType:  head.ContentType,
+			SizeBytes:    head.SizeBytes,
+			IsFeatured:   featuredUploadSessionID != "" && sessionID == featuredUploadSessionID,
+			UploadedAt:   consumedAt,
+		})
+	}
+
+	if !hasFeatured(images) && len(images) > 0 {
+		images[0].IsFeatured = true
+	}
+	return images, nil
+}
+
+func enforceSingleFeatured(images models.ImageEntries, preferredID string) {
+	if len(images) == 0 {
+		return
+	}
+	if preferredID == "" {
+		for index := range images {
+			images[index].IsFeatured = index == 0
+		}
+		return
+	}
+
+	found := false
+	for index := range images {
+		images[index].IsFeatured = images[index].ImageID == preferredID
+		found = found || images[index].IsFeatured
+	}
+	if !found {
+		images[0].IsFeatured = true
+	}
+}
+
+func featuredImageID(images models.ImageEntries) string {
+	for _, image := range images {
+		if image.IsFeatured {
+			return image.ImageID
+		}
+	}
+	return ""
+}
+
+func hasFeatured(images models.ImageEntries) bool {
+	for _, image := range images {
+		if image.IsFeatured {
+			return true
+		}
+	}
+	return false
 }

@@ -1095,3 +1095,237 @@ func newTestCatalog() (*LocationCatalog, error) {
 	}`
 	return NewLocationCatalogFromReader(strings.NewReader(data))
 }
+
+func TestCreateListingRejectsLegacyBase64Payloads(t *testing.T) {
+	ctx := context.Background()
+
+	service := NewListingService(
+		&fakeListingStore{},
+		&fakeUserStore{
+			user: &models.User{
+				UserID: "user-1",
+				Subscription: models.Subscription{
+					Tier: models.SubscriptionPremium,
+				},
+			},
+		},
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	_, err := service.CreateListing(ctx, "user-1", &models.CreateListingRequest{
+		Title:       "Rumah siap huni",
+		Description: "Dekat tol",
+		Price:       900000000,
+		PriceUnit:   "total",
+		ListingType: models.ListingTypeSell,
+		Location: models.Location{
+			Address: "Jl. Margonda Raya",
+		},
+		Images: []string{"data:image/jpeg;base64,ZmFrZQ=="},
+	})
+	if err == nil {
+		t.Fatal("expected base64 payload to be rejected")
+	}
+	if appErr, ok := err.(*utils.AppError); !ok || appErr.Code != 400 {
+		t.Fatalf("expected 400 app error, got %T %v", err, err)
+	}
+}
+
+func TestCreateListingPromotesUploadedImagesIntoStructuredMedia(t *testing.T) {
+	ctx := context.Background()
+	media := &fakeMediaService{
+		heads: map[string]*MediaObjectHead{
+			"staging/user-1/session-1/upload.jpeg": {ContentType: "image/jpeg", SizeBytes: 1234},
+			"staging/user-1/session-2/upload.png":  {ContentType: "image/png", SizeBytes: 2345},
+		},
+	}
+	sessionStore := &fakeUploadSessionStore{
+		sessions: map[string]*models.UploadSession{
+			"session-1": {
+				SessionID:           "session-1",
+				UserID:              "user-1",
+				StagingKey:          "staging/user-1/session-1/upload.jpeg",
+				ExpectedContentType: "image/jpeg",
+				ExpectedMaxSize:     2000,
+				ExpiresAt:           time.Now().Add(time.Hour),
+			},
+			"session-2": {
+				SessionID:           "session-2",
+				UserID:              "user-1",
+				StagingKey:          "staging/user-1/session-2/upload.png",
+				ExpectedContentType: "image/png",
+				ExpectedMaxSize:     3000,
+				ExpiresAt:           time.Now().Add(time.Hour),
+			},
+		},
+	}
+
+	service := NewListingService(
+		&fakeListingStore{},
+		&fakeUserStore{
+			user: &models.User{
+				UserID: "user-1",
+				Subscription: models.Subscription{
+					Tier: models.SubscriptionPremium,
+				},
+			},
+		},
+		nil,
+		media,
+		nil,
+		nil,
+	)
+	service.SetUploadSessionStore(sessionStore)
+	service.idGenerator = sequentialIDGenerator("listing-1", "image-1", "image-2")
+
+	listing, err := service.CreateListing(ctx, "user-1", &models.CreateListingRequest{
+		Title:       "Rumah siap huni",
+		Description: "Dekat tol",
+		Price:       900000000,
+		PriceUnit:   "total",
+		ListingType: models.ListingTypeSell,
+		Location: models.Location{
+			Address: "Jl. Margonda Raya",
+		},
+		NewImageUploadSessionIDs: []string{"session-1", "session-2"},
+		FeaturedUploadSessionID:  "session-2",
+	})
+	if err != nil {
+		t.Fatalf("CreateListing returned error: %v", err)
+	}
+	if len(listing.Images) != 2 {
+		t.Fatalf("expected 2 structured images, got %d", len(listing.Images))
+	}
+	if listing.Images[0].ImageID != "image-1" || listing.Images[1].ImageID != "image-2" {
+		t.Fatalf("expected image IDs to be generated in order, got %#v", listing.Images)
+	}
+	if listing.Images[1].S3Key != "listings/listing-1/image-2" {
+		t.Fatalf("expected permanent key to be stored, got %q", listing.Images[1].S3Key)
+	}
+	if !listing.Images[1].IsFeatured {
+		t.Fatal("expected featured image to be selectable from upload session ID")
+	}
+	if len(media.copies) != 4 {
+		t.Fatalf("expected original + thumbnail copy operations, got %#v", media.copies)
+	}
+	if len(sessionStore.consumeCalls) != 2 {
+		t.Fatalf("expected upload sessions to be consumed, got %#v", sessionStore.consumeCalls)
+	}
+}
+
+func TestUpdateListingRetainsOrderAndDeletesRemovedImages(t *testing.T) {
+	ctx := context.Background()
+	store := &fakeListingStore{
+		listingsByUser: map[string]map[string]*models.Listing{
+			"user-1": {
+				"listing-1": {
+					ListingID:   "listing-1",
+					UserID:      "user-1",
+					Title:       "Rumah",
+					Price:       900000000,
+					PriceUnit:   "total",
+					ListingType: models.ListingTypeSell,
+					Location: models.Location{
+						Address: "Jl. Margonda Raya",
+					},
+					Images: models.ImageEntries{
+						{ImageID: "image-1", S3Key: "listings/listing-1/image-1", ThumbnailKey: "thumbnails/listing-1/image-1"},
+						{ImageID: "image-2", S3Key: "listings/listing-1/image-2", ThumbnailKey: "thumbnails/listing-1/image-2", IsFeatured: true},
+					},
+					ImageCount:       2,
+					Status:           models.ListingStatusActive,
+					ModerationStatus: models.ModerationStatusApproved,
+				},
+			},
+		},
+		listingsByID: map[string]*models.Listing{
+			"listing-1": {
+				ListingID:        "listing-1",
+				UserID:           "user-1",
+				Status:           models.ListingStatusActive,
+				ModerationStatus: models.ModerationStatusApproved,
+			},
+		},
+	}
+	media := &fakeMediaService{
+		heads: map[string]*MediaObjectHead{
+			"staging/user-1/session-3/upload.jpeg": {ContentType: "image/jpeg", SizeBytes: 1400},
+		},
+	}
+	sessionStore := &fakeUploadSessionStore{
+		sessions: map[string]*models.UploadSession{
+			"session-3": {
+				SessionID:           "session-3",
+				UserID:              "user-1",
+				StagingKey:          "staging/user-1/session-3/upload.jpeg",
+				ExpectedContentType: "image/jpeg",
+				ExpectedMaxSize:     2000,
+				ExpiresAt:           time.Now().Add(time.Hour),
+			},
+		},
+	}
+
+	service := NewListingService(
+		store,
+		&fakeUserStore{
+			user: &models.User{
+				UserID: "user-1",
+				Subscription: models.Subscription{
+					Tier: models.SubscriptionPremium,
+				},
+			},
+		},
+		nil,
+		media,
+		nil,
+		nil,
+	)
+	service.SetUploadSessionStore(sessionStore)
+	service.idGenerator = sequentialIDGenerator("image-3")
+
+	updated, err := service.UpdateListing(ctx, "user-1", "listing-1", &models.UpdateListingRequest{
+		RetainedImageIDs:         []string{"image-2"},
+		NewImageUploadSessionIDs: []string{"session-3"},
+		FeaturedImageID:          stringPtr("image-2"),
+	})
+	if err != nil {
+		t.Fatalf("UpdateListing returned error: %v", err)
+	}
+	if len(updated.Images) != 2 {
+		t.Fatalf("expected retained + new image, got %#v", updated.Images)
+	}
+	if updated.Images[0].ImageID != "image-2" || updated.Images[1].ImageID != "image-3" {
+		t.Fatalf("expected retained image order to be preserved, got %#v", updated.Images)
+	}
+	if !containsString(media.deletedKeys, "listings/listing-1/image-1") || !containsString(media.deletedKeys, "thumbnails/listing-1/image-1") {
+		t.Fatalf("expected removed image original and thumbnail deletion, got %#v", media.deletedKeys)
+	}
+}
+
+func sequentialIDGenerator(values ...string) func() string {
+	index := 0
+	return func() string {
+		if index >= len(values) {
+			return values[len(values)-1]
+		}
+		value := values[index]
+		index++
+		return value
+	}
+}
+
+func stringPtr(value string) *string {
+	return &value
+}
+
+func containsString(values []string, needle string) bool {
+	for _, value := range values {
+		if value == needle {
+			return true
+		}
+	}
+	return false
+}

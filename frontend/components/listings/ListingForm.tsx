@@ -14,7 +14,8 @@ import {
   formatAmenityLabel,
 } from '@/lib/utils';
 import { getProvinceSuggestions, getCitySuggestions, getDistrictSuggestions } from '@/lib/api';
-import type { ParsedListing, Location, ListingType } from '@/types';
+import type { ParsedListing, Location, ListingType, ListingFormImage } from '@/types';
+import { ImageLimits } from '@/types';
 import { ImageUpload } from './ImageUpload';
 import {
   formatListingPriceInput,
@@ -44,7 +45,7 @@ const listingSchema = z.object({
   province: z.string().min(1, 'Provinsi harus dipilih'),
   city: z.string().min(1, 'Kota harus dipilih'),
   district: z.string().optional(),
-  images: z.array(z.string()),
+  images: z.array(z.custom<ListingFormImage>()),
 });
 
 type ListingFormValues = z.infer<typeof listingSchema>;
@@ -54,11 +55,10 @@ export type { ListingFormValues };
 interface ListingFormProps {
   initialData?: Partial<ParsedListing> & {
     listingType?: ListingType;
-    images?: string[];
+    images?: ListingFormImage[];
   };
   initialLocation?: Partial<Location>;
   initialFormValues?: Partial<ListingFormValues>;
-  listingId?: string;
   onSubmit: (data: ListingFormValues) => Promise<void>;
   isLoading?: boolean;
   mode?: 'create' | 'edit';
@@ -121,7 +121,6 @@ export function ListingForm({
   initialData,
   initialLocation,
   initialFormValues,
-  listingId,
   onSubmit,
   isLoading = false,
   mode = 'create',
@@ -658,11 +657,10 @@ export function ListingForm({
           name="images"
           control={control}
           render={({ field }) => (
-            <ImageUpload
-              listingId={listingId}
-              images={field.value}
-              onChange={field.onChange}
-              maxImages={isPremium ? 30 : 3}
+              <ImageUpload
+                images={field.value}
+                onChange={field.onChange}
+                maxImages={isPremium ? ImageLimits.premium : ImageLimits.free}
             />
           )}
         />

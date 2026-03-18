@@ -29,6 +29,7 @@ import type { Listing, ContactRevealChannel, RevealListingContactResponse } from
 import { buildListingContactLinks } from '@/lib/listing-contact';
 import { useToast } from '@/app/toaster';
 import { useRevealListingContact } from '@/hooks/useListings';
+import { getListingGalleryImages } from '@/lib/listing-images';
 
 interface ListingDetailProps {
   listing: Listing;
@@ -66,7 +67,7 @@ export function ListingDetail({
   const priceUnit = PRICE_UNIT_LABELS[listing.priceUnit];
   const typeLabel = LISTING_TYPE_LABELS[listing.listingType];
 
-  const images = listing.images?.length > 0 ? listing.images : [];
+  const images = getListingGalleryImages(listing);
   const sellerName = listing.sellerName?.trim() || 'Penjual Propti';
   const hasSellerContact = Boolean(listing.hasSellerPhone);
 
@@ -126,10 +127,10 @@ export function ListingDetail({
           {/* Image gallery */}
           <div className="card overflow-hidden">
             <div className="relative bg-gradient-to-br from-brand-primary/20 to-brand-secondary/30 h-72 md:h-96">
-              {images[activeImage] ? (
+              {images[activeImage]?.url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={images[activeImage]}
+                  src={images[activeImage].url}
                   alt={listing.title}
                   className="w-full h-full object-cover"
                 />
@@ -187,18 +188,18 @@ export function ListingDetail({
             {/* Thumbnail strip */}
             {images.length > 1 && (
               <div className="flex gap-2 p-4 overflow-x-auto">
-                {images.map((img, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setActiveImage(i)}
-                    className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
-                      i === activeImage ? 'border-brand-primary' : 'border-transparent'
-                    }`}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={img} alt="" className="w-full h-full object-cover" />
-                  </button>
-                ))}
+                 {images.map((img, i) => (
+                   <button
+                     key={img.id}
+                     onClick={() => setActiveImage(i)}
+                     className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
+                       i === activeImage ? 'border-brand-primary' : 'border-transparent'
+                     }`}
+                   >
+                     {/* eslint-disable-next-line @next/next/no-img-element */}
+                     <img src={img.thumbnailUrl || img.url} alt="" className="w-full h-full object-cover" />
+                   </button>
+                 ))}
               </div>
             )}
           </div>

@@ -6,49 +6,49 @@ import (
 	"fmt"
 	"strings"
 
-	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/rekognition"
 	rekognitiontypes "github.com/aws/aws-sdk-go-v2/service/rekognition/types"
 )
 
 var propertyRelevantLabels = map[string]struct{}{
-	"apartment":        {},
-	"architecture":     {},
-	"balcony":          {},
-	"bathroom":         {},
-	"bedroom":          {},
-	"building":         {},
-	"ceiling":          {},
-	"chair":            {},
-	"cottage":          {},
-	"dining room":      {},
-	"door":             {},
-	"facade":           {},
-	"furniture":        {},
-	"garage":           {},
-	"home decor":       {},
-	"house":            {},
-	"housing":          {},
-	"indoor":           {},
-	"interior design":  {},
-	"kitchen":          {},
-	"living room":      {},
-	"patio":            {},
-	"pool":             {},
-	"porch":            {},
-	"property":         {},
-	"real estate":      {},
-	"resort":           {},
-	"room":             {},
-	"sink":             {},
-	"sofa":             {},
-	"staircase":        {},
-	"swimming pool":    {},
-	"table":            {},
-	"villa":            {},
-	"window":           {},
-	"yard":             {},
+	"apartment":       {},
+	"architecture":    {},
+	"balcony":         {},
+	"bathroom":        {},
+	"bedroom":         {},
+	"building":        {},
+	"ceiling":         {},
+	"chair":           {},
+	"cottage":         {},
+	"dining room":     {},
+	"door":            {},
+	"facade":          {},
+	"furniture":       {},
+	"garage":          {},
+	"home decor":      {},
+	"house":           {},
+	"housing":         {},
+	"indoor":          {},
+	"interior design": {},
+	"kitchen":         {},
+	"living room":     {},
+	"patio":           {},
+	"pool":            {},
+	"porch":           {},
+	"property":        {},
+	"real estate":     {},
+	"resort":          {},
+	"room":            {},
+	"sink":            {},
+	"sofa":            {},
+	"staircase":       {},
+	"swimming pool":   {},
+	"table":           {},
+	"villa":           {},
+	"window":          {},
+	"yard":            {},
 }
 
 type rekognitionAPI interface {
@@ -71,13 +71,8 @@ func NewRekognitionImageModerator(ctx context.Context) (*RekognitionImageModerat
 	}, nil
 }
 
-func (m *RekognitionImageModerator) ModerateImages(ctx context.Context, images []string) (bool, string, []string, error) {
-	for idx, image := range images {
-		bytes, err := decodeListingImage(image)
-		if err != nil {
-			return false, "", nil, fmt.Errorf("decode image %d: %w", idx+1, err)
-		}
-
+func (m *RekognitionImageModerator) ModerateImages(ctx context.Context, images [][]byte) (bool, string, []string, error) {
+	for idx, bytes := range images {
 		moderationResult, err := m.client.DetectModerationLabels(ctx, &rekognition.DetectModerationLabelsInput{
 			Image: &rekognitiontypes.Image{Bytes: bytes},
 		})

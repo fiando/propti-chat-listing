@@ -3,6 +3,10 @@ package services
 import (
 	"context"
 	"fmt"
+	"io"
+	"net/url"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -10,15 +14,30 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
-// S3Service wraps the AWS S3 client for presigned URL generation and object operations.
-type S3Service struct {
-	client         *s3.Client
-	presignClient  *s3.PresignClient
-	bucketName     string
-	presignExpiry  time.Duration
+type MediaObjectHead struct {
+	ContentType string
+	SizeBytes   int64
 }
 
-// NewS3Service creates an S3Service using ambient AWS credentials.
+type MediaStorage interface {
+	GetPresignedUploadURL(ctx context.Context, key, contentType string) (string, error)
+	GetSignedDownloadURL(ctx context.Context, key string) (string, error)
+	BuildPublicURL(key string) string
+	HeadObject(ctx context.Context, key string) (*MediaObjectHead, error)
+	CopyObject(ctx context.Context, sourceKey, destinationKey string) error
+	DeleteObject(ctx context.Context, key string) error
+	GetObjectBytes(ctx context.Context, key string) ([]byte, error)
+}
+
+type S3Service struct {
+	client        *s3.Client
+	presignClient *s3.PresignClient
+	bucketName    string
+	presignExpiry time.Duration
+	region        string
+	publicBaseURL string
+}
+
 func NewS3Service(ctx context.Context, bucketName string) (*S3Service, error) {
 	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
@@ -26,15 +45,21 @@ func NewS3Service(ctx context.Context, bucketName string) (*S3Service, error) {
 	}
 
 	client := s3.NewFromConfig(cfg)
+	publicBaseURL := strings.TrimRight(os.Getenv("PUBLIC_MEDIA_BASE_URL"), "/")
+	if publicBaseURL == "" {
+		publicBaseURL = fmt.Sprintf("https://%s.s3.%s.amazonaws.com", bucketName, cfg.Region)
+	}
+
 	return &S3Service{
 		client:        client,
 		presignClient: s3.NewPresignClient(client),
 		bucketName:    bucketName,
 		presignExpiry: 15 * time.Minute,
+		region:        cfg.Region,
+		publicBaseURL: publicBaseURL,
 	}, nil
 }
 
-// GetPresignedUploadURL generates a presigned PUT URL for direct browser/client uploads.
 func (s *S3Service) GetPresignedUploadURL(ctx context.Context, key, contentType string) (string, error) {
 	req, err := s.presignClient.PresignPutObject(ctx, &s3.PutObjectInput{
 		Bucket:      aws.String(s.bucketName),
@@ -47,9 +72,7 @@ func (s *S3Service) GetPresignedUploadURL(ctx context.Context, key, contentType 
 	return req.URL, nil
 }
 
-// GetObjectURL returns the permanent HTTPS URL for an S3 object.
-// For public buckets the URL is direct; for private buckets a presigned GET URL is returned.
-func (s *S3Service) GetObjectURL(ctx context.Context, key string) (string, error) {
+func (s *S3Service) GetSignedDownloadURL(ctx context.Context, key string) (string, error) {
 	req, err := s.presignClient.PresignGetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(s.bucketName),
 		Key:    aws.String(key),
@@ -60,7 +83,45 @@ func (s *S3Service) GetObjectURL(ctx context.Context, key string) (string, error
 	return req.URL, nil
 }
 
-// DeleteObject removes a single object from the bucket.
+func (s *S3Service) GetObjectURL(ctx context.Context, key string) (string, error) {
+	return s.GetSignedDownloadURL(ctx, key)
+}
+
+func (s *S3Service) BuildPublicURL(key string) string {
+	if key == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s/%s", s.publicBaseURL, strings.TrimLeft(key, "/"))
+}
+
+func (s *S3Service) HeadObject(ctx context.Context, key string) (*MediaObjectHead, error) {
+	out, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(s.bucketName),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("head object %s: %w", key, err)
+	}
+
+	return &MediaObjectHead{
+		ContentType: aws.ToString(out.ContentType),
+		SizeBytes:   aws.ToInt64(out.ContentLength),
+	}, nil
+}
+
+func (s *S3Service) CopyObject(ctx context.Context, sourceKey, destinationKey string) error {
+	copySource := url.PathEscape(fmt.Sprintf("%s/%s", s.bucketName, sourceKey))
+	_, err := s.client.CopyObject(ctx, &s3.CopyObjectInput{
+		Bucket:     aws.String(s.bucketName),
+		Key:        aws.String(destinationKey),
+		CopySource: aws.String(copySource),
+	})
+	if err != nil {
+		return fmt.Errorf("copy object %s -> %s: %w", sourceKey, destinationKey, err)
+	}
+	return nil
+}
+
 func (s *S3Service) DeleteObject(ctx context.Context, key string) error {
 	_, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(s.bucketName),
@@ -72,9 +133,25 @@ func (s *S3Service) DeleteObject(ctx context.Context, key string) error {
 	return nil
 }
 
-// ListObjects returns the keys of all objects under a given folder prefix.
+func (s *S3Service) GetObjectBytes(ctx context.Context, key string) ([]byte, error) {
+	out, err := s.client.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(s.bucketName),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("get object %s: %w", key, err)
+	}
+	defer out.Body.Close()
+
+	body, err := io.ReadAll(out.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read object %s: %w", key, err)
+	}
+	return body, nil
+}
+
 func (s *S3Service) ListObjects(ctx context.Context, prefix string) ([]string, error) {
-	var keys []string
+	keys := make([]string, 0)
 	paginator := s3.NewListObjectsV2Paginator(s.client, &s3.ListObjectsV2Input{
 		Bucket: aws.String(s.bucketName),
 		Prefix: aws.String(prefix),
@@ -83,19 +160,30 @@ func (s *S3Service) ListObjects(ctx context.Context, prefix string) ([]string, e
 	for paginator.HasMorePages() {
 		page, err := paginator.NextPage(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("list objects (prefix=%s): %w", prefix, err)
+			return nil, fmt.Errorf("list objects %s: %w", prefix, err)
 		}
-		for _, obj := range page.Contents {
-			if obj.Key != nil {
-				keys = append(keys, *obj.Key)
+		for _, object := range page.Contents {
+			if object.Key != nil {
+				keys = append(keys, *object.Key)
 			}
 		}
 	}
+
 	return keys, nil
 }
 
-// MediaKey builds the S3 key for a listing media file.
-// Pattern: listings/{listingID}/{filename}
-func MediaKey(listingID, filename string) string {
-	return fmt.Sprintf("listings/%s/%s", listingID, filename)
+func BuildStagingKey(userID, sessionID, filename string) string {
+	return fmt.Sprintf("staging/%s/%s/%s", userID, sessionID, filename)
+}
+
+func BuildPermanentKey(listingID, imageID string) string {
+	return fmt.Sprintf("listings/%s/%s", listingID, imageID)
+}
+
+func BuildThumbnailKey(listingID, imageID string) string {
+	return fmt.Sprintf("thumbnails/%s/%s", listingID, imageID)
+}
+
+func BuildRejectedKey(listingID, imageID string) string {
+	return fmt.Sprintf("rejected/%s/%s", listingID, imageID)
 }

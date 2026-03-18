@@ -9,6 +9,7 @@ import {
 import {
   getListings,
   getListing,
+  getOwnerListing,
   trackListingView,
   revealListingContact,
   createListing,
@@ -20,7 +21,12 @@ import {
   getSavedListings,
 } from '@/lib/api';
 import { collectActiveListingCount } from '@/lib/my-listing-access';
-import type { SearchParams, CreateListingRequest, ContactRevealChannel } from '@/types';
+import type {
+  SearchParams,
+  CreateListingRequest,
+  UpdateListingRequest,
+  ContactRevealChannel,
+} from '@/types';
 import { LISTING_ACCESS_CHECK_PAGE_SIZE } from '@/lib/create-listing-errors';
 
 export function useListings(params: SearchParams = {}) {
@@ -35,6 +41,14 @@ export function useListing(id: string) {
   return useQuery({
     queryKey: ['listing', id],
     queryFn: () => getListing(id),
+    enabled: !!id,
+  });
+}
+
+export function useOwnerListing(id: string) {
+  return useQuery({
+    queryKey: ['owner-listing', id],
+    queryFn: () => getOwnerListing(id),
     enabled: !!id,
   });
 }
@@ -111,9 +125,10 @@ export function useCreateListing() {
 export function useUpdateListing(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: Partial<CreateListingRequest>) => updateListing(id, data),
+    mutationFn: (data: UpdateListingRequest) => updateListing(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['listing', id] });
+      queryClient.invalidateQueries({ queryKey: ['owner-listing', id] });
       queryClient.invalidateQueries({ queryKey: ['my-listings'] });
       queryClient.invalidateQueries({ queryKey: ['my-listing-quota-summary'] });
     },
