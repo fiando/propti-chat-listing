@@ -107,7 +107,7 @@ func TestDOKUProviderCreatePaymentBuildsSignedCheckoutRequest(t *testing.T) {
 	}
 }
 
-func TestDOKUProviderCreatePaymentNormalizesPhoneNumber(t *testing.T) {
+func TestDOKUProviderCreatePaymentOmitsCustomerPhoneWhenProvided(t *testing.T) {
 	t.Parallel()
 
 	var receivedBody []byte
@@ -150,12 +150,12 @@ func TestDOKUProviderCreatePaymentNormalizesPhoneNumber(t *testing.T) {
 		t.Fatalf("request body is not valid json: %v", err)
 	}
 	customer := payload["customer"].(map[string]any)
-	if got := customer["phone"]; got != "6281234567890" {
-		t.Fatalf("expected normalized phone 6281234567890, got %#v", got)
+	if _, exists := customer["phone"]; exists {
+		t.Fatalf("expected customer phone to be omitted, got %#v", customer["phone"])
 	}
 }
 
-func TestDOKUProviderCreatePaymentUsesSandboxFallbackPhoneWhenMissing(t *testing.T) {
+func TestDOKUProviderCreatePaymentOmitsCustomerPhoneWhenMissing(t *testing.T) {
 	t.Parallel()
 
 	var receivedBody []byte
@@ -196,8 +196,8 @@ func TestDOKUProviderCreatePaymentUsesSandboxFallbackPhoneWhenMissing(t *testing
 		t.Fatalf("request body is not valid json: %v", err)
 	}
 	customer := payload["customer"].(map[string]any)
-	if got := customer["phone"]; got != "6281234567890" {
-		t.Fatalf("expected sandbox fallback phone 6281234567890, got %#v", got)
+	if _, exists := customer["phone"]; exists {
+		t.Fatalf("expected customer phone to be omitted, got %#v", customer["phone"])
 	}
 }
 
