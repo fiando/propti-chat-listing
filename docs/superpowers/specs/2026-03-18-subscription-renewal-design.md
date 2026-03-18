@@ -60,8 +60,10 @@ The backend must treat premium access as a time-bounded entitlement, not just a 
 The entitlement decision should be centralized behind shared logic that checks:
 
 - `subscription.tier`
-- `subscription.renewDate` (or a renamed `expiresAt` field if the team later chooses to make naming clearer)
+- `subscription.renewDate`
 - current time
+
+For this phase, `renewDate` remains the canonical stored field to minimize schema and API churn. Its meaning should be tightened to: **the timestamp when premium entitlement ends**. Renaming it to `expiresAt` can be evaluated later as a cleanup task, but it is out of scope for this design.
 
 A user is only premium-entitled when:
 
@@ -110,6 +112,8 @@ The primary CTA should be `Perpanjang Premium`.
 It should route the user into the existing premium purchase flow, reusing the current payment initiation path rather than creating a separate billing system.
 
 In this phase, the CTA is primarily shown for `expiring_soon` and `expired` users. Active users outside the 7-day window do not need a prominent renewal action yet.
+
+This is not just a UI decision. It is also a business rule for phase 1: renewal purchase initiation is only allowed when the user is in `expiring_soon` or `expired` state.
 
 ### Copy updates
 
@@ -161,6 +165,10 @@ For the selected flow:
 
 This keeps the behavior predictable and avoids penalizing users who renew a few days early.
 
+Requests to initiate renewal earlier than the 7-day window should be rejected consistently by backend validation, with a clear user-facing message that renewal opens 7 days before expiry.
+
+Renewal continues to use the existing premium package and duration rules. This phase does not introduce alternative package lengths or a separate renewal product.
+
 ## Edge cases
 
 ### User has more than free-tier listings after expiry
@@ -176,6 +184,8 @@ Instead:
 ### Missing or invalid premium expiry data
 
 If a user is marked as premium but has no expiry date, or the expiry date is already past, the backend should treat the user as not entitled to premium features and log the inconsistency for investigation.
+
+Before rollout, the team should audit existing premium user records so that fail-safe expiry enforcement does not surprise accounts with malformed legacy data.
 
 ### Late payment callback
 
