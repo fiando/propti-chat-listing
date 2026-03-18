@@ -32,17 +32,20 @@ The user pays for a premium period, sees when it ends, receives reminders before
 2. Backend sets the premium end date on the user subscription.
 3. Frontend shows the current status and expiry date in profile and settings.
 4. System sends reminder notifications 7 days before expiry and 1 day before expiry.
-5. User can renew at any time by tapping `Perpanjang Premium`.
+5. When the subscription enters the reminder window, the user can renew by tapping `Perpanjang Premium`.
 6. If expiry passes without a successful renewal payment, entitlement falls back to free.
-7. If the user renews after expiry, the new premium period starts from payment success time.
+7. If the user renews during the reminder window before expiry, the new premium period extends from the existing expiry date so the user does not lose remaining paid days.
+8. If the user renews after expiry, the new premium period starts from payment success time.
 
 ### User-visible states
 
 - **Active**
   - copy example: `Premium aktif sampai 25 Apr 2026`
-  - show renewal CTA
+  - applies when there are more than 7 full days remaining before expiry
+  - show plan and expiry information
 - **Expiring soon**
   - copy example: `Premium berakhir dalam 7 hari`
+  - applies when there are 7 days or fewer remaining before expiry, but the subscription is still active
   - emphasize renewal CTA
 - **Expired**
   - copy example: `Premium telah berakhir`
@@ -76,7 +79,13 @@ API responses that return current-user or profile subscription information shoul
 - `expiring_soon`
 - `expired`
 
-This avoids duplicating time-window logic in multiple frontend components and keeps user messaging consistent.
+The status threshold should be:
+
+- `active`: expiry is more than 7 days away
+- `expiring_soon`: expiry is between 0 and 7 days away, inclusive
+- `expired`: expiry time has passed
+
+This avoids duplicating time-window logic in multiple frontend components and keeps user messaging, renewal gating, notifications, and tests consistent.
 
 ### Frontend surfaces
 
@@ -92,13 +101,15 @@ Each surface should show:
 - current plan
 - expiry date when available
 - current subscription state
-- primary renewal CTA
+- primary renewal CTA when the user is in `expiring_soon` or `expired`
 
 ### Renewal entry point
 
 The primary CTA should be `Perpanjang Premium`.
 
 It should route the user into the existing premium purchase flow, reusing the current payment initiation path rather than creating a separate billing system.
+
+In this phase, the CTA is primarily shown for `expiring_soon` and `expired` users. Active users outside the 7-day window do not need a prominent renewal action yet.
 
 ### Copy updates
 
@@ -107,7 +118,7 @@ Remove or replace wording that implies unsupported behavior. In particular, copy
 Recommended replacement is copy that reflects the real model, for example:
 
 - `Premium berlaku selama 30 hari sejak pembayaran berhasil`
-- `Perpanjang kapan saja sebelum atau sesudah masa aktif berakhir`
+- `Perpanjang mulai 7 hari sebelum masa aktif berakhir atau setelah masa aktif habis`
 
 ## Notification design
 
@@ -142,14 +153,13 @@ True auto-renew is out of scope because the current live payment setup does not 
 
 ### Renewal timing rule
 
-For the selected flow, renewal after expiry starts a new premium period from payment success time.
+For the selected flow:
 
-If early renewal is allowed later, the team can decide whether to:
+- renewal is available once the user enters the 7-day reminder window, or any time after expiry
+- if payment succeeds before expiry, the new premium period extends from the current expiry date
+- if payment succeeds after expiry, the new premium period starts from payment success time
 
-- start from payment success time, or
-- extend from the current expiry
-
-That behavior is intentionally out of scope for this phase because the chosen product direction is simply manual renewal with expiry enforcement.
+This keeps the behavior predictable and avoids penalizing users who renew a few days early.
 
 ## Edge cases
 
