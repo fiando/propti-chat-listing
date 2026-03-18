@@ -15,6 +15,7 @@ import {
 } from '@/lib/utils';
 import { getProvinceSuggestions, getCitySuggestions, getDistrictSuggestions } from '@/lib/api';
 import type { ParsedListing, Location, ListingType } from '@/types';
+import { ImageLimits } from '@/types';
 import { ImageUpload } from './ImageUpload';
 import {
   formatListingPriceInput,
@@ -662,7 +663,7 @@ export function ListingForm({
               listingId={listingId}
               images={field.value}
               onChange={field.onChange}
-              maxImages={isPremium ? 15 : 3}
+              maxImages={isPremium ? ImageLimits.premium : ImageLimits.free}
             />
           )}
         />

@@ -50,6 +50,10 @@ const typesFile = readFileSync(
   new URL('../types/index.ts', import.meta.url),
   'utf8'
 );
+const listingForm = readFileSync(
+  new URL('../components/listings/ListingForm.tsx', import.meta.url),
+  'utf8'
+);
 
 test('profile page is server-first and reads active listing count from subscription payload', () => {
   assert.doesNotMatch(profilePage, /'use client'/);
@@ -95,6 +99,12 @@ test('create listing page is server-first and passes initial access state to cli
   assert.doesNotMatch(createClient, /isProfileFetching/);
   assert.doesNotMatch(createClient, /refetchOnMount:\s*'always'/);
   assert.match(typesFile, /activeListingsCount\??:\s*number/);
+});
+
+test('listing form reads image caps from the shared ImageLimits contract', () => {
+  assert.match(typesFile, /export const ImageLimits = \{/);
+  assert.match(listingForm, /ImageLimits/);
+  assert.doesNotMatch(listingForm, /maxImages=\{isPremium \? 15 : 3\}/);
 });
 
 test('header keeps one mobile trigger and moves account links into profile dropdown', () => {
