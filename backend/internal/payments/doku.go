@@ -62,6 +62,24 @@ func (p *DOKUProvider) CreatePayment(ctx context.Context, input CreatePaymentInp
 			"amount":         input.Amount,
 			"currency":       defaultString(input.Currency, "IDR"),
 		},
+		"payment_methods_type": []string{
+			"VIRTUAL_ACCOUNT_BCA",
+			"VIRTUAL_ACCOUNT_BANK_MANDIRI",
+			"VIRTUAL_ACCOUNT_BANK_SYARIAH_MANDIRI",
+			"VIRTUAL_ACCOUNT_DOKU",
+			"VIRTUAL_ACCOUNT_BRI",
+			"VIRTUAL_ACCOUNT_BNI",
+			"VIRTUAL_ACCOUNT_BANK_PERMATA",
+			"VIRTUAL_ACCOUNT_BANK_CIMB",
+			"VIRTUAL_ACCOUNT_BANK_DANAMON",
+			"EMONEY_LINKAJA",
+			"EMONEY_SHOPEE_PAY",
+			"EMONEY_OVO",
+			"EMONEY_LINKAJA",
+			"EMONEY_DANA",
+			"ONLINE_TO_OFFLINE_ALFA",
+			"ONLINE_TO_OFFLINE_INDOMARET",
+		},
 		"payment": map[string]any{
 			"type":             "SALE",
 			"payment_due_date": 60,
@@ -70,7 +88,6 @@ func (p *DOKUProvider) CreatePayment(ctx context.Context, input CreatePaymentInp
 			"id":    input.Customer.ID,
 			"name":  input.Customer.Name,
 			"email": input.Customer.Email,
-			"phone": normalizeDOKUPhone(input.Customer.Phone, p.baseURL),
 		},
 	}
 
@@ -143,10 +160,10 @@ func (p *DOKUProvider) CreatePayment(ctx context.Context, input CreatePaymentInp
 	}
 
 	return &CreatePaymentResult{
-		Provider:          ProviderDOKU,
-		ProviderOrderID:   defaultString(checkoutResponse.Response.Order.InvoiceNumber, input.OrderID),
-		ProviderPaymentID: checkoutResponse.Response.Payment.TokenID,
-		PaymentURL:        checkoutResponse.Response.Payment.URL,
+		Provider:   ProviderDOKU,
+		OrderID:    defaultString(checkoutResponse.Response.Order.InvoiceNumber, input.OrderID),
+		PaymentID:  checkoutResponse.Response.Payment.TokenID,
+		PaymentURL: checkoutResponse.Response.Payment.URL,
 	}, nil
 }
 
@@ -213,10 +230,10 @@ func (p *DOKUProvider) ParseCallback(headers map[string]string, path string, bod
 	}
 
 	return &CallbackResult{
-		Provider:          ProviderDOKU,
-		ProviderOrderID:   notification.Order.InvoiceNumber,
-		ProviderPaymentID: paymentID,
-		Status:            mapDOKUStatus(notification.Transaction.Status),
+		Provider:  ProviderDOKU,
+		OrderID:   notification.Order.InvoiceNumber,
+		PaymentID: paymentID,
+		Status:    mapDOKUStatus(notification.Transaction.Status),
 	}, nil
 }
 

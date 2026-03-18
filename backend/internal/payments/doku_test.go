@@ -96,17 +96,16 @@ func TestDOKUProviderCreatePaymentBuildsSignedCheckoutRequest(t *testing.T) {
 	if result.Provider != ProviderDOKU {
 		t.Fatalf("expected provider %q, got %q", ProviderDOKU, result.Provider)
 	}
-	if result.ProviderOrderID != "INV-PREM-001" {
-		t.Fatalf("expected provider order id INV-PREM-001, got %q", result.ProviderOrderID)
+	if result.OrderID != "INV-PREM-001" {
+		t.Fatalf("expected provider order id INV-PREM-001, got %q", result.OrderID)
 	}
-	if result.ProviderPaymentID != "tok-123" {
-		t.Fatalf("expected provider payment id tok-123, got %q", result.ProviderPaymentID)
+	if result.PaymentID != "tok-123" {
+		t.Fatalf("expected provider payment id tok-123, got %q", result.PaymentID)
 	}
 	if result.PaymentURL != "https://sandbox.doku.com/checkout-link-v2/tok-123" {
 		t.Fatalf("unexpected payment url: %q", result.PaymentURL)
 	}
 }
-
 
 func TestDOKUProviderCreatePaymentNormalizesPhoneNumber(t *testing.T) {
 	t.Parallel()
@@ -202,7 +201,6 @@ func TestDOKUProviderCreatePaymentUsesSandboxFallbackPhoneWhenMissing(t *testing
 	}
 }
 
-
 func TestDOKUProviderGetPaymentStatusMapsPaidToSucceeded(t *testing.T) {
 	t.Parallel()
 
@@ -266,11 +264,11 @@ func TestDOKUProviderParseCallbackValidatesSignatureAndMapsSuccess(t *testing.T)
 	if result.Provider != ProviderDOKU {
 		t.Fatalf("expected provider %q, got %q", ProviderDOKU, result.Provider)
 	}
-	if result.ProviderOrderID != "INV-PREM-001" {
-		t.Fatalf("expected invoice number INV-PREM-001, got %q", result.ProviderOrderID)
+	if result.OrderID != "INV-PREM-001" {
+		t.Fatalf("expected invoice number INV-PREM-001, got %q", result.OrderID)
 	}
-	if result.ProviderPaymentID != "auth-789" {
-		t.Fatalf("expected payment id auth-789, got %q", result.ProviderPaymentID)
+	if result.PaymentID != "auth-789" {
+		t.Fatalf("expected payment id auth-789, got %q", result.PaymentID)
 	}
 	if result.Status != PaymentStatusSucceeded {
 		t.Fatalf("expected succeeded status, got %q", result.Status)

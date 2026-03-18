@@ -47,11 +47,11 @@ func (r *PaymentReconciler) ReconcileUser(ctx context.Context, userID string) er
 	}
 
 	for _, tx := range txs {
-		if tx.Type != models.TransactionTypePremiumTier || tx.Status != models.TransactionStatusPending || tx.Provider != payments.ProviderDOKU || tx.ProviderPaymentID == "" {
+		if tx.Type != models.TransactionTypePremiumTier || tx.Status != models.TransactionStatusPending || tx.Provider != payments.ProviderDOKU || tx.PaymentID == "" {
 			continue
 		}
 
-		status, err := r.paymentProvider.GetPaymentStatus(ctx, tx.ProviderPaymentID)
+		status, err := r.paymentProvider.GetPaymentStatus(ctx, tx.PaymentID)
 		if err != nil || status != payments.PaymentStatusSucceeded {
 			return err
 		}

@@ -28,7 +28,7 @@ func (f *fakeReconcileUserStore) Put(_ context.Context, user *models.User) error
 }
 
 type fakeReconcileTransactionStore struct {
-	items []models.Transaction
+	items   []models.Transaction
 	updated []models.TransactionStatus
 }
 
@@ -58,17 +58,17 @@ func TestPaymentReconcilerUpgradesUserWhenPendingPremiumPaymentIsPaid(t *testing
 	t.Parallel()
 
 	userStore := &fakeReconcileUserStore{user: &models.User{
-		UserID: "user-1",
+		UserID:       "user-1",
 		Subscription: models.Subscription{Tier: models.SubscriptionFree},
 	}}
 	txStore := &fakeReconcileTransactionStore{items: []models.Transaction{{
 		TransactionID: "tx-1",
-		SK: "2026-03-16T06:00:00Z",
-		UserID: "user-1",
-		Type: models.TransactionTypePremiumTier,
-		Status: models.TransactionStatusPending,
-		Provider: payments.ProviderDOKU,
-		ProviderPaymentID: "tok-123",
+		SK:            "2026-03-16T06:00:00Z",
+		UserID:        "user-1",
+		Type:          models.TransactionTypePremiumTier,
+		Status:        models.TransactionStatusPending,
+		Provider:      payments.ProviderDOKU,
+		PaymentID:     "tok-123",
 	}}}
 	reconciler := NewPaymentReconciler(userStore, txStore, &fakeReconcileProvider{status: payments.PaymentStatusSucceeded})
 
@@ -91,17 +91,17 @@ func TestPaymentReconcilerLeavesUserFreeWhenPaymentStillPending(t *testing.T) {
 	t.Parallel()
 
 	userStore := &fakeReconcileUserStore{user: &models.User{
-		UserID: "user-1",
+		UserID:       "user-1",
 		Subscription: models.Subscription{Tier: models.SubscriptionFree},
 	}}
 	txStore := &fakeReconcileTransactionStore{items: []models.Transaction{{
 		TransactionID: "tx-1",
-		SK: "2026-03-16T06:00:00Z",
-		UserID: "user-1",
-		Type: models.TransactionTypePremiumTier,
-		Status: models.TransactionStatusPending,
-		Provider: payments.ProviderDOKU,
-		ProviderPaymentID: "tok-123",
+		SK:            "2026-03-16T06:00:00Z",
+		UserID:        "user-1",
+		Type:          models.TransactionTypePremiumTier,
+		Status:        models.TransactionStatusPending,
+		Provider:      payments.ProviderDOKU,
+		PaymentID:     "tok-123",
 	}}}
 	reconciler := NewPaymentReconciler(userStore, txStore, &fakeReconcileProvider{status: payments.PaymentStatusPending})
 

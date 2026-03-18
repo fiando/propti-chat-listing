@@ -1,6 +1,12 @@
 package models
 
-import "time"
+import (
+	"fmt"
+	"time"
+
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+)
 
 type TransactionType string
 type TransactionStatus string
@@ -16,22 +22,22 @@ const (
 )
 
 type Transaction struct {
-	PK                string            `json:"pk" dynamodbav:"PK"`
-	SK                string            `json:"sk" dynamodbav:"SK"`
-	TransactionID     string            `json:"transactionId" dynamodbav:"transactionId"`
-	UserID            string            `json:"userId" dynamodbav:"userId"`
-	Type              TransactionType   `json:"type" dynamodbav:"type"`
-	ListingID         string            `json:"listingId,omitempty" dynamodbav:"listingId,omitempty"`
-	Amount            float64           `json:"amount" dynamodbav:"amount"`
-	Currency          string            `json:"currency" dynamodbav:"currency"`
-	Status            TransactionStatus `json:"status" dynamodbav:"status"`
-	Provider          string            `json:"provider,omitempty" dynamodbav:"provider,omitempty"`
-	ProviderPaymentID string            `json:"providerPaymentId,omitempty" dynamodbav:"midtransPaymentId,omitempty"`
-	ProviderOrderID   string            `json:"providerOrderId,omitempty" dynamodbav:"midtransOrderId,omitempty"`
-	PaymentURL        string            `json:"paymentUrl,omitempty" dynamodbav:"paymentUrl,omitempty"`
-	Metadata          map[string]string `json:"metadata,omitempty" dynamodbav:"metadata,omitempty"`
-	CreatedAt         time.Time         `json:"createdAt" dynamodbav:"createdAt"`
-	UpdatedAt         time.Time         `json:"updatedAt" dynamodbav:"updatedAt"`
+	PK            string            `json:"pk" dynamodbav:"PK"`
+	SK            string            `json:"sk" dynamodbav:"SK"`
+	TransactionID string            `json:"transactionId" dynamodbav:"transactionId"`
+	UserID        string            `json:"userId" dynamodbav:"userId"`
+	Type          TransactionType   `json:"type" dynamodbav:"type"`
+	ListingID     string            `json:"listingId,omitempty" dynamodbav:"listingId,omitempty"`
+	Amount        float64           `json:"amount" dynamodbav:"amount"`
+	Currency      string            `json:"currency" dynamodbav:"currency"`
+	Status        TransactionStatus `json:"status" dynamodbav:"status"`
+	Provider      string            `json:"provider,omitempty" dynamodbav:"provider,omitempty"`
+	PaymentID     string            `json:"paymentId,omitempty" dynamodbav:"paymentId,omitempty"`
+	OrderID       string            `json:"orderId,omitempty" dynamodbav:"orderId,omitempty"`
+	PaymentURL    string            `json:"paymentUrl,omitempty" dynamodbav:"paymentUrl,omitempty"`
+	Metadata      map[string]string `json:"metadata,omitempty" dynamodbav:"metadata,omitempty"`
+	CreatedAt     time.Time         `json:"createdAt" dynamodbav:"createdAt"`
+	UpdatedAt     time.Time         `json:"updatedAt" dynamodbav:"updatedAt"`
 }
 
 type FeatureListingRequest struct {
@@ -49,4 +55,26 @@ type PaymentResponse struct {
 	PaymentURL    string  `json:"paymentUrl"`
 	OrderID       string  `json:"orderId"`
 	Amount        float64 `json:"amount"`
+}
+
+type transactionAlias Transaction
+
+func (t *Transaction) UnmarshalDynamoDBAttributeValue(av types.AttributeValue) error {
+	m, ok := av.(*types.AttributeValueMemberM)
+	if !ok {
+		return fmt.Errorf("unexpected transaction attribute value type %T", av)
+	}
+
+	normalized := make(map[string]types.AttributeValue, len(m.Value)+2)
+	for key, value := range m.Value {
+		normalized[key] = value
+	}
+
+	var decoded transactionAlias
+	if err := attributevalue.UnmarshalMap(normalized, &decoded); err != nil {
+		return err
+	}
+
+	*t = Transaction(decoded)
+	return nil
 }

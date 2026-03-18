@@ -31,17 +31,17 @@ type CreatePaymentInput struct {
 }
 
 type CreatePaymentResult struct {
-	Provider          string
-	ProviderOrderID   string
-	ProviderPaymentID string
-	PaymentURL        string
+	Provider   string
+	OrderID    string
+	PaymentID  string
+	PaymentURL string
 }
 
 type CallbackResult struct {
-	Provider          string
-	ProviderOrderID   string
-	ProviderPaymentID string
-	Status            PaymentStatus
+	Provider  string
+	OrderID   string
+	PaymentID string
+	Status    PaymentStatus
 }
 
 type Provider interface {

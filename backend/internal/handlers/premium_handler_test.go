@@ -45,11 +45,11 @@ func (f *fakePremiumTransactionStore) Put(_ context.Context, tx *models.Transact
 	if f.byID == nil {
 		f.byID = map[string]*models.Transaction{}
 	}
-	f.byID[copy.ProviderOrderID] = &copy
+	f.byID[copy.OrderID] = &copy
 	return nil
 }
 
-func (f *fakePremiumTransactionStore) GetByProviderOrderID(_ context.Context, orderID string) (*models.Transaction, error) {
+func (f *fakePremiumTransactionStore) GetByOrderID(_ context.Context, orderID string) (*models.Transaction, error) {
 	tx := f.byID[orderID]
 	if tx == nil {
 		return nil, nil
@@ -125,6 +125,23 @@ func authHeaderForPremiumTest(t *testing.T, userID string) map[string]string {
 	return map[string]string{"Authorization": "Bearer " + token}
 }
 
+func TestGenerateOrderIDUsesCompactCollisionResistantSuffix(t *testing.T) {
+	t.Parallel()
+
+	id, err := generateOrderID("PROPTI-PREM-")
+	if err != nil {
+		t.Fatalf("generateOrderID returned error: %v", err)
+	}
+
+	const prefix = "PROPTI-PREM-"
+	if len(id) != len(prefix)+16 {
+		t.Fatalf("expected %d-char order id, got %d (%q)", len(prefix)+16, len(id), id)
+	}
+	if got := id[:len(prefix)]; got != prefix {
+		t.Fatalf("expected prefix %q, got %q", prefix, got)
+	}
+}
+
 func TestPremiumHandlerUpgradeToPremiumUsesPaymentProvider(t *testing.T) {
 	t.Setenv("PUBLIC_API_BASE_URL", "https://api.propti.test")
 
@@ -145,10 +162,10 @@ func TestPremiumHandlerUpgradeToPremiumUsesPaymentProvider(t *testing.T) {
 	listingService := &fakePremiumListingService{}
 	provider := &fakePaymentProvider{
 		createResult: &payments.CreatePaymentResult{
-			Provider:          payments.ProviderDOKU,
-			ProviderOrderID:   "PROPTI-PREM-001",
-			ProviderPaymentID: "tok-123",
-			PaymentURL:        "https://sandbox.doku.com/checkout-link-v2/tok-123",
+			Provider:   payments.ProviderDOKU,
+			OrderID:    "PROPTI-PREM-001",
+			PaymentID:  "tok-123",
+			PaymentURL: "https://sandbox.doku.com/checkout-link-v2/tok-123",
 		},
 	}
 
@@ -206,16 +223,16 @@ func TestPremiumHandlerCallbackCompletesPremiumUpgrade(t *testing.T) {
 		},
 	}
 	tx := &models.Transaction{
-		PK:              "tx-1",
-		SK:              time.Now().UTC().Format(time.RFC3339),
-		TransactionID:   "tx-1",
-		UserID:          "user-1",
-		Type:            models.TransactionTypePremiumTier,
-		Status:          models.TransactionStatusPending,
-		Provider:        payments.ProviderDOKU,
-		ProviderOrderID: "PROPTI-PREM-001",
-		CreatedAt:       time.Now().UTC(),
-		UpdatedAt:       time.Now().UTC(),
+		PK:            "tx-1",
+		SK:            time.Now().UTC().Format(time.RFC3339),
+		TransactionID: "tx-1",
+		UserID:        "user-1",
+		Type:          models.TransactionTypePremiumTier,
+		Status:        models.TransactionStatusPending,
+		Provider:      payments.ProviderDOKU,
+		OrderID:       "PROPTI-PREM-001",
+		CreatedAt:     time.Now().UTC(),
+		UpdatedAt:     time.Now().UTC(),
 	}
 	txStore := &fakePremiumTransactionStore{
 		items: []*models.Transaction{tx},
@@ -225,10 +242,10 @@ func TestPremiumHandlerCallbackCompletesPremiumUpgrade(t *testing.T) {
 	}
 	provider := &fakePaymentProvider{
 		callbackResult: &payments.CallbackResult{
-			Provider:          payments.ProviderDOKU,
-			ProviderOrderID:   "PROPTI-PREM-001",
-			ProviderPaymentID: "auth-789",
-			Status:            payments.PaymentStatusSucceeded,
+			Provider:  payments.ProviderDOKU,
+			OrderID:   "PROPTI-PREM-001",
+			PaymentID: "auth-789",
+			Status:    payments.PaymentStatusSucceeded,
 		},
 	}
 

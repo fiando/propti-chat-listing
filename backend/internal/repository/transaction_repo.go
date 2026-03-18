@@ -58,19 +58,26 @@ func (r *TransactionRepo) GetByID(ctx context.Context, transactionID, createdAt 
 	return &tx, nil
 }
 
-// GetByProviderOrderID looks up a transaction by its provider order ID via a GSI.
-func (r *TransactionRepo) GetByProviderOrderID(ctx context.Context, orderID string) (*models.Transaction, error) {
+func (r *TransactionRepo) GetByOrderID(ctx context.Context, orderID string) (*models.Transaction, error) {
+	tx, err := r.queryByOrderIDIndex(ctx, "orderId-index", "orderId", orderID)
+	if err == nil && tx != nil {
+		return tx, nil
+	}
+	return nil, nil
+}
+
+func (r *TransactionRepo) queryByOrderIDIndex(ctx context.Context, indexName, attributeName, orderID string) (*models.Transaction, error) {
 	result, err := r.db.Client.Query(ctx, &dynamodb.QueryInput{
 		TableName:              aws.String(r.db.TransactionsTable),
-		IndexName:              aws.String("midtransOrderId-index"),
-		KeyConditionExpression: aws.String("midtransOrderId = :oid"),
+		IndexName:              aws.String(indexName),
+		KeyConditionExpression: aws.String(attributeName + " = :oid"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":oid": &types.AttributeValueMemberS{Value: orderID},
 		},
 		Limit: aws.Int32(1),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("query by providerOrderId via legacy index: %w", err)
+		return nil, fmt.Errorf("query by %s: %w", attributeName, err)
 	}
 	if len(result.Items) == 0 {
 		return nil, nil

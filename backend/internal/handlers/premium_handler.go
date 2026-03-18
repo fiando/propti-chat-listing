@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -27,7 +29,7 @@ type premiumUserStore interface {
 
 type premiumTransactionStore interface {
 	Put(ctx context.Context, tx *models.Transaction) error
-	GetByProviderOrderID(ctx context.Context, orderID string) (*models.Transaction, error)
+	GetByOrderID(ctx context.Context, orderID string) (*models.Transaction, error)
 	UpdateStatus(ctx context.Context, transactionID, createdAt string, status models.TransactionStatus) error
 }
 
@@ -96,22 +98,26 @@ func (h *PremiumHandler) upgradeToPremium(ctx context.Context, req events.APIGat
 		return jsonResponse(http.StatusBadRequest, utils.MarshalErrorResponse(utils.NewAppError(400, "already on premium tier"))), nil
 	}
 
-	orderID := fmt.Sprintf("PROPTI-PREM-%s", uuid.NewString())
+	orderID, err := generateOrderID("PROPTI-PREM-")
+	if err != nil {
+		utils.LogError("generate premium order id", err, "userId", userID)
+		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
+	}
 	amount := 49000.0 // Rp 49,000/month
 
 	tx := &models.Transaction{
-		PK:              uuid.NewString(),
-		SK:              time.Now().UTC().Format(time.RFC3339),
-		TransactionID:   uuid.NewString(),
-		UserID:          userID,
-		Type:            models.TransactionTypePremiumTier,
-		Amount:          amount,
-		Currency:        "IDR",
-		Status:          models.TransactionStatusPending,
-		Provider:        h.paymentProvider.Name(),
-		ProviderOrderID: orderID,
-		CreatedAt:       time.Now().UTC(),
-		UpdatedAt:       time.Now().UTC(),
+		PK:            uuid.NewString(),
+		SK:            time.Now().UTC().Format(time.RFC3339),
+		TransactionID: uuid.NewString(),
+		UserID:        userID,
+		Type:          models.TransactionTypePremiumTier,
+		Amount:        amount,
+		Currency:      "IDR",
+		Status:        models.TransactionStatusPending,
+		Provider:      h.paymentProvider.Name(),
+		OrderID:       orderID,
+		CreatedAt:     time.Now().UTC(),
+		UpdatedAt:     time.Now().UTC(),
 	}
 	tx.PK = tx.TransactionID
 
@@ -133,8 +139,8 @@ func (h *PremiumHandler) upgradeToPremium(ctx context.Context, req events.APIGat
 		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
 	}
 
-	tx.ProviderPaymentID = paymentResult.ProviderPaymentID
-	tx.ProviderOrderID = paymentResult.ProviderOrderID
+	tx.PaymentID = paymentResult.PaymentID
+	tx.OrderID = paymentResult.OrderID
 	tx.PaymentURL = paymentResult.PaymentURL
 
 	if err := h.transactionRepo.Put(ctx, tx); err != nil {
@@ -145,7 +151,7 @@ func (h *PremiumHandler) upgradeToPremium(ctx context.Context, req events.APIGat
 	resp := models.PaymentResponse{
 		TransactionID: tx.TransactionID,
 		PaymentURL:    paymentResult.PaymentURL,
-		OrderID:       paymentResult.ProviderOrderID,
+		OrderID:       paymentResult.OrderID,
 		Amount:        amount,
 	}
 	body, _ := json.Marshal(resp)
@@ -179,7 +185,11 @@ func (h *PremiumHandler) featureListing(ctx context.Context, req events.APIGatew
 	}
 	amount := pricePerDay * float64(featReq.DurationDays)
 
-	orderID := fmt.Sprintf("PROPTI-FEAT-%s", uuid.NewString())
+	orderID, err := generateOrderID("PROPTI-FEAT-")
+	if err != nil {
+		utils.LogError("generate feature order id", err, "userId", userID)
+		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
+	}
 
 	txType := models.TransactionTypeFeatured
 	if featReq.Type == "promotion" {
@@ -187,15 +197,15 @@ func (h *PremiumHandler) featureListing(ctx context.Context, req events.APIGatew
 	}
 
 	tx := &models.Transaction{
-		TransactionID:   uuid.NewString(),
-		UserID:          userID,
-		Type:            txType,
-		ListingID:       featReq.ListingID,
-		Amount:          amount,
-		Currency:        "IDR",
-		Status:          models.TransactionStatusPending,
-		Provider:        h.paymentProvider.Name(),
-		ProviderOrderID: orderID,
+		TransactionID: uuid.NewString(),
+		UserID:        userID,
+		Type:          txType,
+		ListingID:     featReq.ListingID,
+		Amount:        amount,
+		Currency:      "IDR",
+		Status:        models.TransactionStatusPending,
+		Provider:      h.paymentProvider.Name(),
+		OrderID:       orderID,
 		Metadata: map[string]string{
 			"featureType":  featReq.Type,
 			"durationDays": fmt.Sprintf("%d", featReq.DurationDays),
@@ -228,8 +238,8 @@ func (h *PremiumHandler) featureListing(ctx context.Context, req events.APIGatew
 		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
 	}
 
-	tx.ProviderPaymentID = paymentResult.ProviderPaymentID
-	tx.ProviderOrderID = paymentResult.ProviderOrderID
+	tx.PaymentID = paymentResult.PaymentID
+	tx.OrderID = paymentResult.OrderID
 	tx.PaymentURL = paymentResult.PaymentURL
 
 	if err := h.transactionRepo.Put(ctx, tx); err != nil {
@@ -239,7 +249,7 @@ func (h *PremiumHandler) featureListing(ctx context.Context, req events.APIGatew
 	resp := models.PaymentResponse{
 		TransactionID: tx.TransactionID,
 		PaymentURL:    paymentResult.PaymentURL,
-		OrderID:       paymentResult.ProviderOrderID,
+		OrderID:       paymentResult.OrderID,
 		Amount:        amount,
 	}
 	body, _ := json.Marshal(resp)
@@ -254,9 +264,9 @@ func (h *PremiumHandler) paymentCallback(ctx context.Context, req events.APIGate
 		return jsonResponse(http.StatusUnauthorized, utils.MarshalErrorResponse(utils.ErrUnauthorized)), nil
 	}
 
-	tx, err := h.transactionRepo.GetByProviderOrderID(ctx, callbackResult.ProviderOrderID)
+	tx, err := h.transactionRepo.GetByOrderID(ctx, callbackResult.OrderID)
 	if err != nil || tx == nil {
-		utils.LogWarn("transaction not found for callback", "provider", h.paymentProvider.Name(), "orderId", callbackResult.ProviderOrderID)
+		utils.LogWarn("transaction not found for callback", "provider", h.paymentProvider.Name(), "orderId", callbackResult.OrderID)
 		return jsonResponse(http.StatusNotFound, utils.MarshalErrorResponse(utils.ErrNotFound)), nil
 	}
 
@@ -325,4 +335,15 @@ func buildPremiumCallbackURL() string {
 		return ""
 	}
 	return baseURL + "/premium/callback"
+}
+
+func generateOrderID(prefix string) (string, error) {
+	const tokenSize = 12
+
+	b := make([]byte, tokenSize)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("read random bytes: %w", err)
+	}
+
+	return prefix + base64.RawURLEncoding.EncodeToString(b), nil
 }

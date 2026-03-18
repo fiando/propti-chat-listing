@@ -12,7 +12,7 @@ interface PremiumUpgradeModalProps {
 }
 
 const PREMIUM_FEATURES = [
-  'Upload hingga 30 foto per iklan (gratis maksimal 3)',
+  'Upload hingga 15 foto per iklan (gratis maksimal 3)',
   'Iklan tampil lebih lama (gratis 30 hari)',
   'Posting lebih dari 3 listing gratis',
   'Statistik dasar listing: dilihat dan disimpan',
@@ -99,11 +99,6 @@ export function PremiumUpgradeModal({ isOpen, onClose, profilePhone }: PremiumUp
               </Link>
             </div>
           )}
-
-          <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 mb-4 text-sm text-amber-800">
-            Iklan unggulan atau promosi berbayar per listing dan dibayar terpisah dari paket
-            Premium ini. Boost tetap memakai checkout terpisah saat tersedia.
-          </div>
 
           <button
             type="button"

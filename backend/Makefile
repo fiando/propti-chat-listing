@@ -1,7 +1,7 @@
 .PHONY: build clean deploy local test lint
 
 BINARY_DIR=bin
-FUNCTIONS=auth listings ai
+FUNCTIONS=auth listings payment
 
 build:
 	@mkdir -p $(BINARY_DIR)
