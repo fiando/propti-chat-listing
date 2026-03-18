@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import { Upload, X, Image as ImageIcon, Crown, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ImageLimits } from '@/types';
 
 interface ImageUploadProps {
   listingId?: string;
@@ -171,7 +172,7 @@ export function ImageUpload({
           <Crown className="w-5 h-5 text-amber-500 flex-shrink-0" />
           <div>
             <p className="text-xs font-semibold text-amber-700">
-              Upgrade ke Premium untuk upload hingga 30 foto
+              Upgrade ke Premium untuk upload hingga {ImageLimits.premium} foto
             </p>
             <p className="text-xs text-amber-600">Iklan dengan banyak foto mendapat 3x lebih banyak penonton</p>
           </div>
