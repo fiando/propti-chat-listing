@@ -14,6 +14,7 @@ import {
   Crown,
   Menu,
   X,
+  Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
@@ -61,23 +62,6 @@ export function Header() {
             <Search className="w-4 h-4" />
             Cari Properti
           </Link>
-          {isAuthenticated && (
-            <>
-              <Link
-                href="/listings"
-                className="text-gray-600 hover:text-brand-primary font-medium transition-colors text-sm"
-              >
-                Iklan Saya
-              </Link>
-              <Link
-                href="/saved"
-                className="text-gray-600 hover:text-brand-primary font-medium transition-colors text-sm flex items-center gap-1.5"
-              >
-                <Heart className="w-4 h-4" />
-                Tersimpan
-              </Link>
-            </>
-          )}
         </nav>
 
         {/* Auth area */}

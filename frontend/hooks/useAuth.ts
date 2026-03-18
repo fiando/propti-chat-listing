@@ -15,12 +15,14 @@ export function useAuth() {
     isLoading: isProfileLoading,
     isFetching: isProfileFetching,
     isFetchedAfterMount: isProfileFetchedAfterMount,
+    isStale: isProfileStale,
   } = useQuery<User>({
     queryKey: ['profile'],
     queryFn: getProfile,
     enabled: status === 'authenticated',
     retry: 1,
-    refetchOnMount: 'always',
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   const isAuthenticated = status === 'authenticated';
@@ -40,6 +42,7 @@ export function useAuth() {
     isProfileError,
     isProfileFetchedAfterMount,
     isProfileFetching,
+    isProfileStale,
     isSubscriptionLoading,
     subscriptionStatus,
     isPremium,
