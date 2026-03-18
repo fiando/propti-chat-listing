@@ -12,7 +12,7 @@ interface PremiumUpgradeModalProps {
 }
 
 const PREMIUM_FEATURES = [
-  'Upload hingga 30 foto per iklan (gratis maksimal 3)',
+  'Upload hingga 15 foto per iklan (gratis maksimal 3)',
   'Iklan tampil lebih lama (gratis 30 hari)',
   'Posting lebih dari 3 listing gratis',
   'Statistik dasar listing: dilihat dan disimpan',

@@ -662,7 +662,7 @@ export function ListingForm({
               listingId={listingId}
               images={field.value}
               onChange={field.onChange}
-              maxImages={isPremium ? 30 : 3}
+              maxImages={isPremium ? 15 : 3}
             />
           )}
         />

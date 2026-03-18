@@ -180,3 +180,12 @@ export interface LocationSuggestion {
   city?: string;
   district?: string;
 }
+
+// ImageLimits are the canonical per-listing image caps per subscription tier.
+// Must stay in sync with backend/internal/utils validator constants.
+export const ImageLimits = {
+  free: 3,
+  premium: 15,
+} as const;
+
+export type ImageLimitTier = keyof typeof ImageLimits;
