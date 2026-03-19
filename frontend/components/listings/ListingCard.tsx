@@ -27,7 +27,9 @@ export function ListingCard({ listing, onSave, isSaved = false, onDelete, isDele
     onDelete?.(listing.listingId);
   };
 
-  const isModerationHidden = listing.moderationStatus !== 'approved';
+  const isRejected = listing.moderationStatus === 'rejected';
+  const isPending = listing.moderationStatus === 'pending';
+  const isModerationHidden = isRejected;
   const priceLabel =
     listing.listingType === 'rent'
       ? `${formatPrice(listing.price)}/bln`
@@ -79,7 +81,12 @@ export function ListingCard({ listing, onSave, isSaved = false, onDelete, isDele
               <span className={`${typeBg} text-white text-xs font-bold px-2.5 py-1 rounded-full`}>
                 {typeLabel}
               </span>
-              {listing.premiumFeatures?.isFeatured && (
+              {isPending && (
+                <span className="border text-xs font-bold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border-amber-200">
+                  Sedang diproses
+                </span>
+              )}
+              {!isPending && listing.premiumFeatures?.isFeatured && (
                 <span className="bg-brand-gold text-white text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1">
                   <Star className="w-3 h-3" />
                   Unggulan
@@ -137,6 +144,9 @@ export function ListingCard({ listing, onSave, isSaved = false, onDelete, isDele
             <h3 className="font-semibold text-gray-900 group-hover:text-brand-primary transition-colors line-clamp-1 mb-1">
               {listing.title}
             </h3>
+            {isPending && (
+              <p className="text-xs text-amber-600 mb-1">Belum tampil ke publik · sedang diproses</p>
+            )}
             <p className="text-brand-primary font-bold text-lg mb-2">{priceLabel}</p>
 
             {listing.location?.city && (
