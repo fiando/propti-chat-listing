@@ -93,9 +93,9 @@ export default function EditListingPage({ params }: { params: Promise<{ id: stri
     return (
       <div className="max-w-2xl mx-auto px-4 py-16">
         <div className="card p-6">
-          <h1 className="text-2xl font-black text-brand-primary">Iklan Ditolak</h1>
+          <h1 className="text-2xl font-black text-brand-primary">Iklan Ditarik Otomatis</h1>
           <p className="mt-3 text-sm leading-6 text-gray-600">
-            Iklan ini melanggar kebijakan Propti dan tidak dapat diedit. Hapus dan buat iklan baru.
+            Konten ini tidak lolos pemeriksaan otomatis kami dan tidak dapat diedit. Hapus dan buat iklan baru, atau hubungi support jika ada pertanyaan.
           </p>
           <div className="mt-6">
             <Link href={`/listings/${resolvedParams.id}`} className="btn-secondary inline-flex items-center gap-2">

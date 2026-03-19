@@ -40,8 +40,8 @@ export function ListingCard({ listing, onSave, isSaved = false, onDelete, isDele
     listing.moderationStatus === 'rejected'
       ? {
           badge: 'Ditolak',
-          title: 'Iklan Ditolak',
-          message: 'Iklan ini melanggar kebijakan Propti. Hapus dan buat iklan baru.',
+          title: 'Iklan Ditarik Otomatis',
+          message: 'Konten ini tidak lolos pemeriksaan otomatis kami. Hapus dan buat iklan baru.',
           tone: 'bg-red-50 text-red-700 border-red-200',
         }
       : {
