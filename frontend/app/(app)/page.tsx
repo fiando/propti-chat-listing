@@ -83,7 +83,7 @@ const PRODUCT_PROOF = [
     icon: <TrendingUp className="w-6 h-6 text-brand-primary" />,
     bg: 'bg-brand-light',
     title: 'Insight sederhana setelah terbit',
-    desc: 'Lihat performa dasar listing seperti dilihat, disimpan, dan dihubungi tanpa alur analitik yang rumit.',
+    desc: 'Lihat performa dasar listing seperti dilihat dan disimpan tanpa alur analitik yang rumit.',
     tag: 'Simple insight',
   },
 ];
