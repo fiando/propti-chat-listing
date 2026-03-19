@@ -1,10 +1,17 @@
 import Link from 'next/link';
-import { Facebook, Instagram, Twitter } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import { Facebook, Instagram, Search, Twitter } from 'lucide-react';
 import { ProptiLogo } from './ProptiLogo';
 
-const FOOTER_LINKS = {
+interface FooterLink {
+  label: string;
+  href: string;
+  icon?: LucideIcon;
+}
+
+const FOOTER_LINKS: Record<string, FooterLink[]> = {
   Produk: [
-    { label: 'Cari Properti', href: '/search' },
+    { label: 'Cari Properti', href: '/search', icon: Search },
     { label: 'Pasang Iklan', href: '/listings/create' },
     { label: 'Premium', href: '/profile#premium' },
     { label: 'Harga', href: '/pricing' },
@@ -56,8 +63,9 @@ export function Footer() {
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="text-white/60 hover:text-white text-sm transition-colors"
+                      className="text-white/60 hover:text-white text-sm transition-colors inline-flex items-center gap-1.5"
                     >
+                      {link.icon ? <link.icon className="w-4 h-4" aria-hidden="true" /> : null}
                       {link.label}
                     </Link>
                   </li>
