@@ -10,9 +10,9 @@ interface PremiumUpgradeModalProps {
 }
 
 const PREMIUM_FEATURES = [
-  'Premium: maksimal 15 foto per iklan',
-  'Premium: maksimal 15 listing aktif',
-  'Premium: tayang sampai 90 hari',
+  'Maksimal 15 foto per iklan',
+  'Maksimal 15 listing aktif',
+  'Masa tayang hingga 90 hari',
 ];
 
 export function PremiumUpgradeModal({ isOpen, onClose }: PremiumUpgradeModalProps) {
@@ -57,7 +57,7 @@ export function PremiumUpgradeModal({ isOpen, onClose }: PremiumUpgradeModalProp
             <Crown className="w-8 h-8 text-white" />
           </div>
           <h2 className="text-2xl font-black">Propti Premium</h2>
-          <p className="text-white/80 mt-1 text-sm">15 listing aktif, 15 foto, tayang 90 hari.</p>
+          <p className="text-white/80 mt-1 text-sm">Aktifkan hingga 15 listing, unggah 15 foto/listing, tampil selama 90 hari.</p>
           <div className="mt-4">
             <span className="text-4xl font-black">Rp 49rb</span>
             <span className="text-white/70 text-sm ml-1">/bulan</span>
@@ -106,9 +106,6 @@ export function PremiumUpgradeModal({ isOpen, onClose }: PremiumUpgradeModalProp
             )}
           </button>
 
-          <p className="text-center text-xs text-gray-400 mt-3">
-            Iklan unggulan tetap terpisah dan berbayar per listing.
-          </p>
           <p className="text-center text-xs text-gray-400 mt-1">
             Pembayaran aman melalui DOKU. Batalkan kapan saja.
           </p>
