@@ -24,7 +24,7 @@ test('owner listing cards switch pending and rejected listings to neutral modera
 
 test('listing detail hides owner content for pending and rejected states and removes edit action', () => {
   assert.match(listingDetailFile, /const shouldHideOwnerContent = isOwner && listing\.moderationStatus !== 'approved'/);
-  assert.match(listingDetailFile, /Konten iklan disembunyikan selama proses moderasi/);
+  assert.match(listingDetailFile, /Konten iklan disembunyikan selama proses moderasi|Detail iklan belum tampil ke publik/);
   assert.match(listingDetailFile, /if \(shouldHideOwnerContent\) \{/);
   assert.match(listingDetailFile, /Hapus Iklan/);
 });

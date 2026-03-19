@@ -49,15 +49,13 @@ const OWNER_MODERATION_NOTICES: Partial<
   Record<'approved' | 'pending' | 'rejected', { title: string; message: string; tone: string }>
 > = {
   pending: {
-    title: 'Iklan dalam proses moderasi',
-    message:
-      'Iklan ini sedang ditinjau oleh tim moderasi Propti. Selama proses review, iklan belum bisa ditampilkan ke publik.',
+    title: 'Iklan sedang direview',
+    message: 'Iklan kamu sedang kami tinjau. Detail belum tampil ke publik sampai review selesai.',
     tone: 'border-amber-200 bg-amber-50 text-amber-800',
   },
   rejected: {
-    title: 'Iklan belum bisa ditampilkan ke publik',
-    message:
-      'Iklan ini belum bisa ditampilkan ke publik. Kontennya disembunyikan dari Propti dan kamu hanya bisa menghapus iklan ini.',
+    title: 'Iklan ditolak',
+    message: 'Iklan kamu tidak lolos moderasi. Kamu hanya bisa menghapus iklan ini.',
     tone: 'border-red-200 bg-red-50 text-red-700',
   },
 };
@@ -174,15 +172,13 @@ export function ListingDetail({
             <div className="card p-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    Konten iklan disembunyikan selama proses moderasi
-                  </p>
-                  <h1 className="mt-2 text-2xl font-bold text-gray-900">
+                  <h1 className="text-2xl font-bold text-gray-900">
                     {listing.moderationStatus === 'rejected' ? 'Iklan ditolak' : 'Iklan sedang direview'}
                   </h1>
-                  <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-600">
-                    Propti tidak menampilkan judul, gambar, deskripsi, atau lokasi yang kamu kirim sampai iklan
-                    selesai direview. Jika iklan ditolak, satu-satunya aksi yang tersedia adalah menghapus iklan.
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-600">
+                    {listing.moderationStatus === 'rejected'
+                      ? 'Iklan kamu tidak lolos moderasi. Detail iklan disembunyikan dan tidak bisa dilihat publik.'
+                      : 'Detail iklan belum tampil ke publik sampai review selesai.'}
                   </p>
                 </div>
 
