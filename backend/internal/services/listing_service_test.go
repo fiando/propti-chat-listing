@@ -707,7 +707,7 @@ func TestListMyListingsSkipsDeletedListingsWhenUserIndexIsStale(t *testing.T) {
 	}
 }
 
-func TestListMyListingsSkipsRejectedListings(t *testing.T) {
+func TestListMyListingsIncludesRejectedListingsForOwner(t *testing.T) {
 	ctx := context.Background()
 
 	service := NewListingService(
@@ -762,11 +762,14 @@ func TestListMyListingsSkipsRejectedListings(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListMyListings returned error: %v", err)
 	}
-	if len(listings) != 1 {
-		t.Fatalf("expected only approved/pending listing to remain visible, got %d", len(listings))
+	if len(listings) != 2 {
+		t.Fatalf("expected approved and rejected owner listings to remain visible, got %d", len(listings))
 	}
-	if listings[0].ListingID != "listing-approved" {
-		t.Fatalf("expected listing-approved, got %q", listings[0].ListingID)
+	if listings[0].ListingID != "listing-rejected" {
+		t.Fatalf("expected newest rejected listing first, got %q", listings[0].ListingID)
+	}
+	if listings[1].ListingID != "listing-approved" {
+		t.Fatalf("expected approved listing second, got %q", listings[1].ListingID)
 	}
 }
 
@@ -894,6 +897,61 @@ func TestCreateListingReturnsImmediatelyWithoutInlineModeration(t *testing.T) {
 	}
 	if store.lastListing.ModerationStatus != models.ModerationStatusPending {
 		t.Fatalf("expected persisted listing to remain pending, got %q", store.lastListing.ModerationStatus)
+	}
+}
+
+func TestCreateListingNormalizesEmptyImagesBeforePersistence(t *testing.T) {
+	ctx := context.Background()
+	store := &fakeListingStore{}
+	queue := &fakeModerationEnqueuer{}
+
+	service := NewListingService(
+		store,
+		&fakeUserStore{
+			user: &models.User{
+				UserID: "user-1",
+				Subscription: models.Subscription{
+					Tier: models.SubscriptionPremium,
+				},
+			},
+		},
+		&fakeAIService{},
+		nil,
+		nil,
+		nil,
+	)
+	service.SetModerationEnqueuer(queue)
+
+	listing, err := service.CreateListing(ctx, "user-1", &models.CreateListingRequest{
+		Title:       "Rumah tanpa foto",
+		Description: "Listing baru tanpa upload foto.",
+		Price:       850000000,
+		PriceUnit:   "total",
+		ListingType: models.ListingTypeSell,
+		Location: models.Location{
+			Address:  "Jl. Margonda Raya No. 1",
+			Province: "Jawa Barat",
+			City:     "Depok",
+			District: "Beji",
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateListing returned error: %v", err)
+	}
+	if listing.Images == nil {
+		t.Fatalf("expected returned listing images to normalize to an empty slice, got nil")
+	}
+	if len(listing.Images) != 0 {
+		t.Fatalf("expected returned listing images to be empty, got %d", len(listing.Images))
+	}
+	if store.lastListing == nil {
+		t.Fatalf("expected persisted listing to be captured")
+	}
+	if store.lastListing.Images == nil {
+		t.Fatalf("expected persisted listing images to normalize to an empty slice, got nil")
+	}
+	if len(store.lastListing.Images) != 0 {
+		t.Fatalf("expected persisted listing images to be empty, got %d", len(store.lastListing.Images))
 	}
 }
 

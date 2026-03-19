@@ -45,6 +45,23 @@ interface ListingDetailProps {
   onDelete?: () => void;
 }
 
+const OWNER_MODERATION_NOTICES: Partial<
+  Record<'approved' | 'pending' | 'rejected', { title: string; message: string; tone: string }>
+> = {
+  pending: {
+    title: 'Iklan dalam proses moderasi',
+    message:
+      'Iklan ini sedang ditinjau oleh tim moderasi Propti. Selama proses review, iklan belum bisa ditampilkan ke publik.',
+    tone: 'border-amber-200 bg-amber-50 text-amber-800',
+  },
+  rejected: {
+    title: 'Iklan belum bisa ditampilkan ke publik',
+    message:
+      'Iklan ini belum bisa ditampilkan ke publik. Kamu bisa perbarui detail iklan lalu kirim ulang, atau hapus iklan ini jika sudah tidak diperlukan.',
+    tone: 'border-red-200 bg-red-50 text-red-700',
+  },
+};
+
 const STATUS_CONFIG = {
   approved: { icon: CheckCircle, label: 'Aktif', color: 'text-green-600 bg-green-50' },
   pending: { icon: Clock, label: 'Menunggu Review', color: 'text-amber-600 bg-amber-50' },
@@ -81,6 +98,7 @@ export function ListingDetail({
   }));
   const sellerName = listing.sellerName?.trim() || 'Penjual Propti';
   const hasSellerContact = Boolean(listing.hasSellerPhone);
+  const ownerModerationNotice = isOwner ? OWNER_MODERATION_NOTICES[listing.moderationStatus] : undefined;
 
   const handleRevealContact = async (channel: ContactRevealChannel) => {
     if (!isAuthenticated) {
@@ -248,6 +266,13 @@ export function ListingDetail({
             plugins={[Zoom]}
             on={{ view: ({ index }) => setActiveImage(index) }}
           />
+
+          {ownerModerationNotice && (
+            <div className={`rounded-2xl border px-4 py-4 text-sm ${ownerModerationNotice.tone}`}>
+              <p className="font-semibold">{ownerModerationNotice.title}</p>
+              <p className="mt-1 leading-6">{ownerModerationNotice.message}</p>
+            </div>
+          )}
 
           {/* Title & Price */}
           <div className="card p-6">

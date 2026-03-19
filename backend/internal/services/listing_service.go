@@ -457,9 +457,6 @@ func (s *ListingService) ListMyListings(ctx context.Context, userID string, para
 		if current == nil {
 			continue
 		}
-		if current.ModerationStatus == models.ModerationStatusRejected {
-			continue
-		}
 		filtered = append(filtered, *current)
 	}
 
@@ -789,7 +786,7 @@ func (s *ListingService) applyImageUpdate(ctx context.Context, listing *models.L
 
 func (s *ListingService) resolveUploadImages(ctx context.Context, userID, listingID string, sessionIDs []string, featuredUploadSessionID string) (models.ImageEntries, error) {
 	if len(sessionIDs) == 0 {
-		return nil, nil
+		return models.ImageEntries{}, nil
 	}
 	if s.uploadSessionRepo == nil {
 		return nil, utils.ErrInternal

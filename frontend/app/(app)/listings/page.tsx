@@ -24,13 +24,13 @@ export default function MyListingsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-black text-brand-primary">Iklan Saya</h1>
-          <p className="text-gray-500 mt-1">
-            {isLoading
-              ? 'Memuat...'
-              : `${listings.length} iklan aktif`}
-          </p>
-        </div>
+            <h1 className="text-2xl font-black text-brand-primary">Iklan Saya</h1>
+            <p className="text-gray-500 mt-1">
+              {isLoading
+                ? 'Memuat...'
+                : `${listings.length} iklan`}
+            </p>
+          </div>
         <Link href="/listings/create" className="btn-primary flex items-center gap-2 text-sm">
           <Plus className="w-4 h-4" />
           Pasang Iklan Baru
@@ -60,7 +60,7 @@ export default function MyListingsPage() {
       ) : (
         <ListingGrid
           listings={listings}
-          emptyMessage="Belum ada iklan aktif."
+          emptyMessage="Belum ada iklan."
         />
       )}
     </div>

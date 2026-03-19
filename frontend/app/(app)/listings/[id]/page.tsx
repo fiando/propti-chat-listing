@@ -1,7 +1,7 @@
 'use client';
 
 import { use, useEffect } from 'react';
-import { useListing, useSaveListing, useSavedListings, useTrackListingView } from '@/hooks/useListings';
+import { useListing, useOwnerListing, useSaveListing, useSavedListings, useTrackListingView } from '@/hooks/useListings';
 import { ListingDetail } from '@/components/listings/ListingDetail';
 import { useDeleteListing } from '@/hooks/useListings';
 import { useRouter } from 'next/navigation';
@@ -12,13 +12,22 @@ import { markListingViewTracked, shouldTrackListingView } from '@/lib/listing-vi
 
 export default function ListingDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { data: listing, isLoading, error } = useListing(id);
   const { mutateAsync: deleteListing, isPending: isDeleting } = useDeleteListing();
   const { mutateAsync: toggleSave, isPending: isSaving } = useSaveListing();
   const { mutateAsync: trackView } = useTrackListingView();
   const router = useRouter();
   const { data: session, status } = useSession();
+  const isAuthenticated = status === 'authenticated';
+  const { data: publicListing, isLoading: isPublicLoading, error: publicError } = useListing(id);
+  const {
+    data: ownerListing,
+    isLoading: isOwnerLoading,
+    error: ownerError,
+  } = useOwnerListing(id, { enabled: isAuthenticated });
   const { data: savedData } = useSavedListings({ enabled: status === 'authenticated' });
+  const listing = publicListing ?? ownerListing;
+  const error = publicError && ownerError;
+  const isLoading = isPublicLoading || (isAuthenticated && isOwnerLoading && !publicListing && !ownerListing);
 
   const isOwner = session?.user && (listing?.userId === (session as { user?: { id?: string } }).user?.id);
 
@@ -76,10 +85,10 @@ export default function ListingDetailPage({ params }: { params: Promise<{ id: st
     <ListingDetail
       listing={listing}
       isOwner={isOwner || false}
-      isAuthenticated={status === 'authenticated'}
+      isAuthenticated={isAuthenticated}
       isSaved={isSaved}
       isSaving={isSaving}
-      onSave={status === 'authenticated' ? handleSave : undefined}
+      onSave={isAuthenticated ? handleSave : undefined}
       onDelete={isDeleting ? undefined : handleDelete}
     />
   );
