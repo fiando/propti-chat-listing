@@ -7,6 +7,7 @@ import {
   Bed,
   Bath,
   Maximize2,
+  ZoomIn,
   Home,
   Eye,
   Heart,
@@ -24,6 +25,8 @@ import {
   Shield,
 } from 'lucide-react';
 import Link from 'next/link';
+import Lightbox from 'yet-another-react-lightbox';
+import Zoom from 'yet-another-react-lightbox/plugins/zoom';
 import { formatAmenityLabel, formatPrice, formatDate, LISTING_TYPE_LABELS, PRICE_UNIT_LABELS } from '@/lib/utils';
 import type { Listing, ContactRevealChannel, RevealListingContactResponse } from '@/types';
 import { buildListingContactLinks } from '@/lib/listing-contact';
@@ -58,6 +61,7 @@ export function ListingDetail({
   onDelete,
 }: ListingDetailProps) {
   const [activeImage, setActiveImage] = useState(0);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [revealedContact, setRevealedContact] = useState<RevealListingContactResponse | null>(() =>
     getCachedRevealedContact(listing.listingId)
   );
@@ -71,6 +75,10 @@ export function ListingDetail({
   const typeLabel = LISTING_TYPE_LABELS[listing.listingType];
 
   const images = getListingGalleryImages(listing);
+  const lightboxSlides = images.map((image, index) => ({
+    src: image.url,
+    alt: `${listing.title} - Foto ${index + 1}`,
+  }));
   const sellerName = listing.sellerName?.trim() || 'Penjual Propti';
   const hasSellerContact = Boolean(listing.hasSellerPhone);
 
@@ -135,36 +143,57 @@ export function ListingDetail({
           <div className="card overflow-hidden">
             <div className="relative bg-gradient-to-br from-brand-primary/20 to-brand-secondary/30 h-72 md:h-96">
               {images[activeImage]?.url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={images[activeImage].url}
-                  alt={listing.title}
-                  className="w-full h-full object-cover"
-                />
+                <button
+                  type="button"
+                  onClick={() => setIsLightboxOpen(true)}
+                  className="block h-full w-full cursor-zoom-in"
+                  aria-label="Buka foto dalam tampilan penuh"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={images[activeImage].url}
+                    alt={listing.title}
+                    className="w-full h-full object-cover"
+                  />
+                </button>
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
                   <Home className="w-24 h-24 text-brand-secondary/30" />
                 </div>
               )}
 
+              {images[activeImage]?.url && (
+                <button
+                  type="button"
+                  onClick={() => setIsLightboxOpen(true)}
+                  className="absolute right-4 top-4 z-10 inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-2 text-sm font-medium text-gray-700 shadow-lg transition-colors hover:bg-white"
+                >
+                  <ZoomIn className="w-4 h-4" />
+                  Perbesar
+                </button>
+              )}
+
               {images.length > 1 && (
                 <>
                   <button
+                    type="button"
                     onClick={() => setActiveImage((p) => (p - 1 + images.length) % images.length)}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 rounded-full flex items-center justify-center shadow-lg hover:bg-white transition-colors"
+                    className="absolute left-3 top-1/2 z-10 -translate-y-1/2 w-10 h-10 bg-white/90 rounded-full flex items-center justify-center shadow-lg hover:bg-white transition-colors"
                   >
                     <ChevronLeft className="w-5 h-5" />
                   </button>
                   <button
+                    type="button"
                     onClick={() => setActiveImage((p) => (p + 1) % images.length)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 rounded-full flex items-center justify-center shadow-lg hover:bg-white transition-colors"
+                    className="absolute right-3 top-1/2 z-10 -translate-y-1/2 w-10 h-10 bg-white/90 rounded-full flex items-center justify-center shadow-lg hover:bg-white transition-colors"
                   >
                     <ChevronRight className="w-5 h-5" />
                   </button>
-                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                  <div className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 flex gap-1.5">
                     {images.map((_, i) => (
                       <button
                         key={i}
+                        type="button"
                         onClick={() => setActiveImage(i)}
                         className={`w-2 h-2 rounded-full transition-all ${
                           i === activeImage ? 'bg-white w-5' : 'bg-white/50'
@@ -176,7 +205,7 @@ export function ListingDetail({
               )}
 
               {/* Badges */}
-              <div className="absolute top-4 left-4 flex gap-2">
+              <div className="absolute top-4 left-4 z-10 flex gap-2">
                 <span
                   className={`text-white text-xs font-bold px-3 py-1.5 rounded-full ${
                     listing.listingType === 'sell' ? 'bg-brand-primary' : 'bg-blue-600'
@@ -210,6 +239,15 @@ export function ListingDetail({
               </div>
             )}
           </div>
+
+          <Lightbox
+            open={isLightboxOpen}
+            close={() => setIsLightboxOpen(false)}
+            index={activeImage}
+            slides={lightboxSlides}
+            plugins={[Zoom]}
+            on={{ view: ({ index }) => setActiveImage(index) }}
+          />
 
           {/* Title & Price */}
           <div className="card p-6">
