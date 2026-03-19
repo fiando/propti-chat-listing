@@ -154,7 +154,7 @@ func (s *ListingService) CreateListing(ctx context.Context, userID string, req *
 		Videos:           req.Videos,
 		ImageCount:       len(images),
 		PremiumFeatures:  models.PremiumFeatures{IsPremium: isPremium},
-		ModerationStatus: models.ModerationStatusPending,
+		ModerationStatus: models.ModerationStatusApproved,
 		CreatedAt:        now,
 		UpdatedAt:        now,
 		ExpiresAt:        &expiresAt,
@@ -239,7 +239,6 @@ func (s *ListingService) UpdateListing(ctx context.Context, userID, listingID st
 	listing.UpdatedAt = s.now()
 
 	if needsModeration {
-		listing.ModerationStatus = models.ModerationStatusPending
 		listing.ModerationReason = ""
 	}
 

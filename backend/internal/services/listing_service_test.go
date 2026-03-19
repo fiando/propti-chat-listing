@@ -1052,8 +1052,8 @@ func TestCreateListingDefersModerationWork(t *testing.T) {
 	if len(queue.listingIDs) != 1 || queue.listingIDs[0] != listing.ListingID {
 		t.Fatalf("expected moderation queue to receive listing %q, got %#v", listing.ListingID, queue.listingIDs)
 	}
-	if listing.ModerationStatus != models.ModerationStatusPending {
-		t.Fatalf("expected returned listing moderation status pending before async moderation, got %q", listing.ModerationStatus)
+	if listing.ModerationStatus != models.ModerationStatusApproved {
+		t.Fatalf("expected returned listing moderation status approved before async moderation, got %q", listing.ModerationStatus)
 	}
 	if listing.Status != models.ListingStatusActive {
 		t.Fatalf("expected returned listing status to remain active before async moderation, got %q", listing.Status)
@@ -1061,8 +1061,8 @@ func TestCreateListingDefersModerationWork(t *testing.T) {
 	if store.lastListing == nil {
 		t.Fatalf("expected persisted listing to be captured")
 	}
-	if store.lastListing.ModerationStatus != models.ModerationStatusPending {
-		t.Fatalf("expected persisted listing moderation status pending before async moderation, got %q", store.lastListing.ModerationStatus)
+	if store.lastListing.ModerationStatus != models.ModerationStatusApproved {
+		t.Fatalf("expected persisted listing moderation status approved before async moderation, got %q", store.lastListing.ModerationStatus)
 	}
 	if store.lastListing.Status != models.ListingStatusActive {
 		t.Fatalf("expected persisted listing status to remain active before async moderation, got %q", store.lastListing.Status)
@@ -1119,14 +1119,14 @@ func TestCreateListingReturnsImmediatelyWithoutInlineModeration(t *testing.T) {
 	if len(queue.listingIDs) != 1 || queue.listingIDs[0] != listing.ListingID {
 		t.Fatalf("expected moderation queue to receive listing %q, got %#v", listing.ListingID, queue.listingIDs)
 	}
-	if listing.ModerationStatus != models.ModerationStatusPending {
-		t.Fatalf("expected listing to remain pending when moderation fails, got %q", listing.ModerationStatus)
+	if listing.ModerationStatus != models.ModerationStatusApproved {
+		t.Fatalf("expected listing to be approved immediately (post-moderation flow), got %q", listing.ModerationStatus)
 	}
 	if store.lastListing == nil {
 		t.Fatalf("expected persisted listing to be captured")
 	}
-	if store.lastListing.ModerationStatus != models.ModerationStatusPending {
-		t.Fatalf("expected persisted listing to remain pending, got %q", store.lastListing.ModerationStatus)
+	if store.lastListing.ModerationStatus != models.ModerationStatusApproved {
+		t.Fatalf("expected persisted listing to be approved immediately, got %q", store.lastListing.ModerationStatus)
 	}
 }
 
@@ -1253,8 +1253,8 @@ func TestUpdateListingRequeuesModerationWithoutInlineExecution(t *testing.T) {
 	if len(queue.listingIDs) != 1 || queue.listingIDs[0] != listing.ListingID {
 		t.Fatalf("expected moderation queue to receive listing %q, got %#v", listing.ListingID, queue.listingIDs)
 	}
-	if listing.ModerationStatus != models.ModerationStatusPending {
-		t.Fatalf("expected returned listing moderation status pending after requeue, got %q", listing.ModerationStatus)
+	if listing.ModerationStatus != models.ModerationStatusApproved {
+		t.Fatalf("expected returned listing moderation status approved after requeue (post-moderation), got %q", listing.ModerationStatus)
 	}
 	if listing.Status != models.ListingStatusActive {
 		t.Fatalf("expected returned listing status to remain active before worker runs, got %q", listing.Status)
@@ -1262,8 +1262,8 @@ func TestUpdateListingRequeuesModerationWithoutInlineExecution(t *testing.T) {
 	if store.lastListing == nil {
 		t.Fatalf("expected persisted listing to be captured")
 	}
-	if store.lastListing.ModerationStatus != models.ModerationStatusPending {
-		t.Fatalf("expected persisted listing moderation status pending after requeue, got %q", store.lastListing.ModerationStatus)
+	if store.lastListing.ModerationStatus != models.ModerationStatusApproved {
+		t.Fatalf("expected persisted listing moderation status approved after requeue (post-moderation), got %q", store.lastListing.ModerationStatus)
 	}
 	if store.lastListing.Status != models.ListingStatusActive {
 		t.Fatalf("expected persisted listing status to remain active before worker runs, got %q", store.lastListing.Status)

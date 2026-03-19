@@ -48,11 +48,6 @@ interface ListingDetailProps {
 const OWNER_MODERATION_NOTICES: Partial<
   Record<'approved' | 'pending' | 'rejected', { title: string; message: string; tone: string }>
 > = {
-  pending: {
-    title: 'Iklan sedang direview',
-    message: 'Iklan kamu sedang kami tinjau. Detail belum tampil ke publik sampai review selesai.',
-    tone: 'border-amber-200 bg-amber-50 text-amber-800',
-  },
   rejected: {
     title: 'Iklan kamu belum lolos review',
     message: 'Tenang, kamu bisa hapus iklan ini lalu buat ulang dengan konten yang lebih sesuai.',
@@ -97,7 +92,7 @@ export function ListingDetail({
   const sellerName = listing.sellerName?.trim() || 'Penjual Propti';
   const hasSellerContact = Boolean(listing.hasSellerPhone);
   const ownerModerationNotice = isOwner ? OWNER_MODERATION_NOTICES[listing.moderationStatus] : undefined;
-  const shouldHideOwnerContent = isOwner && listing.moderationStatus !== 'approved';
+  const shouldHideOwnerContent = isOwner && listing.moderationStatus === 'rejected';
 
   const handleRevealContact = async (channel: ContactRevealChannel) => {
     if (!isAuthenticated) {
