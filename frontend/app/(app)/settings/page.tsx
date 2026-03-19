@@ -7,6 +7,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Bell, Loader2, Save, Settings, ShieldCheck, UserRound } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { updateProfile } from '@/lib/api';
+import { buildProfileUpdatePayload } from '@/lib/profile-update-payload';
 import type { UpdateProfileRequest, UserPreferences } from '@/types';
 
 const DEFAULT_PREFERENCES: UserPreferences = {
@@ -56,18 +57,12 @@ export default function SettingsPage() {
     event.preventDefault();
     setSaved(false);
 
-    const payload: UpdateProfileRequest = {
-      phone: phone.trim() || undefined,
-      preferences: {
-        ...(profile?.preferences ?? DEFAULT_PREFERENCES),
-        notifications,
-      },
-    };
-
-    // Only include role if a real value is selected
-    if (role !== '') {
-      payload.role = role;
-    }
+    const payload: UpdateProfileRequest = buildProfileUpdatePayload({
+      phone,
+      role,
+      notifications,
+      preferences: profile?.preferences ?? DEFAULT_PREFERENCES,
+    });
 
     await updateMutation.mutateAsync(payload);
   };
