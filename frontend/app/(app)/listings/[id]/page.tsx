@@ -49,7 +49,8 @@ export default function ListingDetailPage({ params }: { params: Promise<{ id: st
   }, [id, isOwner, listing, trackView]);
 
   const handleDelete = async () => {
-    if (!confirm('Yakin ingin menghapus iklan ini?')) return;
+    const isRejected = listing?.moderationStatus === 'rejected';
+    if (!isRejected && !confirm('Yakin ingin menghapus iklan ini?')) return;
     await deleteListing(id);
     router.push('/listings');
   };

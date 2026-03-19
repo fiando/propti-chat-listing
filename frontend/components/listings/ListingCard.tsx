@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Heart, MapPin, Bed, Bath, Maximize2, Home, Eye, Star } from 'lucide-react';
+import { Heart, MapPin, Bed, Bath, Maximize2, Home, Eye, Star, Trash2, Loader2 } from 'lucide-react';
 import { cn, formatPrice, LISTING_TYPE_LABELS } from '@/lib/utils';
 import type { Listing } from '@/types';
 import { getListingCardImage } from '@/lib/listing-images';
@@ -10,13 +10,21 @@ interface ListingCardProps {
   listing: Listing;
   onSave?: (id: string) => void;
   isSaved?: boolean;
+  onDelete?: (id: string) => void;
+  isDeleting?: boolean;
 }
 
-export function ListingCard({ listing, onSave, isSaved = false }: ListingCardProps) {
+export function ListingCard({ listing, onSave, isSaved = false, onDelete, isDeleting = false }: ListingCardProps) {
   const handleSave = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     onSave?.(listing.listingId);
+  };
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onDelete?.(listing.listingId);
   };
 
   const isModerationHidden = listing.moderationStatus !== 'approved';
@@ -32,13 +40,16 @@ export function ListingCard({ listing, onSave, isSaved = false }: ListingCardPro
     listing.moderationStatus === 'rejected'
       ? {
           badge: 'Ditolak',
-          title: 'Iklan ditolak',
-          message: 'Konten tidak ditampilkan di Propti. Kamu hanya bisa membuka detail aman atau menghapus iklan ini.',
+          title: listing.moderationStatus === 'rejected' ? 'Belum lolos review' : 'Sedang direview',
+          message:
+            listing.moderationStatus === 'rejected'
+              ? 'Hapus iklan ini lalu buat ulang dengan foto yang jelas dan deskripsi jujur.'
+              : 'Konten belum tampil di Propti sampai review selesai.',
           tone: 'bg-red-50 text-red-700 border-red-200',
         }
       : {
           badge: 'Sedang direview',
-          title: 'Iklan sedang direview',
+          title: 'Sedang direview',
           message: 'Konten belum tampil di Propti sampai review selesai.',
           tone: 'bg-amber-50 text-amber-700 border-amber-200',
         };
@@ -113,6 +124,16 @@ export function ListingCard({ listing, onSave, isSaved = false }: ListingCardPro
           <div className={`rounded-2xl border px-4 py-4 ${moderationCopy.tone}`}>
             <p className="font-semibold">{moderationCopy.title}</p>
             <p className="mt-1 text-sm leading-6">{moderationCopy.message}</p>
+            {onDelete && listing.moderationStatus === 'rejected' && (
+              <button
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="mt-3 flex items-center gap-1.5 text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                Hapus iklan
+              </button>
+            )}
           </div>
         ) : (
           <>
