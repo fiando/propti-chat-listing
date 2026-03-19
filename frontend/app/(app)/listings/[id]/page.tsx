@@ -25,7 +25,9 @@ export default function ListingDetailPage({ params }: { params: Promise<{ id: st
     error: ownerError,
   } = useOwnerListing(id, { enabled: isAuthenticated });
   const { data: savedData } = useSavedListings({ enabled: status === 'authenticated' });
-  const listing = publicListing ?? ownerListing;
+  // Prefer owner data so the owner immediately sees their listing's real
+  // moderation status (pending/rejected) after an edit or creation.
+  const listing = ownerListing ?? publicListing;
   const error = publicError && ownerError;
   const isLoading = isPublicLoading || (isAuthenticated && isOwnerLoading && !publicListing && !ownerListing);
 

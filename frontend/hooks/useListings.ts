@@ -126,9 +126,12 @@ export function useUpdateListing(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: UpdateListingRequest) => updateListing(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['listing', id] });
-      queryClient.invalidateQueries({ queryKey: ['owner-listing', id] });
+    onSuccess: (updatedListing) => {
+      // Immediately populate owner cache with fresh server response so the
+      // detail page shows the real moderationStatus (e.g. "pending") without
+      // waiting for the background refetch to complete.
+      queryClient.setQueryData(['owner-listing', id], updatedListing);
+      queryClient.removeQueries({ queryKey: ['listing', id] });
       queryClient.invalidateQueries({ queryKey: ['my-listings'] });
       queryClient.invalidateQueries({ queryKey: ['my-listing-quota-summary'] });
     },

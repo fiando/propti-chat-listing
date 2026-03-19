@@ -120,21 +120,35 @@ func TestModerationServiceRejectsListingWhenImageIsNotPropertyRelated(t *testing
 }
 
 func TestLooksLikePropertyRequiresRelevantLabels(t *testing.T) {
-	propertyLabels := []string{"Airplane", "Poster", "Vehicle"}
-	if looksLikeProperty(buildLabels(propertyLabels...)) {
+	if looksLikeProperty(buildLabels(90.0, "Airplane", "Poster", "Vehicle")) {
 		t.Fatalf("expected non-property labels to be rejected")
 	}
 
-	if !looksLikeProperty(buildLabels("House", "Building", "Window")) {
+	if !looksLikeProperty(buildLabels(90.0, "House", "Building", "Window")) {
 		t.Fatalf("expected property-related labels to be accepted")
+	}
+
+	// Labels below confidence threshold must not count as property.
+	if looksLikeProperty(buildLabels(50.0, "House", "Building", "Window")) {
+		t.Fatalf("expected low-confidence property labels to be rejected")
+	}
+
+	// Parent/alias expansion must NOT bypass the check (game screenshot scenario).
+	gameLabels := buildLabels(90.0, "Video Game", "Controller", "Screen")
+	// Manually add a parent "Indoor" to simulate Rekognition's taxonomy expansion.
+	indoor := "Indoor"
+	gameLabels[0].Parents = []rekognitiontypes.Parent{{Name: &indoor}}
+	if looksLikeProperty(gameLabels) {
+		t.Fatalf("expected game labels with indoor parent to be rejected (no parent expansion)")
 	}
 }
 
-func buildLabels(names ...string) []rekognitiontypes.Label {
+func buildLabels(confidence float32, names ...string) []rekognitiontypes.Label {
 	labels := make([]rekognitiontypes.Label, 0, len(names))
 	for _, name := range names {
 		value := name
-		labels = append(labels, rekognitiontypes.Label{Name: &value})
+		conf := confidence
+		labels = append(labels, rekognitiontypes.Label{Name: &value, Confidence: &conf})
 	}
 	return labels
 }

@@ -19,18 +19,13 @@ var propertyRelevantLabels = map[string]struct{}{
 	"bathroom":        {},
 	"bedroom":         {},
 	"building":        {},
-	"ceiling":         {},
-	"chair":           {},
 	"cottage":         {},
 	"dining room":     {},
 	"door":            {},
 	"facade":          {},
-	"furniture":       {},
 	"garage":          {},
-	"home decor":      {},
 	"house":           {},
 	"housing":         {},
-	"indoor":          {},
 	"interior design": {},
 	"kitchen":         {},
 	"living room":     {},
@@ -40,12 +35,8 @@ var propertyRelevantLabels = map[string]struct{}{
 	"property":        {},
 	"real estate":     {},
 	"resort":          {},
-	"room":            {},
-	"sink":            {},
-	"sofa":            {},
 	"staircase":       {},
 	"swimming pool":   {},
-	"table":           {},
 	"villa":           {},
 	"window":          {},
 	"yard":            {},
@@ -128,8 +119,20 @@ func decodeListingImage(raw string) ([]byte, error) {
 	return nil, fmt.Errorf("invalid base64 image data")
 }
 
+const propertyLabelMinConfidence = float32(75.0)
+
+// looksLikeProperty checks only the DIRECT label name (not parent/alias/category
+// expansions) and requires at least 75% confidence to avoid false positives from
+// unrelated images (e.g. game screenshots whose parent category is "Indoor").
 func looksLikeProperty(labels []rekognitiontypes.Label) bool {
-	for _, name := range collectLabelNames(labels) {
+	for _, label := range labels {
+		if label.Name == nil || label.Confidence == nil {
+			continue
+		}
+		if *label.Confidence < propertyLabelMinConfidence {
+			continue
+		}
+		name := strings.ToLower(strings.TrimSpace(*label.Name))
 		if _, ok := propertyRelevantLabels[name]; ok {
 			return true
 		}
