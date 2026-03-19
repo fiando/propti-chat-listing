@@ -87,6 +87,28 @@ export default function EditListingPage({ params }: { params: Promise<{ id: stri
     );
   }
 
+  const isEditLocked = listing.moderationStatus !== 'approved';
+
+  if (isEditLocked) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-16">
+        <div className="card p-6">
+          <h1 className="text-2xl font-black text-brand-primary">Iklan ini tidak bisa diedit</h1>
+          <p className="mt-3 text-sm leading-6 text-gray-600">
+            Konten owner untuk listing yang masih direview atau sudah ditolak tetap disembunyikan. Jika listing ini
+            memang tidak ingin dipertahankan, hapus dari halaman detail iklan.
+          </p>
+          <div className="mt-6">
+            <Link href={`/listings/${resolvedParams.id}`} className="btn-secondary inline-flex items-center gap-2">
+              <ArrowLeft className="w-4 h-4" />
+              Kembali ke Detail Iklan
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const initialData = {
     title: listing.title,
     description: listing.description,

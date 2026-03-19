@@ -28,8 +28,8 @@ const HERO_PROOF_POINTS = [
     desc: 'Homepage hanya menampilkan listing aktif yang sudah lolos moderasi dan siap dihubungi.',
   },
   {
-    title: 'Fokus ke info listing inti',
-    desc: 'MVP Propti fokus pada judul, harga, media, lokasi, dan alur kontak yang langsung kepakai.',
+    title: 'Fokus ke info properti yang paling dicari',
+    desc: 'Judul, harga, media, lokasi, dan alur kontak dirapikan dalam satu alur yang sederhana.',
   },
 ];
 
@@ -82,9 +82,9 @@ const PRODUCT_PROOF = [
   {
     icon: <TrendingUp className="w-6 h-6 text-brand-primary" />,
     bg: 'bg-brand-light',
-    title: 'MVP fokus ke hal yang paling penting',
-    desc: 'Produk saat ini difokuskan ke pasang listing yang rapi, moderasi, media, dan alur kontak tanpa fitur tambahan yang belum perlu.',
-    tag: 'MVP focus',
+    title: 'Semua info penting dalam satu alur sederhana',
+    desc: 'Mulai dari pasang listing, media, moderasi, sampai alur kontak calon pembeli dibuat ringkas dan mudah dipakai.',
+    tag: 'Mudah dipakai',
   },
 ];
 

@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"os"
 	"testing"
@@ -72,6 +73,25 @@ func (f *fakePremiumTransactionStore) UpdateStatus(_ context.Context, transactio
 		}
 	}
 	return nil
+}
+
+func (f *fakePremiumTransactionStore) ListByUserID(_ context.Context, userID string, limit int32) ([]models.Transaction, error) {
+	if limit <= 0 {
+		limit = int32(len(f.items))
+	}
+
+	result := make([]models.Transaction, 0, len(f.items))
+	for _, tx := range f.items {
+		if tx.UserID != userID {
+			continue
+		}
+		result = append(result, *tx)
+		if int32(len(result)) == limit {
+			break
+		}
+	}
+
+	return result, nil
 }
 
 type fakePremiumListingService struct {
@@ -217,6 +237,160 @@ func TestPremiumHandlerUpgradeToPremiumUsesPaymentProvider(t *testing.T) {
 	}
 	if txStore.items[0].Provider != payments.ProviderDOKU {
 		t.Fatalf("expected stored provider %q, got %q", payments.ProviderDOKU, txStore.items[0].Provider)
+	}
+}
+
+func TestPremiumHandlerUpgradeToPremiumReusesPendingTransactionWithinPaymentWindow(t *testing.T) {
+	t.Setenv("PUBLIC_API_BASE_URL", "https://api.propti.test")
+
+	userStore := &fakePremiumUserStore{
+		byID: map[string]*models.User{
+			"user-1": {
+				UserID: "user-1",
+				Name:   "Bobby",
+				Email:  "bob@example.com",
+				Phone:  "6281234567890",
+				Subscription: models.Subscription{
+					Tier: models.SubscriptionFree,
+				},
+			},
+		},
+	}
+
+	createdAt := time.Now().UTC().Add(-20 * time.Minute)
+	existingTx := &models.Transaction{
+		PK:            "tx-existing",
+		SK:            createdAt.Format(time.RFC3339),
+		TransactionID: "tx-existing",
+		UserID:        "user-1",
+		Type:          models.TransactionTypePremiumTier,
+		Amount:        49000,
+		Currency:      "IDR",
+		Status:        models.TransactionStatusPending,
+		Provider:      payments.ProviderDOKU,
+		PaymentID:     "tok-existing",
+		OrderID:       "PROPTI-PREM-EXISTING",
+		PaymentURL:    "https://sandbox.doku.com/checkout-link-v2/tok-existing",
+		CreatedAt:     createdAt,
+		UpdatedAt:     createdAt,
+	}
+	txStore := &fakePremiumTransactionStore{
+		items: []*models.Transaction{existingTx},
+		byID: map[string]*models.Transaction{
+			"PROPTI-PREM-EXISTING": existingTx,
+		},
+	}
+	provider := &fakePaymentProvider{
+		createErr: errors.New("CreatePayment should not be called when pending premium checkout is still active"),
+	}
+
+	handler := NewPremiumHandler(userStore, txStore, &fakePremiumListingService{}, provider)
+
+	resp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodPost,
+		Path:       "/premium/upgrade",
+		Headers:    authHeaderForPremiumTest(t, "user-1"),
+	})
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", resp.StatusCode, resp.Body)
+	}
+
+	var body models.PaymentResponse
+	if err := json.Unmarshal([]byte(resp.Body), &body); err != nil {
+		t.Fatalf("response is not valid json: %v", err)
+	}
+	if body.TransactionID != "tx-existing" {
+		t.Fatalf("expected existing transaction id to be reused, got %q", body.TransactionID)
+	}
+	if body.OrderID != "PROPTI-PREM-EXISTING" {
+		t.Fatalf("expected existing order id to be reused, got %q", body.OrderID)
+	}
+	if body.PaymentURL != "https://sandbox.doku.com/checkout-link-v2/tok-existing" {
+		t.Fatalf("expected existing payment url to be reused, got %q", body.PaymentURL)
+	}
+	if len(txStore.items) != 1 {
+		t.Fatalf("expected no new transaction to be stored, got %d items", len(txStore.items))
+	}
+}
+
+func TestPremiumHandlerUpgradeToPremiumCreatesNewTransactionAfterPendingPaymentExpires(t *testing.T) {
+	t.Setenv("PUBLIC_API_BASE_URL", "https://api.propti.test")
+
+	userStore := &fakePremiumUserStore{
+		byID: map[string]*models.User{
+			"user-1": {
+				UserID: "user-1",
+				Name:   "Bobby",
+				Email:  "bob@example.com",
+				Phone:  "6281234567890",
+				Subscription: models.Subscription{
+					Tier: models.SubscriptionFree,
+				},
+			},
+		},
+	}
+
+	expiredAt := time.Now().UTC().Add(-61 * time.Minute)
+	expiredTx := &models.Transaction{
+		PK:            "tx-expired",
+		SK:            expiredAt.Format(time.RFC3339),
+		TransactionID: "tx-expired",
+		UserID:        "user-1",
+		Type:          models.TransactionTypePremiumTier,
+		Amount:        49000,
+		Currency:      "IDR",
+		Status:        models.TransactionStatusPending,
+		Provider:      payments.ProviderDOKU,
+		PaymentID:     "tok-expired",
+		OrderID:       "PROPTI-PREM-EXPIRED",
+		PaymentURL:    "https://sandbox.doku.com/checkout-link-v2/tok-expired",
+		CreatedAt:     expiredAt,
+		UpdatedAt:     expiredAt,
+	}
+	txStore := &fakePremiumTransactionStore{
+		items: []*models.Transaction{expiredTx},
+		byID: map[string]*models.Transaction{
+			"PROPTI-PREM-EXPIRED": expiredTx,
+		},
+	}
+	provider := &fakePaymentProvider{
+		createResult: &payments.CreatePaymentResult{
+			Provider:   payments.ProviderDOKU,
+			OrderID:    "PROPTI-PREM-NEW",
+			PaymentID:  "tok-new",
+			PaymentURL: "https://sandbox.doku.com/checkout-link-v2/tok-new",
+		},
+	}
+
+	handler := NewPremiumHandler(userStore, txStore, &fakePremiumListingService{}, provider)
+
+	resp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodPost,
+		Path:       "/premium/upgrade",
+		Headers:    authHeaderForPremiumTest(t, "user-1"),
+	})
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", resp.StatusCode, resp.Body)
+	}
+
+	var body models.PaymentResponse
+	if err := json.Unmarshal([]byte(resp.Body), &body); err != nil {
+		t.Fatalf("response is not valid json: %v", err)
+	}
+	if body.OrderID != "PROPTI-PREM-NEW" {
+		t.Fatalf("expected a new order id after expiry, got %q", body.OrderID)
+	}
+	if body.PaymentURL != "https://sandbox.doku.com/checkout-link-v2/tok-new" {
+		t.Fatalf("expected a new payment url after expiry, got %q", body.PaymentURL)
+	}
+	if len(txStore.items) != 2 {
+		t.Fatalf("expected a new transaction to be stored, got %d items", len(txStore.items))
 	}
 }
 

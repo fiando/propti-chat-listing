@@ -57,7 +57,7 @@ const OWNER_MODERATION_NOTICES: Partial<
   rejected: {
     title: 'Iklan belum bisa ditampilkan ke publik',
     message:
-      'Iklan ini belum bisa ditampilkan ke publik. Kamu bisa perbarui detail iklan lalu kirim ulang, atau hapus iklan ini jika sudah tidak diperlukan.',
+      'Iklan ini belum bisa ditampilkan ke publik. Kontennya disembunyikan dari Propti dan kamu hanya bisa menghapus iklan ini.',
     tone: 'border-red-200 bg-red-50 text-red-700',
   },
 };
@@ -99,6 +99,7 @@ export function ListingDetail({
   const sellerName = listing.sellerName?.trim() || 'Penjual Propti';
   const hasSellerContact = Boolean(listing.hasSellerPhone);
   const ownerModerationNotice = isOwner ? OWNER_MODERATION_NOTICES[listing.moderationStatus] : undefined;
+  const shouldHideOwnerContent = isOwner && listing.moderationStatus !== 'approved';
 
   const handleRevealContact = async (channel: ContactRevealChannel) => {
     if (!isAuthenticated) {
@@ -151,6 +152,81 @@ export function ListingDetail({
       toast('Gagal membagikan link iklan.', 'error');
     }
   };
+
+  if (shouldHideOwnerContent) {
+    return (
+      <div className="max-w-5xl mx-auto px-4 py-8">
+        <div className="grid lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-6">
+            {ownerModerationNotice && (
+              <div className={`rounded-2xl border px-4 py-4 text-sm ${ownerModerationNotice.tone}`}>
+                <p className="font-semibold">{ownerModerationNotice.title}</p>
+                <p className="mt-1 leading-6">{ownerModerationNotice.message}</p>
+              </div>
+            )}
+
+            <div className="card overflow-hidden">
+              <div className="flex h-72 items-center justify-center bg-gradient-to-br from-brand-primary/20 to-brand-secondary/30 md:h-96">
+                <Home className="w-24 h-24 text-brand-secondary/30" />
+              </div>
+            </div>
+
+            <div className="card p-6">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Konten iklan disembunyikan selama proses moderasi
+                  </p>
+                  <h1 className="mt-2 text-2xl font-bold text-gray-900">
+                    {listing.moderationStatus === 'rejected' ? 'Iklan ditolak' : 'Iklan sedang direview'}
+                  </h1>
+                  <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-600">
+                    Propti tidak menampilkan judul, gambar, deskripsi, atau lokasi yang kamu kirim sampai iklan
+                    selesai direview. Jika iklan ditolak, satu-satunya aksi yang tersedia adalah menghapus iklan.
+                  </p>
+                </div>
+
+                <div className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full ${status.color}`}>
+                  <status.icon className="w-3.5 h-3.5" />
+                  {status.label}
+                </div>
+              </div>
+
+              <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">ID iklan</p>
+                  <p className="mt-1 text-sm font-semibold text-gray-900">{listing.listingId}</p>
+                </div>
+                <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Dikirim pada</p>
+                  <p className="mt-1 text-sm font-semibold text-gray-900">{formatDate(listing.createdAt)}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="card p-6 sticky top-20">
+              <h2 className="text-lg font-bold text-gray-900">Aksi yang tersedia</h2>
+              <p className="mt-2 text-sm leading-6 text-gray-600">
+                Selama moderasi belum disetujui, Propti hanya menyediakan penghapusan iklan agar konten sensitif
+                tidak terus tersimpan di alur owner.
+              </p>
+
+              <button
+                onClick={onDelete}
+                disabled={!onDelete}
+                className="mt-6 w-full flex items-center justify-center gap-2 border border-red-200 text-red-500 rounded-xl py-2.5 text-sm font-medium hover:bg-red-50 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Trash2 className="w-4 h-4" />
+                Hapus Iklan
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">

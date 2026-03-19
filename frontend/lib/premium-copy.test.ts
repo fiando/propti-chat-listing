@@ -42,6 +42,13 @@ test('premium and homepage copy avoid statistics or insight claims', () => {
   assert.doesNotMatch(premiumModal, /prioritas dukungan pelanggan/i);
 });
 
+test('homepage copy avoids internal MVP wording and speaks to end users', () => {
+  assert.match(homePage, /Fokus ke info properti yang paling dicari/i);
+  assert.match(homePage, /Semua info penting dalam satu alur sederhana/i);
+  assert.doesNotMatch(homePage, /MVP fokus ke hal yang paling penting/i);
+  assert.doesNotMatch(homePage, /MVP focus/i);
+});
+
 test('premium modal upgrades without requiring profile phone', () => {
   assert.doesNotMatch(premiumModal, /profilePhone/);
   assert.doesNotMatch(premiumModal, /Lengkapi nomor telepon/i);

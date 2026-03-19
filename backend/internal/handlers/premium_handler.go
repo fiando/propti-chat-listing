@@ -30,6 +30,7 @@ type premiumUserStore interface {
 type premiumTransactionStore interface {
 	Put(ctx context.Context, tx *models.Transaction) error
 	GetByOrderID(ctx context.Context, orderID string) (*models.Transaction, error)
+	ListByUserID(ctx context.Context, userID string, limit int32) ([]models.Transaction, error)
 	UpdateStatus(ctx context.Context, transactionID, createdAt string, status models.TransactionStatus) error
 }
 
@@ -98,6 +99,20 @@ func (h *PremiumHandler) upgradeToPremium(ctx context.Context, req events.APIGat
 		return jsonResponse(http.StatusBadRequest, utils.MarshalErrorResponse(utils.NewAppError(400, "already on premium tier"))), nil
 	}
 
+	if existingTx, err := h.findReusablePendingPremiumTransaction(ctx, userID); err != nil {
+		utils.LogError("find reusable premium transaction", err, "userId", userID)
+		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
+	} else if existingTx != nil {
+		resp := models.PaymentResponse{
+			TransactionID: existingTx.TransactionID,
+			PaymentURL:    existingTx.PaymentURL,
+			OrderID:       existingTx.OrderID,
+			Amount:        existingTx.Amount,
+		}
+		body, _ := json.Marshal(resp)
+		return jsonResponse(http.StatusOK, string(body)), nil
+	}
+
 	orderID, err := generateOrderID("PROPTI-PREM-")
 	if err != nil {
 		utils.LogError("generate premium order id", err, "userId", userID)
@@ -161,6 +176,33 @@ func (h *PremiumHandler) upgradeToPremium(ctx context.Context, req events.APIGat
 	}
 	body, _ := json.Marshal(resp)
 	return jsonResponse(http.StatusOK, string(body)), nil
+}
+
+func (h *PremiumHandler) findReusablePendingPremiumTransaction(ctx context.Context, userID string) (*models.Transaction, error) {
+	txs, err := h.transactionRepo.ListByUserID(ctx, userID, 10)
+	if err != nil {
+		return nil, err
+	}
+
+	now := time.Now().UTC()
+	paymentWindow := time.Duration(payments.DefaultPaymentDueMinutes) * time.Minute
+
+	for _, tx := range txs {
+		if tx.Type != models.TransactionTypePremiumTier || tx.Status != models.TransactionStatusPending {
+			continue
+		}
+		if tx.Provider != h.paymentProvider.Name() || strings.TrimSpace(tx.OrderID) == "" || strings.TrimSpace(tx.PaymentURL) == "" {
+			continue
+		}
+		if tx.CreatedAt.IsZero() || !tx.CreatedAt.Add(paymentWindow).After(now) {
+			continue
+		}
+
+		reusable := tx
+		return &reusable, nil
+	}
+
+	return nil, nil
 }
 
 // featureListing initiates payment to feature or promote a listing.

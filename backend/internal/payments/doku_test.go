@@ -96,6 +96,9 @@ func TestDOKUProviderCreatePaymentBuildsSignedCheckoutRequest(t *testing.T) {
 	if got := order["callback_url_result"]; got != "https://propti.test/profile#premium" {
 		t.Fatalf("expected callback_url_result to be forwarded, got %#v", got)
 	}
+	if got := order["language"]; got != "ID" {
+		t.Fatalf("expected language to default to Indonesian (ID), got %#v", got)
+	}
 	if got := order["auto_redirect"]; got != true {
 		t.Fatalf("expected auto_redirect to be true, got %#v", got)
 	}

@@ -61,6 +61,7 @@ func (p *DOKUProvider) CreatePayment(ctx context.Context, input CreatePaymentInp
 			"invoice_number": input.OrderID,
 			"amount":         input.Amount,
 			"currency":       defaultString(input.Currency, "IDR"),
+			"language":       "ID",
 		},
 		"payment_methods_type": []string{
 			"VIRTUAL_ACCOUNT_BCA",
@@ -82,7 +83,7 @@ func (p *DOKUProvider) CreatePayment(ctx context.Context, input CreatePaymentInp
 		},
 		"payment": map[string]any{
 			"type":             "SALE",
-			"payment_due_date": 60,
+			"payment_due_date": DefaultPaymentDueMinutes,
 		},
 		"customer": map[string]any{
 			"id":    input.Customer.ID,

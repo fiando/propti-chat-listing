@@ -4,6 +4,8 @@ import "context"
 
 const (
 	ProviderDOKU = "doku"
+
+	DefaultPaymentDueMinutes = 60
 )
 
 type PaymentStatus string

@@ -441,8 +441,10 @@ Resources:
 
   TransactionsTable:
     Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
-      TableName: !Sub "propti-transactions-v2-${Stage}"
+      TableName: !Sub "propti-transactions-${Stage}"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: PK
