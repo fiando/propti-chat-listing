@@ -2,8 +2,6 @@ function digitsOnly(value: string) {
   return value.replace(/\D+/g, '');
 }
 
-const DEFAULT_WHATSAPP_MESSAGE = 'Halo, saya tertarik dengan properti ini di Propti. Apakah masih tersedia?';
-
 export function normalizeContactPhone(phone: string) {
   const digits = digitsOnly(phone);
   if (!digits) {
@@ -21,7 +19,19 @@ export function normalizeContactPhone(phone: string) {
   return digits;
 }
 
-export function buildListingContactLinks(phone: string) {
+export function buildWhatsAppMessage(title?: string, listingUrl?: string): string {
+  let message = 'Halo, saya tertarik dengan properti';
+  if (title) {
+    message += ` *${title}*`;
+  }
+  message += ' di Propti. Apakah masih tersedia?';
+  if (listingUrl) {
+    message += `\n${listingUrl}`;
+  }
+  return message;
+}
+
+export function buildListingContactLinks(phone: string, title?: string, listingUrl?: string) {
   const normalizedPhone = normalizeContactPhone(phone);
   if (!normalizedPhone) {
     return {
@@ -30,8 +40,9 @@ export function buildListingContactLinks(phone: string) {
     };
   }
 
+  const message = buildWhatsAppMessage(title, listingUrl);
   return {
-    whatsappUrl: `https://wa.me/${normalizedPhone}?text=${encodeURIComponent(DEFAULT_WHATSAPP_MESSAGE)}`,
+    whatsappUrl: `https://wa.me/${normalizedPhone}?text=${encodeURIComponent(message)}`,
     phoneUrl: `tel:+${normalizedPhone}`,
   };
 }
