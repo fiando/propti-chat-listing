@@ -86,7 +86,7 @@ func TestModerationServiceRejectsListingWhenImageIsNotPropertyRelated(t *testing
 
 	service := NewModerationService(textModerator, imageModerator, moderationStore, store, media)
 
-	listing, err := service.ModerateListing(ctx, "listing-1")
+	listing, err := service.ModerateListing(ctx, "listing-1", true, nil)
 	if err != nil {
 		t.Fatalf("ModerateListing returned error: %v", err)
 	}
