@@ -48,6 +48,11 @@ interface ListingDetailProps {
 const OWNER_MODERATION_NOTICES: Partial<
   Record<'approved' | 'pending' | 'rejected', { title: string; message: string; tone: string }>
 > = {
+  pending: {
+    title: 'Iklan sedang diproses',
+    message: 'Iklan kamu sudah tersimpan dan sedang kami proses. Sebentar lagi akan tampil ke publik.',
+    tone: 'border-blue-200 bg-blue-50 text-blue-700',
+  },
   rejected: {
     title: 'Iklan kamu belum lolos review',
     message: 'Tenang, kamu bisa hapus iklan ini lalu buat ulang dengan konten yang lebih sesuai.',
