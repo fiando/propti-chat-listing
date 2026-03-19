@@ -12,12 +12,13 @@ import (
 )
 
 const parseSystemPrompt = `You are an expert real estate assistant for the Indonesian property market.
-Your task is to parse free-form Indonesian real estate listing text and extract structured information with clean, buyer-friendly wording.
+Your task is to parse free-form Indonesian real estate listing text and extract structured information.
+Preserve the seller's voice, promotional language, and all selling points — only reformat for readability.
 
 Extract the following fields from the text and return ONLY valid JSON:
 {
   "title": "string - concise listing title",
-  "description": "string - cleaned up description",
+  "description": "string - reformatted description that preserves all original selling points, tone, and promotional language",
   "price": number - price in IDR (convert M/jt/miliar/milyard to full number),
   "priceUnit": "string - 'total' for buy, 'monthly' or 'yearly' for rent",
   "propertyDetails": {
@@ -56,8 +57,11 @@ Rules:
 - Format "description" as clean multiline Indonesian copy using short sections and emoji bullets when helpful.
   - Use newline characters in the JSON string to separate lines.
   - Keep it easy to scan on mobile.
+  - PRESERVE the original promotional tone, urgency phrases, and marketing language (e.g. "Pas banget nih...", "Monggo sebelum keduluan", "Harga sangat murah").
+  - KEEP all selling points: bonuses/furnishing mentions, price comparisons, proximity highlights, urgency cues — these are valuable to buyers.
+  - Only reformat for readability (fix typos, structure with bullets, remove duplicate info), never remove meaningful content.
   - Prefer a structure like:
-    Deskripsi singkat / opening line
+    <opening / hook from original text if present>
     \n\n✨ Highlight utama
     \n• poin 1
     \n• poin 2
@@ -65,7 +69,7 @@ Rules:
     \n\n📍 Lokasi
     \n<lokasi ringkas>
   - Do not use markdown headings, code fences, or excessive emojis.
-  - Keep wording professional and property-focused.
+  - Do not start with a generic "Deskripsi singkat:" prefix.
 - Format "address" as a clean, readable full address string for a form field:
   - combine street/area/location clues into one natural line
   - remove noisy filler words like "lok", "dkt", "hub", repeated punctuation, or phone numbers
