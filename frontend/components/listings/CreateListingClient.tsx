@@ -18,6 +18,7 @@ import { useToast } from '@/app/toaster';
 import {
   CREATE_LISTING_ACCESS_ERROR_MESSAGE,
   FREE_TIER_LISTING_LIMIT,
+  PREMIUM_TIER_LISTING_LIMIT,
   getCreateListingErrorMessage,
 } from '@/lib/create-listing-errors';
 import { normalizeAmenityIds } from '@/lib/listing-form-utils';
@@ -66,6 +67,7 @@ export function CreateListingClient({
   const isPremium = initialIsPremium;
   const createAccessState = initialCreateAccessState;
   const activeListingsCount = createAccessState.activeListingsCount;
+  const listingLimit = isPremium ? PREMIUM_TIER_LISTING_LIMIT : FREE_TIER_LISTING_LIMIT;
   const hasCreateAccessError = createAccessState.status === 'error';
   const isCreateBlocked = createAccessState.status === 'blocked';
   const visibleStep: Step = hasCreateAccessError || isCreateBlocked ? 'choose' : step;
@@ -376,26 +378,30 @@ export function CreateListingClient({
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-amber-700">
-                    Batas {FREE_TIER_LISTING_LIMIT} listing gratis sudah terpakai
+                    Batas {listingLimit} listing {isPremium ? 'Premium' : 'gratis'} sudah terpakai
                   </p>
                   <h2 className="mt-1 text-xl font-bold text-gray-900">
-                    Upgrade dulu untuk memasang iklan baru
+                    {isPremium
+                      ? 'Arsipkan salah satu listing untuk memasang iklan baru'
+                      : 'Upgrade dulu untuk memasang iklan baru'}
                   </h2>
                   <p className="mt-2 text-sm leading-6 text-gray-600">
                      {createAccessState.message}
                   </p>
                   <p className="mt-2 text-sm text-gray-500">
-                    Saat ini kamu sudah punya {activeListingsCount} listing aktif di akun gratis.
+                    Saat ini kamu sudah punya {activeListingsCount} listing aktif di akun {isPremium ? 'Premium' : 'gratis'}.
                   </p>
 
                   <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-                    <Link
-                      href="/profile#premium"
-                      className="inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-gold px-4 py-3 text-sm font-semibold text-white shadow-md transition hover:brightness-105"
-                    >
-                      <Crown className="h-4 w-4" />
-                      Upgrade ke Premium
-                    </Link>
+                    {!isPremium && (
+                      <Link
+                        href="/profile#premium"
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-gold px-4 py-3 text-sm font-semibold text-white shadow-md transition hover:brightness-105"
+                      >
+                        <Crown className="h-4 w-4" />
+                        Upgrade ke Premium
+                      </Link>
+                    )}
                     <Link
                       href="/listings"
                       className="inline-flex items-center justify-center rounded-2xl border-2 border-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-white"

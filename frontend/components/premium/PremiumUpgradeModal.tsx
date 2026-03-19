@@ -3,33 +3,25 @@
 import { useState } from 'react';
 import { Crown, X, Check, Loader2 } from 'lucide-react';
 import { upgradePremium } from '@/lib/api';
-import Link from 'next/link';
 
 interface PremiumUpgradeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  profilePhone?: string | null;
 }
 
 const PREMIUM_FEATURES = [
-  'Upload hingga 15 foto per iklan (gratis maksimal 3)',
-  'Iklan tampil lebih lama (gratis 30 hari)',
-  'Posting lebih dari 3 listing gratis',
-  'Statistik dasar listing: dilihat dan disimpan',
+  'Premium: maksimal 15 foto per iklan',
+  'Premium: maksimal 15 listing aktif',
+  'Premium: tayang sampai 90 hari',
 ];
 
-export function PremiumUpgradeModal({ isOpen, onClose, profilePhone }: PremiumUpgradeModalProps) {
+export function PremiumUpgradeModal({ isOpen, onClose }: PremiumUpgradeModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
   const handleUpgrade = async () => {
-    if (!profilePhone?.trim()) {
-      setError('Lengkapi nomor telepon dulu sebelum upgrade Premium.');
-      return;
-    }
-
     setLoading(true);
     setError(null);
     try {
@@ -65,7 +57,7 @@ export function PremiumUpgradeModal({ isOpen, onClose, profilePhone }: PremiumUp
             <Crown className="w-8 h-8 text-white" />
           </div>
           <h2 className="text-2xl font-black">Propti Premium</h2>
-          <p className="text-white/80 mt-1 text-sm">Tambah kapasitas listing dan media tanpa janji fitur yang belum aktif</p>
+          <p className="text-white/80 mt-1 text-sm">15 listing aktif, 15 foto, tayang 90 hari.</p>
           <div className="mt-4">
             <span className="text-4xl font-black">Rp 49rb</span>
             <span className="text-white/70 text-sm ml-1">/bulan</span>
@@ -85,18 +77,13 @@ export function PremiumUpgradeModal({ isOpen, onClose, profilePhone }: PremiumUp
             ))}
           </ul>
 
+          <div className="mb-6 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+            Paket gratis: maksimal 3 foto per iklan, 3 listing aktif, tayang 30 hari.
+          </div>
+
           {error && (
             <div className="bg-red-50 border border-red-100 rounded-xl p-3 mb-4 text-sm text-red-600">
               {error}
-            </div>
-          )}
-
-          {!profilePhone?.trim() && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 mb-4 text-sm text-amber-700">
-              Lengkapi nomor telepon dulu di pengaturan akun supaya proses upgrade bisa lanjut.
-              <Link href="/settings?returnTo=/profile#premium" className="ml-1 font-semibold underline">
-                Buka pengaturan
-              </Link>
             </div>
           )}
 
@@ -120,6 +107,9 @@ export function PremiumUpgradeModal({ isOpen, onClose, profilePhone }: PremiumUp
           </button>
 
           <p className="text-center text-xs text-gray-400 mt-3">
+            Iklan unggulan tetap terpisah dan berbayar per listing.
+          </p>
+          <p className="text-center text-xs text-gray-400 mt-1">
             Pembayaran aman melalui DOKU. Batalkan kapan saja.
           </p>
         </div>

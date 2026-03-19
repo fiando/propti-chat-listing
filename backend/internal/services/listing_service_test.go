@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -20,6 +21,7 @@ type fakeListingStore struct {
 	listingsByID        map[string]*models.Listing
 	listingsByUser      map[string]map[string]*models.Listing
 	listingsByUserIndex map[string][]models.Listing
+	scanListings        []models.Listing
 }
 
 func (f *fakeListingStore) Put(ctx context.Context, listing *models.Listing) error {
@@ -87,18 +89,28 @@ func (f *fakeListingStore) CountActiveByUserID(ctx context.Context, userID strin
 		return 0, nil
 	}
 
+	now := time.Now().UTC()
 	count := 0
 	for _, listing := range f.listingsByUser[userID] {
-		if listing.Status == models.ListingStatusActive {
-			count++
+		if listing.Status != models.ListingStatusActive {
+			continue
 		}
+		if listing.ExpiresAt != nil && !listing.ExpiresAt.After(now) {
+			continue
+		}
+		count++
 	}
 
 	return count, nil
 }
 func (f *fakeListingStore) Delete(ctx context.Context, userID, listingID string) error { return nil }
 func (f *fakeListingStore) Scan(ctx context.Context, params *models.ListingSearchParams) ([]models.Listing, error) {
-	return nil, nil
+	if f.scanListings == nil {
+		return nil, nil
+	}
+	result := make([]models.Listing, len(f.scanListings))
+	copy(result, f.scanListings)
+	return result, nil
 }
 
 type fakeUserStore struct {
@@ -291,6 +303,104 @@ func TestCreateListingFreeTierIgnoresArchivedListingsInQuota(t *testing.T) {
 	}
 }
 
+func TestCreateListingPremiumTierRejectsWhenActiveQuotaIsReached(t *testing.T) {
+	ctx := context.Background()
+	now := time.Now().UTC()
+	activeListings := make(map[string]*models.Listing, 15)
+	for i := 0; i < 15; i++ {
+		listingID := fmt.Sprintf("listing-%d", i+1)
+		expiresAt := now.Add(24 * time.Hour)
+		activeListings[listingID] = &models.Listing{
+			ListingID:        listingID,
+			UserID:           "user-1",
+			Status:           models.ListingStatusActive,
+			ModerationStatus: models.ModerationStatusApproved,
+			ExpiresAt:        &expiresAt,
+		}
+	}
+
+	service := NewListingService(
+		&fakeListingStore{
+			listingsByUser: map[string]map[string]*models.Listing{
+				"user-1": activeListings,
+			},
+		},
+		&fakeUserStore{
+			user: &models.User{
+				UserID: "user-1",
+				Subscription: models.Subscription{
+					Tier: models.SubscriptionPremium,
+				},
+			},
+		},
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	_, err := service.CreateListing(ctx, "user-1", &models.CreateListingRequest{
+		Title:       "Rumah premium",
+		Description: "Siap tayang",
+		Price:       1500000000,
+		PriceUnit:   "total",
+		ListingType: models.ListingTypeSell,
+		Location: models.Location{
+			Address: "Jl. Premium No. 15",
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "premium tier allows at most 15 active listing") {
+		t.Fatalf("expected premium quota error, got %v", err)
+	}
+}
+
+func TestCreateListingPremiumTierSetsNinetyDayExpiry(t *testing.T) {
+	ctx := context.Background()
+	store := &fakeListingStore{}
+	fixedNow := time.Date(2026, time.March, 19, 7, 30, 0, 0, time.UTC)
+
+	service := NewListingService(
+		store,
+		&fakeUserStore{
+			user: &models.User{
+				UserID: "user-1",
+				Subscription: models.Subscription{
+					Tier: models.SubscriptionPremium,
+				},
+			},
+		},
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	service.now = func() time.Time { return fixedNow }
+
+	listing, err := service.CreateListing(ctx, "user-1", &models.CreateListingRequest{
+		Title:       "Rumah premium",
+		Description: "Siap tayang",
+		Price:       1500000000,
+		PriceUnit:   "total",
+		ListingType: models.ListingTypeSell,
+		Location: models.Location{
+			Address: "Jl. Premium No. 15",
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateListing returned error: %v", err)
+	}
+	if listing.ExpiresAt == nil {
+		t.Fatal("expected premium listing expiry to be set")
+	}
+	want := fixedNow.AddDate(0, 0, 90)
+	if !listing.ExpiresAt.Equal(want) {
+		t.Fatalf("expected premium expiry %s, got %s", want.Format(time.RFC3339), listing.ExpiresAt.Format(time.RFC3339))
+	}
+	if !listing.PremiumFeatures.IsPremium {
+		t.Fatal("expected premium listing flag to be set")
+	}
+}
+
 func TestGetListingReturnsNotFoundWhenIndexEntryIsStale(t *testing.T) {
 	ctx := context.Background()
 
@@ -360,6 +470,126 @@ func TestGetListingDoesNotIncrementViewsOnRead(t *testing.T) {
 	}
 	if listing.Views != 41 {
 		t.Fatalf("expected read path to leave views unchanged, got %d", listing.Views)
+	}
+}
+
+func TestGetListingReturnsNotFoundWhenListingHasExpired(t *testing.T) {
+	ctx := context.Background()
+	expiredAt := time.Now().UTC().Add(-time.Hour)
+	store := &fakeListingStore{
+		listingsByID: map[string]*models.Listing{
+			"listing-1": {
+				ListingID:        "listing-1",
+				UserID:           "user-1",
+				Title:            "Rumah Depok",
+				Status:           models.ListingStatusActive,
+				ModerationStatus: models.ModerationStatusApproved,
+				ExpiresAt:        &expiredAt,
+				PremiumFeatures: models.PremiumFeatures{
+					IsFeatured:     true,
+					FeaturedUntil:  &expiredAt,
+					PromotionUntil: &expiredAt,
+				},
+			},
+		},
+		listingsByUser: map[string]map[string]*models.Listing{
+			"user-1": {
+				"listing-1": {
+					ListingID:        "listing-1",
+					UserID:           "user-1",
+					Title:            "Rumah Depok",
+					Status:           models.ListingStatusActive,
+					ModerationStatus: models.ModerationStatusApproved,
+					ExpiresAt:        &expiredAt,
+					PremiumFeatures: models.PremiumFeatures{
+						IsFeatured:     true,
+						FeaturedUntil:  &expiredAt,
+						PromotionUntil: &expiredAt,
+					},
+				},
+			},
+		},
+	}
+
+	service := NewListingService(
+		store,
+		&fakeUserStore{},
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	listing, err := service.GetListing(ctx, "listing-1")
+	if err != utils.ErrNotFound {
+		t.Fatalf("expected not found for expired listing, got listing=%v err=%v", listing, err)
+	}
+	if store.lastListing == nil || store.lastListing.Status != models.ListingStatusArchived {
+		t.Fatalf("expected expired listing to be archived, got %#v", store.lastListing)
+	}
+	if store.lastListing.PremiumFeatures.IsFeatured {
+		t.Fatal("expected expired featured flag to be cleared")
+	}
+	if store.lastListing.PremiumFeatures.FeaturedUntil != nil {
+		t.Fatal("expected expired featured timestamp to be cleared")
+	}
+	if store.lastListing.PremiumFeatures.PromotionUntil != nil {
+		t.Fatal("expected expired promotion timestamp to be cleared")
+	}
+}
+
+func TestListListingsArchivesExpiredListingsAndClearsExpiredPremiumFlags(t *testing.T) {
+	ctx := context.Background()
+	expiredAt := time.Now().UTC().Add(-time.Hour)
+	store := &fakeListingStore{
+		scanListings: []models.Listing{
+			{
+				ListingID:        "listing-1",
+				UserID:           "user-1",
+				Title:            "Rumah Depok",
+				Status:           models.ListingStatusActive,
+				ModerationStatus: models.ModerationStatusApproved,
+				ExpiresAt:        &expiredAt,
+				PremiumFeatures: models.PremiumFeatures{
+					IsPremium:      true,
+					IsFeatured:     true,
+					FeaturedUntil:  &expiredAt,
+					PromotionUntil: &expiredAt,
+				},
+			},
+		},
+	}
+
+	service := NewListingService(
+		store,
+		&fakeUserStore{},
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	listings, err := service.ListListings(ctx, &models.ListingSearchParams{})
+	if err != nil {
+		t.Fatalf("ListListings returned error: %v", err)
+	}
+	if len(listings) != 1 {
+		t.Fatalf("expected one listing, got %d", len(listings))
+	}
+	if listings[0].Status != models.ListingStatusArchived {
+		t.Fatalf("expected expired listing to be archived, got %q", listings[0].Status)
+	}
+	if listings[0].PremiumFeatures.IsFeatured {
+		t.Fatal("expected expired featured flag to be cleared in list results")
+	}
+	if listings[0].PremiumFeatures.FeaturedUntil != nil {
+		t.Fatal("expected expired featured timestamp to be cleared in list results")
+	}
+	if listings[0].PremiumFeatures.PromotionUntil != nil {
+		t.Fatal("expected expired promotion timestamp to be cleared in list results")
+	}
+	if store.lastListing == nil || store.lastListing.Status != models.ListingStatusArchived {
+		t.Fatalf("expected expired listing to be persisted as archived, got %#v", store.lastListing)
 	}
 }
 

@@ -1,7 +1,10 @@
 export const FREE_TIER_LISTING_LIMIT = 3;
+export const PREMIUM_TIER_LISTING_LIMIT = 15;
 export const LISTING_ACCESS_CHECK_PAGE_SIZE = 100;
 export const FREE_TIER_LISTING_LIMIT_MESSAGE =
   `Paket gratis hanya bisa memiliki ${FREE_TIER_LISTING_LIMIT} listing aktif. Upgrade ke Premium untuk memasang iklan baru.`;
+export const PREMIUM_TIER_LISTING_LIMIT_MESSAGE =
+  `Paket Premium maksimal ${PREMIUM_TIER_LISTING_LIMIT} listing aktif. Arsipkan salah satu listing untuk memasang iklan baru.`;
 export const CREATE_LISTING_ACCESS_ERROR_MESSAGE =
   'Kami belum bisa memastikan slot listing aktifmu. Coba lagi sebentar lagi.';
 
@@ -24,12 +27,8 @@ export function isCreateListingLimitReached(input: {
   listings?: Array<ListingLimitEntry> | null;
   limit?: number;
 }): boolean {
-  if (input.isPremium) {
-    return false;
-  }
-
   const activeListingsCount = input.activeListingsCount ?? getActiveListingCount(input.listings);
-  return activeListingsCount >= (input.limit ?? FREE_TIER_LISTING_LIMIT);
+  return activeListingsCount >= (input.limit ?? getListingLimit(input.isPremium));
 }
 
 export function getCreateListingAccessState(input: {
@@ -49,7 +48,7 @@ export function getCreateListingAccessState(input: {
   const hasResolvedActiveListingsCount = typeof input.activeListingsCount === 'number';
   const hasResolvedListings = Array.isArray(input.listings);
 
-  if (!input.isAuthenticated || input.isPremium) {
+  if (!input.isAuthenticated) {
     return { status: 'ready', activeListingsCount };
   }
 
@@ -85,7 +84,7 @@ export function getCreateListingAccessState(input: {
     return {
       status: 'blocked',
       activeListingsCount,
-      message: FREE_TIER_LISTING_LIMIT_MESSAGE,
+      message: getListingLimitMessage(input.isPremium),
     };
   }
 
@@ -103,5 +102,20 @@ export function getCreateListingErrorMessage(error: unknown): string {
     return FREE_TIER_LISTING_LIMIT_MESSAGE;
   }
 
+  if (
+    normalizedMessage.includes('premium tier allows at most 15 listing') ||
+    normalizedMessage.includes('premium tier allows at most 15 active listing')
+  ) {
+    return PREMIUM_TIER_LISTING_LIMIT_MESSAGE;
+  }
+
   return message || 'Terjadi kesalahan saat memasang iklan. Silakan coba lagi.';
+}
+
+function getListingLimit(isPremium?: boolean) {
+  return isPremium ? PREMIUM_TIER_LISTING_LIMIT : FREE_TIER_LISTING_LIMIT;
+}
+
+function getListingLimitMessage(isPremium?: boolean) {
+  return isPremium ? PREMIUM_TIER_LISTING_LIMIT_MESSAGE : FREE_TIER_LISTING_LIMIT_MESSAGE;
 }

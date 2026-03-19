@@ -14,7 +14,10 @@ import (
 )
 
 const (
-	freeTierMaxListings = 3
+	freeTierMaxListings            = 3
+	premiumTierMaxListings         = 15
+	freeTierListingDurationDays    = 30
+	premiumTierListingDurationDays = 90
 
 	minLocationConfidence = 0.7
 	contactRevealLimit    = 10
@@ -113,15 +116,13 @@ func (s *ListingService) CreateListing(ctx context.Context, userID string, req *
 	}
 
 	isPremium := user.Subscription.Tier == models.SubscriptionPremium
-	if !isPremium {
-		count, err := s.listingRepo.CountActiveByUserID(ctx, userID)
-		if err != nil {
-			utils.LogError("count active listings", err, "userId", userID)
-			return nil, utils.ErrInternal
-		}
-		if count >= freeTierMaxListings {
-			return nil, utils.NewAppError(403, fmt.Sprintf("free tier allows at most %d listing(s)", freeTierMaxListings))
-		}
+	count, err := s.listingRepo.CountActiveByUserID(ctx, userID)
+	if err != nil {
+		utils.LogError("count active listings", err, "userId", userID)
+		return nil, utils.ErrInternal
+	}
+	if count >= listingLimitForTier(isPremium) {
+		return nil, listingLimitExceededError(isPremium)
 	}
 
 	if err := utils.ValidateMediaLimits(isPremium, req.NewImageUploadSessionIDs, req.Videos); err != nil {
@@ -135,6 +136,7 @@ func (s *ListingService) CreateListing(ctx context.Context, userID string, req *
 	}
 
 	now := s.now()
+	expiresAt := now.AddDate(0, 0, listingDurationDaysForTier(isPremium))
 	listing := &models.Listing{
 		PK:               fmt.Sprintf("%s#%s", userID, listingID),
 		SK:               listingID,
@@ -155,6 +157,7 @@ func (s *ListingService) CreateListing(ctx context.Context, userID string, req *
 		ModerationStatus: models.ModerationStatusPending,
 		CreatedAt:        now,
 		UpdatedAt:        now,
+		ExpiresAt:        &expiresAt,
 	}
 
 	if err := s.listingRepo.Put(ctx, listing); err != nil {
@@ -187,6 +190,12 @@ func (s *ListingService) UpdateListing(ctx context.Context, userID, listingID st
 
 	user, _ := s.userRepo.GetByID(ctx, userID)
 	isPremium := user != nil && user.Subscription.Tier == models.SubscriptionPremium
+	now := s.now()
+	expired := listing.ExpiresAt != nil && !listing.ExpiresAt.After(now)
+	listing, err = s.normalizeListingStateIfNeeded(ctx, listing)
+	if err != nil {
+		return nil, utils.ErrInternal
+	}
 
 	if req.Title != nil {
 		listing.Title = *req.Title
@@ -201,7 +210,9 @@ func (s *ListingService) UpdateListing(ctx context.Context, userID, listingID st
 		listing.PriceUnit = *req.PriceUnit
 	}
 	if req.Status != nil {
-		listing.Status = *req.Status
+		if !(expired && *req.Status == models.ListingStatusActive) {
+			listing.Status = *req.Status
+		}
 	}
 	if req.PropertyDetails != nil {
 		listing.PropertyDetails = *req.PropertyDetails
@@ -262,6 +273,10 @@ func (s *ListingService) GetOwnerListing(ctx context.Context, userID, listingID 
 	}
 	if listing.UserID != userID {
 		return nil, utils.ErrForbidden
+	}
+	listing, err = s.normalizeListingStateIfNeeded(ctx, listing)
+	if err != nil {
+		return nil, utils.ErrInternal
 	}
 	if seller, err := s.userRepo.GetByID(ctx, listing.UserID); err == nil && seller != nil {
 		listing.SellerName = seller.Name
@@ -388,7 +403,64 @@ func (s *ListingService) getCurrentListingByListingID(ctx context.Context, listi
 		return nil, nil
 	}
 
-	return current, nil
+	return s.normalizeListingStateIfNeeded(ctx, current)
+}
+
+func listingLimitForTier(isPremium bool) int {
+	if isPremium {
+		return premiumTierMaxListings
+	}
+	return freeTierMaxListings
+}
+
+func listingDurationDaysForTier(isPremium bool) int {
+	if isPremium {
+		return premiumTierListingDurationDays
+	}
+	return freeTierListingDurationDays
+}
+
+func listingLimitExceededError(isPremium bool) error {
+	if isPremium {
+		return utils.NewAppError(403, fmt.Sprintf("premium tier allows at most %d active listing(s)", premiumTierMaxListings))
+	}
+	return utils.NewAppError(403, fmt.Sprintf("free tier allows at most %d active listing(s)", freeTierMaxListings))
+}
+
+func (s *ListingService) normalizeListingStateIfNeeded(ctx context.Context, listing *models.Listing) (*models.Listing, error) {
+	if listing == nil {
+		return nil, nil
+	}
+
+	now := s.now()
+	changed := false
+
+	if listing.Status == models.ListingStatusActive && listing.ExpiresAt != nil && !listing.ExpiresAt.After(now) {
+		listing.Status = models.ListingStatusArchived
+		changed = true
+	}
+
+	if listing.PremiumFeatures.IsFeatured && listing.PremiumFeatures.FeaturedUntil != nil && !listing.PremiumFeatures.FeaturedUntil.After(now) {
+		listing.PremiumFeatures.IsFeatured = false
+		listing.PremiumFeatures.FeaturedUntil = nil
+		changed = true
+	}
+
+	if listing.PremiumFeatures.PromotionUntil != nil && !listing.PremiumFeatures.PromotionUntil.After(now) {
+		listing.PremiumFeatures.PromotionUntil = nil
+		changed = true
+	}
+
+	if !changed {
+		return listing, nil
+	}
+
+	listing.UpdatedAt = now
+	if err := s.listingRepo.Put(ctx, listing); err != nil {
+		return nil, err
+	}
+
+	return listing, nil
 }
 
 func (s *ListingService) enqueueListingModeration(ctx context.Context, listingID string) error {
@@ -423,7 +495,17 @@ func (s *ListingService) ListListings(ctx context.Context, params *models.Listin
 		utils.LogError("scan listings", err)
 		return nil, utils.ErrInternal
 	}
-	return listings, nil
+
+	normalized := make([]models.Listing, 0, len(listings))
+	for i := range listings {
+		current, err := s.normalizeListingStateIfNeeded(ctx, &listings[i])
+		if err != nil {
+			utils.LogError("normalize listing state", err, "listingId", listings[i].ListingID)
+			return nil, utils.ErrInternal
+		}
+		normalized = append(normalized, *current)
+	}
+	return normalized, nil
 }
 
 func (s *ListingService) SearchListings(ctx context.Context, params *models.ListingSearchParams) ([]models.Listing, error) {
@@ -456,6 +538,11 @@ func (s *ListingService) ListMyListings(ctx context.Context, userID string, para
 		}
 		if current == nil {
 			continue
+		}
+		current, err = s.normalizeListingStateIfNeeded(ctx, current)
+		if err != nil {
+			utils.LogError("normalize user listing state", err, "userId", userID, "listingId", listing.ListingID)
+			return nil, utils.ErrInternal
 		}
 		filtered = append(filtered, *current)
 	}

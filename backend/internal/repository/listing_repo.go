@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -129,12 +130,14 @@ func (r *ListingRepo) CountActiveByUserID(ctx context.Context, userID string) (i
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":uid":    &types.AttributeValueMemberS{Value: userID},
 			":active": &types.AttributeValueMemberS{Value: string(models.ListingStatusActive)},
+			":now":    &types.AttributeValueMemberS{Value: time.Now().UTC().Format(time.RFC3339)},
 		},
 		ExpressionAttributeNames: map[string]string{
-			"#st": "status",
+			"#st":        "status",
+			"#expiresAt": "expiresAt",
 		},
-		FilterExpression: aws.String("#st = :active"),
-		Select: types.SelectCount,
+		FilterExpression: aws.String("#st = :active AND (attribute_not_exists(#expiresAt) OR #expiresAt > :now)"),
+		Select:           types.SelectCount,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("count active listings: %w", err)
@@ -188,13 +191,15 @@ func (r *ListingRepo) Scan(ctx context.Context, params *models.ListingSearchPara
 }
 
 func buildListingScanQuery(params *models.ListingSearchParams) listingScanQuery {
-	filterExpr := "moderationStatus = :approved AND #st = :active"
+	filterExpr := "moderationStatus = :approved AND #st = :active AND (attribute_not_exists(#expiresAt) OR #expiresAt > :now)"
 	exprAttrValues := map[string]types.AttributeValue{
 		":approved": &types.AttributeValueMemberS{Value: string(models.ModerationStatusApproved)},
 		":active":   &types.AttributeValueMemberS{Value: string(models.ListingStatusActive)},
+		":now":      &types.AttributeValueMemberS{Value: time.Now().UTC().Format(time.RFC3339)},
 	}
 	exprAttrNames := map[string]string{
-		"#st": "status",
+		"#st":        "status",
+		"#expiresAt": "expiresAt",
 	}
 
 	if params == nil {

@@ -78,6 +78,7 @@ export interface Listing {
   featuredThumbnailUrl?: string;
   createdAt: string;
   updatedAt: string;
+  expiresAt?: string;
 }
 
 export interface User {

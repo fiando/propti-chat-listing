@@ -75,6 +75,7 @@ type Listing struct {
 	ModerationReason string           `json:"moderationReason,omitempty" dynamodbav:"moderationReason,omitempty"`
 	CreatedAt        time.Time        `json:"createdAt" dynamodbav:"createdAt"`
 	UpdatedAt        time.Time        `json:"updatedAt" dynamodbav:"updatedAt"`
+	ExpiresAt        *time.Time       `json:"expiresAt,omitempty" dynamodbav:"expiresAt,omitempty"`
 }
 
 type CreateListingRequest struct {

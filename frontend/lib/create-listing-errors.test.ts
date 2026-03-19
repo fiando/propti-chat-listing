@@ -25,6 +25,10 @@ test('maps free tier listing limit errors to a clear blocking message', () => {
     getCreateListingErrorMessage(new Error('free tier allows at most 3 listing(s)')),
     /3 listing/i
   );
+  assert.equal(
+    getCreateListingErrorMessage(new Error('premium tier allows at most 15 active listing(s)')),
+    'Paket Premium maksimal 15 listing aktif. Arsipkan salah satu listing untuk memasang iklan baru.'
+  );
 });
 
 test('create listing page catches submit errors and surfaces them with a user-facing helper', () => {
@@ -148,6 +152,33 @@ test('surfaces a retryable access error when the quota request fails or returns 
       status: 'error',
       activeListingsCount: 0,
       message: CREATE_LISTING_ACCESS_ERROR_MESSAGE,
+    }
+  );
+});
+
+test('blocks premium users after 15 active listings', () => {
+  assert.deepEqual(
+    getCreateListingAccessState({
+      isAuthenticated: true,
+      isPremium: true,
+      activeListingsCount: 15,
+    }),
+    {
+      status: 'blocked',
+      activeListingsCount: 15,
+      message: 'Paket Premium maksimal 15 listing aktif. Arsipkan salah satu listing untuk memasang iklan baru.',
+    }
+  );
+
+  assert.deepEqual(
+    getCreateListingAccessState({
+      isAuthenticated: true,
+      isPremium: true,
+      activeListingsCount: 14,
+    }),
+    {
+      status: 'ready',
+      activeListingsCount: 14,
     }
   );
 });

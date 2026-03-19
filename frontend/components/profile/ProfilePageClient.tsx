@@ -141,7 +141,6 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
                   '3 iklan pertama gratis',
                   'Maksimal 3 foto per iklan',
                   'Iklan tayang 30 hari',
-                  'Statistik dasar',
                 ].map((f) => (
                   <li key={f} className="flex items-center gap-2">
                     <Check className="w-3.5 h-3.5 text-gray-400" />
@@ -196,7 +195,6 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
       <PremiumUpgradeModal
         isOpen={showPremiumModal}
         onClose={() => setShowPremiumModal(false)}
-        profilePhone={profile.phone}
       />
     </div>
   );
