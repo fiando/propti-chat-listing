@@ -1317,7 +1317,7 @@ func TestUpdateListingNonModeratableChangeKeepsModerationStatus(t *testing.T) {
 	}
 }
 
-func TestUpdateListingRejectedListingAlwaysTriggersFullRemoderation(t *testing.T) {
+func TestUpdateListingRejectedListingCannotBeEdited(t *testing.T) {
 	ctx := context.Background()
 	store := &fakeListingStore{
 		listingsByID: map[string]*models.Listing{
@@ -1352,17 +1352,14 @@ func TestUpdateListingRejectedListingAlwaysTriggersFullRemoderation(t *testing.T
 	)
 	service.SetModerationEnqueuer(queue)
 
-	listing, err := service.UpdateListing(ctx, "user-1", "listing-1", &models.UpdateListingRequest{
+	_, err := service.UpdateListing(ctx, "user-1", "listing-1", &models.UpdateListingRequest{
 		Price: &newPrice,
 	})
-	if err != nil {
-		t.Fatalf("UpdateListing returned error: %v", err)
+	if err == nil {
+		t.Fatal("expected error when editing a rejected listing, got nil")
 	}
-	if len(queue.listingIDs) != 1 || queue.listingIDs[0] != listing.ListingID {
-		t.Fatalf("expected moderation enqueue for rejected listing, got %d enqueue(s)", len(queue.listingIDs))
-	}
-	if listing.ModerationStatus != models.ModerationStatusPending {
-		t.Fatalf("expected moderation status to be pending after rejected listing edit, got %q", listing.ModerationStatus)
+	if len(queue.listingIDs) != 0 {
+		t.Fatalf("expected no moderation enqueue for rejected listing edit attempt, got %d", len(queue.listingIDs))
 	}
 }
 

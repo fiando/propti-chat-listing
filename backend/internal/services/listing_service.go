@@ -184,6 +184,9 @@ func (s *ListingService) UpdateListing(ctx context.Context, userID, listingID st
 	if listing.UserID != userID {
 		return nil, utils.ErrForbidden
 	}
+	if listing.ModerationStatus == models.ModerationStatusRejected {
+		return nil, utils.NewAppError(403, "listing telah ditolak moderasi dan tidak dapat diedit; hapus listing ini dan buat ulang jika diperlukan")
+	}
 	if containsLegacyImagePayload(req.Images) {
 		return nil, utils.NewAppError(400, "base64 image payloads are no longer accepted; use upload sessions")
 	}
@@ -197,7 +200,6 @@ func (s *ListingService) UpdateListing(ctx context.Context, userID, listingID st
 		return nil, utils.ErrInternal
 	}
 
-	prevModerationStatus := listing.ModerationStatus
 	textChanged := req.Title != nil || req.Description != nil
 
 	if req.Title != nil {
@@ -232,8 +234,7 @@ func (s *ListingService) UpdateListing(ctx context.Context, userID, listingID st
 		return nil, err
 	}
 
-	wasRejected := prevModerationStatus == models.ModerationStatusRejected
-	needsModeration := textChanged || len(newImageIDs) > 0 || wasRejected
+	needsModeration := textChanged || len(newImageIDs) > 0
 
 	listing.UpdatedAt = s.now()
 
@@ -247,14 +248,7 @@ func (s *ListingService) UpdateListing(ctx context.Context, userID, listingID st
 	}
 
 	if needsModeration {
-		checkText := textChanged || wasRejected
-		var imageIDsToCheck []string
-		if wasRejected {
-			imageIDsToCheck = nil // check all images for previously rejected listings
-		} else {
-			imageIDsToCheck = newImageIDs // only newly added images
-		}
-		if err := s.enqueueListingModeration(ctx, listing.ListingID, checkText, imageIDsToCheck); err != nil {
+		if err := s.enqueueListingModeration(ctx, listing.ListingID, textChanged, newImageIDs); err != nil {
 			utils.LogError("enqueue listing moderation", err, "listingId", listing.ListingID)
 			return nil, utils.ErrInternal
 		}
