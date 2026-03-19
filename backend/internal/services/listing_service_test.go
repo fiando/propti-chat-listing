@@ -167,7 +167,7 @@ type fakeModerationEnqueuer struct {
 	err        error
 }
 
-func (f *fakeModerationEnqueuer) EnqueueListingModeration(ctx context.Context, listingID string) error {
+func (f *fakeModerationEnqueuer) EnqueueListingModeration(ctx context.Context, listingID string, checkText bool, newImageIDs []string) error {
 	if f.err != nil {
 		return f.err
 	}
@@ -1269,6 +1269,103 @@ func TestUpdateListingRequeuesModerationWithoutInlineExecution(t *testing.T) {
 		t.Fatalf("expected persisted listing status to remain active before worker runs, got %q", store.lastListing.Status)
 	}
 }
+
+func TestUpdateListingNonModeratableChangeKeepsModerationStatus(t *testing.T) {
+	ctx := context.Background()
+	store := &fakeListingStore{
+		listingsByID: map[string]*models.Listing{
+			"listing-1": {
+				ListingID:        "listing-1",
+				UserID:           "user-1",
+				Status:           models.ListingStatusActive,
+				ModerationStatus: models.ModerationStatusApproved,
+				PremiumFeatures:  models.PremiumFeatures{IsPremium: true},
+			},
+		},
+		listingsByUser: map[string]map[string]*models.Listing{
+			"user-1": {
+				"listing-1": {
+					ListingID:        "listing-1",
+					UserID:           "user-1",
+					Status:           models.ListingStatusActive,
+					ModerationStatus: models.ModerationStatusApproved,
+					PremiumFeatures:  models.PremiumFeatures{IsPremium: true},
+				},
+			},
+		},
+	}
+	queue := &fakeModerationEnqueuer{}
+	newPrice := float64(1500000000)
+	service := NewListingService(
+		store,
+		&fakeUserStore{user: &models.User{UserID: "user-1", Subscription: models.Subscription{Tier: models.SubscriptionPremium}}},
+		nil, nil, nil, nil,
+	)
+	service.SetModerationEnqueuer(queue)
+
+	listing, err := service.UpdateListing(ctx, "user-1", "listing-1", &models.UpdateListingRequest{
+		Price: &newPrice,
+	})
+	if err != nil {
+		t.Fatalf("UpdateListing returned error: %v", err)
+	}
+	if len(queue.listingIDs) != 0 {
+		t.Fatalf("expected no moderation enqueue for price-only change, got %d", len(queue.listingIDs))
+	}
+	if listing.ModerationStatus != models.ModerationStatusApproved {
+		t.Fatalf("expected moderation status to remain approved, got %q", listing.ModerationStatus)
+	}
+}
+
+func TestUpdateListingRejectedListingAlwaysTriggersFullRemoderation(t *testing.T) {
+	ctx := context.Background()
+	store := &fakeListingStore{
+		listingsByID: map[string]*models.Listing{
+			"listing-1": {
+				ListingID:        "listing-1",
+				UserID:           "user-1",
+				Status:           models.ListingStatusArchived,
+				ModerationStatus: models.ModerationStatusRejected,
+				ModerationReason: "inappropriate content",
+				PremiumFeatures:  models.PremiumFeatures{IsPremium: true},
+			},
+		},
+		listingsByUser: map[string]map[string]*models.Listing{
+			"user-1": {
+				"listing-1": {
+					ListingID:        "listing-1",
+					UserID:           "user-1",
+					Status:           models.ListingStatusArchived,
+					ModerationStatus: models.ModerationStatusRejected,
+					ModerationReason: "inappropriate content",
+					PremiumFeatures:  models.PremiumFeatures{IsPremium: true},
+				},
+			},
+		},
+	}
+	queue := &fakeModerationEnqueuer{}
+	newPrice := float64(1200000000)
+	service := NewListingService(
+		store,
+		&fakeUserStore{user: &models.User{UserID: "user-1", Subscription: models.Subscription{Tier: models.SubscriptionPremium}}},
+		nil, nil, nil, nil,
+	)
+	service.SetModerationEnqueuer(queue)
+
+	listing, err := service.UpdateListing(ctx, "user-1", "listing-1", &models.UpdateListingRequest{
+		Price: &newPrice,
+	})
+	if err != nil {
+		t.Fatalf("UpdateListing returned error: %v", err)
+	}
+	if len(queue.listingIDs) != 1 || queue.listingIDs[0] != listing.ListingID {
+		t.Fatalf("expected moderation enqueue for rejected listing, got %d enqueue(s)", len(queue.listingIDs))
+	}
+	if listing.ModerationStatus != models.ModerationStatusPending {
+		t.Fatalf("expected moderation status to be pending after rejected listing edit, got %q", listing.ModerationStatus)
+	}
+}
+
 
 func TestParseListingTextReturnsLocationSuggestionsWithoutAutoFinalizing(t *testing.T) {
 	ctx := context.Background()

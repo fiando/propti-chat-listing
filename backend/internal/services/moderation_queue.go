@@ -13,8 +13,10 @@ import (
 const ListingModerationAction = "moderate_listing"
 
 type ListingModerationEvent struct {
-	Action    string `json:"action"`
-	ListingID string `json:"listingId"`
+	Action      string    `json:"action"`
+	ListingID   string    `json:"listingId"`
+	CheckText   *bool     `json:"checkText,omitempty"`   // nil = check (backward compat default)
+	NewImageIDs *[]string `json:"newImageIds,omitempty"` // nil = check all; empty slice = skip images
 }
 
 type lambdaInvoker interface {
@@ -42,14 +44,18 @@ func NewLambdaModerationEnqueuer(ctx context.Context, functionName string) (*Lam
 	}, nil
 }
 
-func (q *LambdaModerationEnqueuer) EnqueueListingModeration(ctx context.Context, listingID string) error {
+func (q *LambdaModerationEnqueuer) EnqueueListingModeration(ctx context.Context, listingID string, checkText bool, newImageIDs []string) error {
 	if q == nil || q.functionName == "" {
 		return nil
 	}
 
+	ct := checkText
+	ni := newImageIDs
 	payload, err := json.Marshal(ListingModerationEvent{
-		Action:    ListingModerationAction,
-		ListingID: listingID,
+		Action:      ListingModerationAction,
+		ListingID:   listingID,
+		CheckText:   &ct,
+		NewImageIDs: &ni,
 	})
 	if err != nil {
 		return fmt.Errorf("marshal moderation event: %w", err)

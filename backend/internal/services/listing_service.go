@@ -49,7 +49,7 @@ type ContentModerator interface {
 }
 
 type ModerationEnqueuer interface {
-	EnqueueListingModeration(ctx context.Context, listingID string) error
+	EnqueueListingModeration(ctx context.Context, listingID string, checkText bool, newImageIDs []string) error
 }
 
 type LocationNormalizer interface {
@@ -165,7 +165,7 @@ func (s *ListingService) CreateListing(ctx context.Context, userID string, req *
 		return nil, utils.ErrInternal
 	}
 
-	if err := s.enqueueListingModeration(ctx, listing.ListingID); err != nil {
+	if err := s.enqueueListingModeration(ctx, listing.ListingID, true, nil); err != nil {
 		utils.LogError("enqueue listing moderation", err, "listingId", listing.ListingID)
 		return nil, utils.ErrInternal
 	}
@@ -197,6 +197,9 @@ func (s *ListingService) UpdateListing(ctx context.Context, userID, listingID st
 		return nil, utils.ErrInternal
 	}
 
+	prevModerationStatus := listing.ModerationStatus
+	textChanged := req.Title != nil || req.Description != nil
+
 	if req.Title != nil {
 		listing.Title = *req.Title
 	}
@@ -224,21 +227,37 @@ func (s *ListingService) UpdateListing(ctx context.Context, userID, listingID st
 		listing.Videos = req.Videos
 	}
 
-	if err := s.applyImageUpdate(ctx, listing, req, isPremium); err != nil {
+	newImageIDs, err := s.applyImageUpdate(ctx, listing, req, isPremium)
+	if err != nil {
 		return nil, err
 	}
 
+	wasRejected := prevModerationStatus == models.ModerationStatusRejected
+	needsModeration := textChanged || len(newImageIDs) > 0 || wasRejected
+
 	listing.UpdatedAt = s.now()
-	listing.ModerationStatus = models.ModerationStatusPending
-	listing.ModerationReason = ""
+
+	if needsModeration {
+		listing.ModerationStatus = models.ModerationStatusPending
+		listing.ModerationReason = ""
+	}
 
 	if err := s.listingRepo.Put(ctx, listing); err != nil {
 		return nil, utils.ErrInternal
 	}
 
-	if err := s.enqueueListingModeration(ctx, listing.ListingID); err != nil {
-		utils.LogError("enqueue listing moderation", err, "listingId", listing.ListingID)
-		return nil, utils.ErrInternal
+	if needsModeration {
+		checkText := textChanged || wasRejected
+		var imageIDsToCheck []string
+		if wasRejected {
+			imageIDsToCheck = nil // check all images for previously rejected listings
+		} else {
+			imageIDsToCheck = newImageIDs // only newly added images
+		}
+		if err := s.enqueueListingModeration(ctx, listing.ListingID, checkText, imageIDsToCheck); err != nil {
+			utils.LogError("enqueue listing moderation", err, "listingId", listing.ListingID)
+			return nil, utils.ErrInternal
+		}
 	}
 
 	return listing, nil
@@ -463,11 +482,11 @@ func (s *ListingService) normalizeListingStateIfNeeded(ctx context.Context, list
 	return listing, nil
 }
 
-func (s *ListingService) enqueueListingModeration(ctx context.Context, listingID string) error {
+func (s *ListingService) enqueueListingModeration(ctx context.Context, listingID string, checkText bool, newImageIDs []string) error {
 	if s.moderationQueue == nil {
 		return nil
 	}
-	return s.moderationQueue.EnqueueListingModeration(ctx, listingID)
+	return s.moderationQueue.EnqueueListingModeration(ctx, listingID, checkText, newImageIDs)
 }
 
 func joinModerationReason(reason string, flags []string) string {
@@ -786,10 +805,12 @@ func (s *ListingService) ParseListingText(ctx context.Context, text string) (*mo
 	}, nil
 }
 
-func (s *ListingService) applyImageUpdate(ctx context.Context, listing *models.Listing, req *models.UpdateListingRequest, isPremium bool) error {
+// applyImageUpdate applies image changes from the request to the listing and returns the IDs of
+// newly added images. Returns (nil, nil) if no image-related fields were provided.
+func (s *ListingService) applyImageUpdate(ctx context.Context, listing *models.Listing, req *models.UpdateListingRequest, isPremium bool) ([]string, error) {
 	imagesChanged := req.RetainedImageIDs != nil || req.NewImageUploadSessionIDs != nil || req.FeaturedImageID != nil || req.FeaturedUploadSessionID != nil
 	if !imagesChanged {
-		return utils.ValidateMediaLimits(isPremium, make([]string, len(listing.Images)), listing.Videos)
+		return nil, utils.ValidateMediaLimits(isPremium, make([]string, len(listing.Images)), listing.Videos)
 	}
 
 	currentByID := make(map[string]models.ImageEntry, len(listing.Images))
@@ -814,7 +835,7 @@ func (s *ListingService) applyImageUpdate(ctx context.Context, listing *models.L
 	for _, imageID := range retainedIDs {
 		image, ok := currentByID[imageID]
 		if !ok {
-			return utils.NewAppError(400, fmt.Sprintf("retained image %s was not found", imageID))
+			return nil, utils.NewAppError(400, fmt.Sprintf("retained image %s was not found", imageID))
 		}
 		retained = append(retained, image)
 		retainedSet[imageID] = struct{}{}
@@ -826,12 +847,12 @@ func (s *ListingService) applyImageUpdate(ctx context.Context, listing *models.L
 	}
 	newImages, err := s.resolveUploadImages(ctx, listing.UserID, listing.ListingID, req.NewImageUploadSessionIDs, newFeaturedUploadSessionID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	combined := append(retained, newImages...)
 	if err := utils.ValidateMediaLimits(isPremium, make([]string, len(combined)), listing.Videos); err != nil {
-		return utils.WrapError(utils.ErrBadRequest, err)
+		return nil, utils.WrapError(utils.ErrBadRequest, err)
 	}
 
 	if req.FeaturedImageID != nil {
@@ -841,7 +862,7 @@ func (s *ListingService) applyImageUpdate(ctx context.Context, listing *models.L
 			found = found || combined[index].IsFeatured
 		}
 		if !found && len(combined) > 0 {
-			return utils.NewAppError(400, "featuredImageId was not found in final image set")
+			return nil, utils.NewAppError(400, "featuredImageId was not found in final image set")
 		}
 	} else if req.FeaturedUploadSessionID == nil {
 		enforceSingleFeatured(combined, featuredImageID(listing.Images))
@@ -856,19 +877,24 @@ func (s *ListingService) applyImageUpdate(ctx context.Context, listing *models.L
 		}
 		if image.S3Key != "" && s.mediaStore != nil {
 			if err := s.mediaStore.DeleteObject(ctx, image.S3Key); err != nil {
-				return utils.ErrInternal
+				return nil, utils.ErrInternal
 			}
 		}
 		if image.ThumbnailKey != "" && s.mediaStore != nil {
 			if err := s.mediaStore.DeleteObject(ctx, image.ThumbnailKey); err != nil {
-				return utils.ErrInternal
+				return nil, utils.ErrInternal
 			}
 		}
 	}
 
 	listing.Images = combined
 	listing.ImageCount = len(combined)
-	return nil
+
+	newIDs := make([]string, 0, len(newImages))
+	for _, img := range newImages {
+		newIDs = append(newIDs, img.ImageID)
+	}
+	return newIDs, nil
 }
 
 func (s *ListingService) resolveUploadImages(ctx context.Context, userID, listingID string, sessionIDs []string, featuredUploadSessionID string) (models.ImageEntries, error) {

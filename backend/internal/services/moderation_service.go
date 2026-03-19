@@ -45,7 +45,10 @@ func NewModerationService(
 	}
 }
 
-func (s *ModerationService) ModerateListing(ctx context.Context, listingID string) (*models.Listing, error) {
+// ModerateListing runs content checks on a listing.
+// checkText controls whether the title/description is re-evaluated.
+// newImageIDs, when non-nil, limits image moderation to only those IDs; nil means check all images.
+func (s *ModerationService) ModerateListing(ctx context.Context, listingID string, checkText bool, newImageIDs []string) (*models.Listing, error) {
 	listing, err := s.listingRepo.GetByListingID(ctx, listingID)
 	if err != nil {
 		return nil, fmt.Errorf("get listing by listing id: %w", err)
@@ -64,10 +67,12 @@ func (s *ModerationService) ModerateListing(ctx context.Context, listingID strin
 
 	var rejectionReasons []string
 
-	if err := s.moderateText(ctx, current, &rejectionReasons); err != nil {
-		return nil, err
+	if checkText {
+		if err := s.moderateText(ctx, current, &rejectionReasons); err != nil {
+			return nil, err
+		}
 	}
-	if err := s.moderateImages(ctx, current, &rejectionReasons); err != nil {
+	if err := s.moderateImages(ctx, current, newImageIDs, &rejectionReasons); err != nil {
 		return nil, err
 	}
 
@@ -116,15 +121,32 @@ func (s *ModerationService) moderateText(ctx context.Context, listing *models.Li
 	return nil
 }
 
-func (s *ModerationService) moderateImages(ctx context.Context, listing *models.Listing, rejectionReasons *[]string) error {
-	if len(listing.Images) == 0 {
+// moderateImages checks images for inappropriate or non-property content.
+// imageIDsFilter, when non-nil, restricts checks to only images with those IDs; nil checks all images.
+func (s *ModerationService) moderateImages(ctx context.Context, listing *models.Listing, imageIDsFilter []string, rejectionReasons *[]string) error {
+	var imagesToCheck models.ImageEntries
+	if imageIDsFilter == nil {
+		imagesToCheck = listing.Images
+	} else {
+		filterSet := make(map[string]struct{}, len(imageIDsFilter))
+		for _, id := range imageIDsFilter {
+			filterSet[id] = struct{}{}
+		}
+		for _, img := range listing.Images {
+			if _, ok := filterSet[img.ImageID]; ok {
+				imagesToCheck = append(imagesToCheck, img)
+			}
+		}
+	}
+
+	if len(imagesToCheck) == 0 {
 		return nil
 	}
 	if s.imageModerator == nil {
 		return fmt.Errorf("image moderator not configured")
 	}
 
-	images, err := s.loadListingImages(ctx, listing.Images)
+	images, err := s.loadListingImages(ctx, imagesToCheck)
 	if err != nil {
 		return fmt.Errorf("load listing images: %w", err)
 	}

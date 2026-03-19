@@ -77,7 +77,13 @@ func main() {
 	lambda.Start(func(ctx context.Context, rawReq json.RawMessage) (interface{}, error) {
 		var moderationEvent services.ListingModerationEvent
 		if err := json.Unmarshal(rawReq, &moderationEvent); err == nil && moderationEvent.Action == services.ListingModerationAction {
-			listing, err := moderationSvc.ModerateListing(ctx, moderationEvent.ListingID)
+			// Default to checking everything for backward compatibility with older events
+			checkText := moderationEvent.CheckText == nil || *moderationEvent.CheckText
+			var newImageIDs []string
+			if moderationEvent.NewImageIDs != nil {
+				newImageIDs = *moderationEvent.NewImageIDs
+			}
+			listing, err := moderationSvc.ModerateListing(ctx, moderationEvent.ListingID, checkText, newImageIDs)
 			if err != nil {
 				utils.LogError("moderate listing asynchronously", err, "listingId", moderationEvent.ListingID)
 				return map[string]string{
