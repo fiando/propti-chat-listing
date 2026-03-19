@@ -77,6 +77,7 @@ export function ListingDetail({
 }: ListingDetailProps) {
   const [activeImage, setActiveImage] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [brokenImageIds, setBrokenImageIds] = useState<Set<string>>(new Set());
   const [revealedContact, setRevealedContact] = useState<RevealListingContactResponse | null>(() =>
     getCachedRevealedContact(listing.listingId)
   );
@@ -247,7 +248,7 @@ export function ListingDetail({
           {/* Image gallery */}
           <div className="card overflow-hidden">
             <div className="relative bg-gradient-to-br from-brand-primary/20 to-brand-secondary/30 h-72 md:h-96">
-              {images[activeImage]?.url ? (
+              {images[activeImage]?.url && !brokenImageIds.has(images[activeImage].id) ? (
                 <button
                   type="button"
                   onClick={() => setIsLightboxOpen(true)}
@@ -259,6 +260,7 @@ export function ListingDetail({
                     src={images[activeImage].url}
                     alt={listing.title}
                     className="w-full h-full object-cover"
+                    onError={() => setBrokenImageIds((prev) => new Set([...prev, images[activeImage].id]))}
                   />
                 </button>
               ) : (
@@ -267,7 +269,7 @@ export function ListingDetail({
                 </div>
               )}
 
-              {images[activeImage]?.url && (
+              {images[activeImage]?.url && !brokenImageIds.has(images[activeImage].id) && (
                 <button
                   type="button"
                   onClick={() => setIsLightboxOpen(true)}

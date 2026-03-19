@@ -27,9 +27,12 @@ export default function ListingDetailPage({ params }: { params: Promise<{ id: st
   const { data: savedData } = useSavedListings({ enabled: status === 'authenticated' });
   // Prefer owner data so the owner immediately sees their listing's real
   // moderation status (pending/rejected) after an edit or creation.
-  const listing = ownerListing ?? publicListing;
+  // When authenticated, always wait for ownerListing before rendering.
+  // Without this, stale publicListing cache (from a previously-approved listing) would render
+  // a gallery with presigned URLs pointing to deleted S3 objects (race with moderation).
+  const listing = ownerListing ?? (isAuthenticated && isOwnerLoading ? undefined : publicListing);
   const error = publicError && ownerError;
-  const isLoading = isPublicLoading || (isAuthenticated && isOwnerLoading && !publicListing && !ownerListing);
+  const isLoading = isPublicLoading || (isAuthenticated && isOwnerLoading && !ownerListing);
 
   const isOwner = session?.user && (listing?.userId === (session as { user?: { id?: string } }).user?.id);
 
