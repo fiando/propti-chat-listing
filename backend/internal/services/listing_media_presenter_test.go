@@ -10,8 +10,8 @@ import (
 
 func TestListingMediaPresenterPublicSummaryUsesFeaturedThumbnail(t *testing.T) {
 	presenter := NewListingMediaPresenter(&fakeMediaService{
-		publicURLs: map[string]string{
-			"thumbnails/listing-1/image-2": "https://cdn.example/thumb-2.jpg",
+		signedURLs: map[string]string{
+			"thumbnails/listing-1/image-2": "https://signed.example/thumb-2",
 		},
 	})
 
@@ -26,11 +26,52 @@ func TestListingMediaPresenterPublicSummaryUsesFeaturedThumbnail(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PresentPublicSummary returned error: %v", err)
 	}
-	if resp.FeaturedThumbnailURL != "https://cdn.example/thumb-2.jpg" {
+	if resp.FeaturedThumbnailURL != "https://signed.example/thumb-2" {
 		t.Fatalf("expected featured thumbnail url, got %q", resp.FeaturedThumbnailURL)
 	}
 	if resp.Images != nil {
 		t.Fatalf("expected summary response to omit structured gallery, got %#v", resp.Images)
+	}
+}
+
+func TestListingMediaPresenterPublicDetailSignsThumbnailGallery(t *testing.T) {
+	presenter := NewListingMediaPresenter(&fakeMediaService{
+		signedURLs: map[string]string{
+			"listings/listing-1/image-1":   "https://signed.example/image-1",
+			"thumbnails/listing-1/image-1": "https://signed.example/thumb-1",
+		},
+	})
+
+	resp, err := presenter.PresentPublicDetail(context.Background(), &models.Listing{
+		ListingID: "listing-1",
+		Images: models.ImageEntries{
+			{
+				ImageID:      "image-1",
+				S3Key:        "listings/listing-1/image-1",
+				ThumbnailKey: "thumbnails/listing-1/image-1",
+				ContentType:  "image/jpeg",
+				SizeBytes:    2048,
+				IsFeatured:   true,
+				UploadedAt:   time.Date(2026, 3, 18, 0, 0, 0, 0, time.UTC),
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("PresentPublicDetail returned error: %v", err)
+	}
+
+	images, ok := resp.Images.([]models.ListingImageView)
+	if !ok {
+		t.Fatalf("expected typed listing gallery, got %#v", resp.Images)
+	}
+	if len(images) != 1 {
+		t.Fatalf("expected one gallery image, got %d", len(images))
+	}
+	if images[0].ThumbnailURL != "https://signed.example/thumb-1" {
+		t.Fatalf("expected signed thumbnail URL, got %q", images[0].ThumbnailURL)
+	}
+	if resp.FeaturedThumbnailURL != "https://signed.example/thumb-1" {
+		t.Fatalf("expected featured thumbnail URL to reuse signed thumbnail, got %q", resp.FeaturedThumbnailURL)
 	}
 }
 

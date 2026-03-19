@@ -24,7 +24,11 @@ func (p *ListingMediaPresenter) PresentPublicSummary(ctx context.Context, listin
 
 	featured := featuredImage(listing.Images)
 	if featured != nil && featured.ThumbnailKey != "" && p.mediaStore != nil {
-		resp.FeaturedThumbnailURL = p.mediaStore.BuildPublicURL(featured.ThumbnailKey)
+		signedURL, err := p.mediaStore.GetSignedDownloadURL(ctx, featured.ThumbnailKey)
+		if err != nil {
+			return nil, err
+		}
+		resp.FeaturedThumbnailURL = signedURL
 	}
 	return resp, nil
 }
@@ -74,15 +78,11 @@ func (p *ListingMediaPresenter) presentDetail(ctx context.Context, listing *mode
 
 		thumbnailURL := ""
 		if image.ThumbnailKey != "" && p.mediaStore != nil {
-			if ownerView {
-				signedURL, err := p.mediaStore.GetSignedDownloadURL(ctx, image.ThumbnailKey)
-				if err != nil {
-					return nil, err
-				}
-				thumbnailURL = signedURL
-			} else {
-				thumbnailURL = p.mediaStore.BuildPublicURL(image.ThumbnailKey)
+			signedURL, err := p.mediaStore.GetSignedDownloadURL(ctx, image.ThumbnailKey)
+			if err != nil {
+				return nil, err
 			}
+			thumbnailURL = signedURL
 		}
 
 		views = append(views, models.ListingImageView{
