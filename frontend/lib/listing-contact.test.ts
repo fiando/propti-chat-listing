@@ -9,7 +9,8 @@ test('normalizeContactPhone converts Indonesian local numbers to international f
 
 test('buildListingContactLinks returns WhatsApp and phone links when phone exists', () => {
   assert.deepEqual(buildListingContactLinks('081234567890'), {
-    whatsappUrl: 'https://wa.me/6281234567890',
+    whatsappUrl:
+      'https://wa.me/6281234567890?text=Halo%2C%20saya%20tertarik%20dengan%20properti%20ini%20di%20Propti.%20Apakah%20masih%20tersedia%3F',
     phoneUrl: 'tel:+6281234567890',
   });
 });
