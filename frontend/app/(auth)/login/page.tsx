@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { GoogleLoginButton } from '@/components/auth/GoogleLoginButton';
+import { ProptiLogo } from '@/components/common/ProptiLogo';
 import { Home, Shield, Zap } from 'lucide-react';
 import Link from 'next/link';
 
@@ -20,16 +21,13 @@ export default async function LoginPage({
       : '/';
 
   return (
-    <div className="min-h-screen bg-gradient-hero flex flex-col">
-      {/* Header */}
-      <header className="p-6">
-        <Link href="/" className="flex items-center gap-2 w-fit">
-          <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
-            <Home className="w-5 h-5 text-white" />
-          </div>
-          <span className="text-white text-xl font-bold">Propti</span>
+      <div className="min-h-screen bg-gradient-hero flex flex-col">
+        {/* Header */}
+        <header className="p-6">
+        <Link href="/" className="flex items-center w-fit" aria-label="Propti - Beranda">
+          <ProptiLogo size={36} showWordmark />
         </Link>
-      </header>
+        </header>
 
       {/* Main content */}
       <main className="flex-1 flex items-center justify-center px-4 py-12">
@@ -39,7 +37,7 @@ export default async function LoginPage({
             {/* Logo area */}
             <div className="text-center mb-8">
               <div className="w-16 h-16 bg-gradient-hero rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-                <Home className="w-8 h-8 text-white" />
+                <ProptiLogo size={32} className="drop-shadow-sm" />
               </div>
               <h1 className="text-2xl font-bold text-gray-900">Selamat Datang di Propti</h1>
               <p className="text-gray-500 mt-2 text-sm">
