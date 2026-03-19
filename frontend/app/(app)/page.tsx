@@ -338,6 +338,7 @@ export default async function HomePage() {
               href="/search"
               className="flex items-center justify-center gap-2 border-2 border-white/40 text-white font-bold px-8 py-4 rounded-2xl hover:bg-white/10 transition-all text-lg"
             >
+              <Home className="w-5 h-5" />
               Cari Properti
             </Link>
           </div>
