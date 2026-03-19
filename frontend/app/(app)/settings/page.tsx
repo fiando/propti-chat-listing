@@ -22,7 +22,7 @@ export default function SettingsPage() {
   const queryClient = useQueryClient();
   const { profile, isLoading } = useAuth();
   const [phone, setPhone] = useState('');
-  const [role, setRole] = useState<'buyer' | 'seller' | 'both'>('buyer');
+  const [role, setRole] = useState<'buyer' | 'seller' | 'both' | ''>('');
   const [notifications, setNotifications] = useState(true);
   const [saved, setSaved] = useState(false);
   const returnTo = searchParams.get('returnTo');
@@ -32,7 +32,7 @@ export default function SettingsPage() {
       return;
     }
     setPhone(profile.phone ?? '');
-    setRole(profile.role ?? 'buyer');
+    setRole(profile.role ?? '');
     setNotifications(profile.preferences?.notifications ?? true);
   }, [profile]);
 
@@ -56,14 +56,20 @@ export default function SettingsPage() {
     event.preventDefault();
     setSaved(false);
 
-    await updateMutation.mutateAsync({
+    const payload: UpdateProfileRequest = {
       phone: phone.trim() || undefined,
-      role,
       preferences: {
         ...(profile?.preferences ?? DEFAULT_PREFERENCES),
         notifications,
       },
-    });
+    };
+
+    // Only include role if a real value is selected
+    if (role !== '') {
+      payload.role = role;
+    }
+
+    await updateMutation.mutateAsync(payload);
   };
 
   if (status === 'loading' || isLoading || !profile) {
@@ -125,7 +131,8 @@ export default function SettingsPage() {
 
             <label className="block">
               <span className="text-sm font-medium text-gray-700">Peran Akun</span>
-              <select value={role} onChange={(event) => setRole(event.target.value as 'buyer' | 'seller' | 'both')} className="input-field mt-1">
+              <select value={role} onChange={(event) => setRole(event.target.value as 'buyer' | 'seller' | 'both' | '')} className="input-field mt-1">
+                <option value="">Pilih peran akun (opsional)</option>
                 <option value="buyer">Pencari Properti</option>
                 <option value="seller">Penjual / Agen</option>
                 <option value="both">Keduanya</option>
