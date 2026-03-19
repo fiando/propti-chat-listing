@@ -27,6 +27,9 @@ type CreatePaymentInput struct {
 	Currency        string
 	Description     string
 	NotificationURL string
+	CallbackURL     string
+	ResultURL       string
+	AutoRedirect    bool
 	Customer        Customer
 }
 

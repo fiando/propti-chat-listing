@@ -54,6 +54,9 @@ func TestDOKUProviderCreatePaymentBuildsSignedCheckoutRequest(t *testing.T) {
 		Currency:        "IDR",
 		Description:     "Propti Premium",
 		NotificationURL: "https://api.propti.test/premium/callback",
+		CallbackURL:     "https://propti.test/profile#premium",
+		ResultURL:       "https://propti.test/profile#premium",
+		AutoRedirect:    true,
 		Customer: Customer{
 			ID:    "user-1",
 			Name:  "Bobby",
@@ -87,10 +90,24 @@ func TestDOKUProviderCreatePaymentBuildsSignedCheckoutRequest(t *testing.T) {
 	if got := order["amount"]; got != float64(49000) {
 		t.Fatalf("expected amount 49000, got %#v", got)
 	}
+	if got := order["callback_url"]; got != "https://propti.test/profile#premium" {
+		t.Fatalf("expected callback_url to be forwarded, got %#v", got)
+	}
+	if got := order["callback_url_result"]; got != "https://propti.test/profile#premium" {
+		t.Fatalf("expected callback_url_result to be forwarded, got %#v", got)
+	}
+	if got := order["auto_redirect"]; got != true {
+		t.Fatalf("expected auto_redirect to be true, got %#v", got)
+	}
 
 	additionalInfo := payload["additional_info"].(map[string]any)
 	if got := additionalInfo["override_notification_url"]; got != "https://api.propti.test/premium/callback" {
 		t.Fatalf("expected override_notification_url to be forwarded, got %#v", got)
+	}
+
+	customer := payload["customer"].(map[string]any)
+	if got := customer["email"]; got != "bob@example.com" {
+		t.Fatalf("expected customer email to be forwarded, got %#v", got)
 	}
 
 	if result.Provider != ProviderDOKU {

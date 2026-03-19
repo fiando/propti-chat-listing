@@ -90,9 +90,20 @@ func (p *DOKUProvider) CreatePayment(ctx context.Context, input CreatePaymentInp
 			"email": input.Customer.Email,
 		},
 	}
+	order := payload["order"].(map[string]any)
+
+	if strings.TrimSpace(input.CallbackURL) != "" {
+		order["callback_url"] = input.CallbackURL
+	}
+	if strings.TrimSpace(input.ResultURL) != "" {
+		order["callback_url_result"] = input.ResultURL
+	}
+	if input.AutoRedirect {
+		order["auto_redirect"] = true
+	}
 
 	if strings.TrimSpace(input.Description) != "" {
-		payload["order"].(map[string]any)["line_items"] = []map[string]any{
+		order["line_items"] = []map[string]any{
 			{
 				"id":       input.OrderID,
 				"name":     input.Description,
