@@ -86,7 +86,9 @@ export function ListingDetail({
       );
       setRevealedContact(contact);
 
-      const nextLinks = buildListingContactLinks(contact.sellerPhone);
+      const listingUrl =
+        typeof window !== 'undefined' ? `${window.location.origin}/listings/${listing.listingId}` : undefined;
+      const nextLinks = buildListingContactLinks(contact.sellerPhone, listing.title, listingUrl);
       const nextUrl = channel === 'whatsapp' ? nextLinks.whatsappUrl : nextLinks.phoneUrl;
       if (!nextUrl) {
         toast('Nomor penjual tidak valid untuk dibuka.', 'error');
