@@ -200,6 +200,18 @@ func TestPremiumHandlerUpgradeToPremiumUsesPaymentProvider(t *testing.T) {
 	if provider.lastInput.NotificationURL != "https://api.propti.test/premium/callback" {
 		t.Fatalf("expected callback url to be passed to provider, got %q", provider.lastInput.NotificationURL)
 	}
+	if provider.lastInput.CallbackURL != "https://propti.test/profile#premium" {
+		t.Fatalf("expected callback url result to point to profile, got %q", provider.lastInput.CallbackURL)
+	}
+	if provider.lastInput.ResultURL != "https://propti.test/profile#premium" {
+		t.Fatalf("expected result url to point to profile, got %q", provider.lastInput.ResultURL)
+	}
+	if !provider.lastInput.AutoRedirect {
+		t.Fatalf("expected auto redirect to be enabled")
+	}
+	if provider.lastInput.Customer.Email != "bob@example.com" {
+		t.Fatalf("expected customer email to be forwarded, got %q", provider.lastInput.Customer.Email)
+	}
 	if len(txStore.items) != 1 {
 		t.Fatalf("expected one stored transaction, got %d", len(txStore.items))
 	}

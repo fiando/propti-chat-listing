@@ -121,12 +121,17 @@ func (h *PremiumHandler) upgradeToPremium(ctx context.Context, req events.APIGat
 	}
 	tx.PK = tx.TransactionID
 
+	returnURL := buildPremiumReturnURL()
+
 	paymentResult, err := h.paymentProvider.CreatePayment(ctx, payments.CreatePaymentInput{
 		OrderID:         orderID,
 		Amount:          amount,
 		Currency:        "IDR",
 		Description:     "Propti Premium",
 		NotificationURL: buildPremiumCallbackURL(),
+		CallbackURL:     returnURL,
+		ResultURL:       returnURL,
+		AutoRedirect:    true,
 		Customer: payments.Customer{
 			ID:    userID,
 			Name:  user.Name,
@@ -335,6 +340,26 @@ func buildPremiumCallbackURL() string {
 		return ""
 	}
 	return baseURL + "/premium/callback"
+}
+
+func buildPremiumReturnURL() string {
+	baseURL := derivePublicAppBaseURL()
+	if baseURL == "" {
+		baseURL = "https://propti.id"
+	}
+
+	return strings.TrimRight(baseURL, "/") + "/profile#premium"
+}
+
+func derivePublicAppBaseURL() string {
+	apiBaseURL := strings.TrimRight(os.Getenv("PUBLIC_API_BASE_URL"), "/")
+	if strings.HasPrefix(apiBaseURL, "https://api.") {
+		return "https://" + strings.TrimPrefix(apiBaseURL, "https://api.")
+	}
+	if strings.HasPrefix(apiBaseURL, "http://api.") {
+		return "http://" + strings.TrimPrefix(apiBaseURL, "http://api.")
+	}
+	return ""
 }
 
 func generateOrderID(prefix string) (string, error) {
