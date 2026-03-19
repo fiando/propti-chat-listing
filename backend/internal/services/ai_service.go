@@ -81,11 +81,13 @@ Rules:
 
 const moderationSystemPrompt = `You are a content moderation assistant for an Indonesian real estate platform.
 Analyze the listing content for the following violations:
-1. Spam or duplicate/nonsensical content
-2. Illegal property (e.g. on protected land, without permits)
-3. Fraudulent claims or misleading pricing
-4. Inappropriate content unrelated to real estate
-5. Price that is unrealistically low or high for the described property
+1. Spam, nonsensical, placeholder, or test content (e.g. "test", "aaa", "asdf", single random words)
+2. Title or description that is clearly not about a real property for sale or rent
+3. Illegal property (e.g. on protected land, without permits)
+4. Fraudulent claims or misleading pricing
+5. Inappropriate, offensive, or abusive language
+6. Content unrelated to real estate (e.g. selling vehicles, products, services)
+7. Price that is unrealistically low or high for the described property
 
 Respond ONLY with valid JSON:
 {

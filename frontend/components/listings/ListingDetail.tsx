@@ -54,8 +54,8 @@ const OWNER_MODERATION_NOTICES: Partial<
     tone: 'border-blue-200 bg-blue-50 text-blue-700',
   },
   rejected: {
-    title: 'Iklan kamu belum lolos review',
-    message: 'Tenang, kamu bisa hapus iklan ini lalu buat ulang dengan konten yang lebih sesuai.',
+    title: 'Iklan Ditolak',
+    message: 'Iklan ini melanggar kebijakan Propti. Hapus dan buat iklan baru.',
     tone: 'border-red-200 bg-red-50 text-red-700',
   },
 };
@@ -173,11 +173,11 @@ export function ListingDetail({
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900">
-                    {listing.moderationStatus === 'rejected' ? 'Belum lolos review' : 'Sedang direview'}
+                    {listing.moderationStatus === 'rejected' ? 'Iklan Ditolak' : 'Sedang diproses'}
                   </h1>
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-600">
                     {listing.moderationStatus === 'rejected'
-                      ? 'Detail iklan disembunyikan sementara. Hapus iklan ini, lalu buat iklan baru dengan foto yang jelas dan deskripsi yang jujur sesuai kondisi properti.'
+                      ? 'Iklan ini melanggar kebijakan Propti dan tidak tampil di pencarian.'
                       : 'Detail iklan belum tampil ke publik sampai review selesai.'}
                   </p>
                 </div>
@@ -204,12 +204,12 @@ export function ListingDetail({
           <div className="space-y-4">
             <div className="card p-6 sticky top-20">
               <h2 className="text-lg font-bold text-gray-900">
-                {listing.moderationStatus === 'rejected' ? 'Coba lagi yuk 💪' : 'Sedang dalam review'}
+                {listing.moderationStatus === 'rejected' ? 'Buat iklan baru' : 'Sedang dalam proses'}
               </h2>
               {listing.moderationStatus === 'rejected' ? (
                 <>
                   <p className="mt-2 text-sm leading-6 text-gray-600">
-                    Tips biar iklan lolos review:
+                    Tips agar iklan lolos:
                   </p>
                   <ul className="mt-2 space-y-1.5 text-sm text-gray-600">
                     <li className="flex gap-2"><span>📸</span> Gunakan foto asli yang terang dan jelas</li>

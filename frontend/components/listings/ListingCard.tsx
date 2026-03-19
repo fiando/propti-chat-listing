@@ -40,11 +40,8 @@ export function ListingCard({ listing, onSave, isSaved = false, onDelete, isDele
     listing.moderationStatus === 'rejected'
       ? {
           badge: 'Ditolak',
-          title: listing.moderationStatus === 'rejected' ? 'Belum lolos review' : 'Sedang direview',
-          message:
-            listing.moderationStatus === 'rejected'
-              ? 'Hapus iklan ini lalu buat ulang dengan foto yang jelas dan deskripsi jujur.'
-              : 'Konten belum tampil di Propti sampai review selesai.',
+          title: 'Iklan Ditolak',
+          message: 'Iklan ini melanggar kebijakan Propti. Hapus dan buat iklan baru.',
           tone: 'bg-red-50 text-red-700 border-red-200',
         }
       : {
