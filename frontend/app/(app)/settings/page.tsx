@@ -127,7 +127,7 @@ export default function SettingsPage() {
             <label className="block">
               <span className="text-sm font-medium text-gray-700">Peran Akun</span>
               <select value={role} onChange={(event) => setRole(event.target.value as 'buyer' | 'seller' | 'both' | '')} className="input-field mt-1">
-                <option value="">Pilih peran akun (opsional)</option>
+                {role === '' && <option value="">Pilih peran akun (opsional)</option>}
                 <option value="buyer">Pencari Properti</option>
                 <option value="seller">Penjual / Agen</option>
                 <option value="both">Keduanya</option>
