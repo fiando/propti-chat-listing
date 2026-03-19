@@ -1329,3 +1329,267 @@ func containsString(values []string, needle string) bool {
 	}
 	return false
 }
+
+// --- expiry tests ---
+
+func newListingServiceWithClock(store *fakeListingStore, userStore *fakeUserStore, nowFn func() time.Time) *ListingService {
+	svc := NewListingService(store, userStore, nil, nil, nil, nil)
+	svc.now = nowFn
+	return svc
+}
+
+func TestCreateListingSetsExpiresAt(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name             string
+		tier             models.SubscriptionTier
+		expectedDuration time.Duration
+	}{
+		{"free tier expires in 30 days", models.SubscriptionFree, freeTierListingDuration},
+		{"premium tier expires in 90 days", models.SubscriptionPremium, premiumTierListingDuration},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			store := &fakeListingStore{}
+			svc := newListingServiceWithClock(store, &fakeUserStore{
+				user: &models.User{
+					UserID: "user-1",
+					Subscription: models.Subscription{Tier: tc.tier},
+				},
+			}, func() time.Time { return now })
+
+			listing, err := svc.CreateListing(ctx, "user-1", &models.CreateListingRequest{
+				Title:       "Test",
+				Description: "Test",
+				Price:       1000000,
+				PriceUnit:   "total",
+				ListingType: models.ListingTypeSell,
+				Location: models.Location{
+					Address:  "Jl. Sudirman No. 1",
+					Province: "DKI Jakarta",
+					City:     "Jakarta",
+				},
+			})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if listing.ExpiresAt == nil {
+				t.Fatal("expected ExpiresAt to be set")
+			}
+			expected := now.Add(tc.expectedDuration)
+			if !listing.ExpiresAt.Equal(expected) {
+				t.Errorf("expected ExpiresAt=%v got %v", expected, *listing.ExpiresAt)
+			}
+		})
+	}
+}
+
+func TestGetListingRejectsExpired(t *testing.T) {
+	ctx := context.Background()
+	past := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	now := time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC)
+
+	store := &fakeListingStore{
+		listingsByID: map[string]*models.Listing{
+			"listing-1": {
+				ListingID:        "listing-1",
+				UserID:           "user-1",
+				Status:           models.ListingStatusActive,
+				ModerationStatus: models.ModerationStatusApproved,
+				ExpiresAt:        &past,
+			},
+		},
+		listingsByUser: map[string]map[string]*models.Listing{
+			"user-1": {
+				"listing-1": {
+					ListingID:        "listing-1",
+					UserID:           "user-1",
+					Status:           models.ListingStatusActive,
+					ModerationStatus: models.ModerationStatusApproved,
+					ExpiresAt:        &past,
+				},
+			},
+		},
+	}
+	svc := newListingServiceWithClock(store, &fakeUserStore{}, func() time.Time { return now })
+
+	_, err := svc.GetListing(ctx, "listing-1")
+	if err == nil {
+		t.Fatal("expected ErrNotFound for expired listing, got nil")
+	}
+	appErr, ok := err.(*utils.AppError)
+	if !ok || appErr.Code != 404 {
+		t.Errorf("expected 404 AppError, got %v", err)
+	}
+}
+
+func TestGetListingAllowsNonExpired(t *testing.T) {
+	ctx := context.Background()
+	future := time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC)
+	now := time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC)
+
+	listing := &models.Listing{
+		ListingID:        "listing-1",
+		UserID:           "user-1",
+		Status:           models.ListingStatusActive,
+		ModerationStatus: models.ModerationStatusApproved,
+		ExpiresAt:        &future,
+	}
+	store := &fakeListingStore{
+		listingsByID:   map[string]*models.Listing{"listing-1": listing},
+		listingsByUser: map[string]map[string]*models.Listing{"user-1": {"listing-1": listing}},
+	}
+	userStore := &fakeUserStore{user: &models.User{UserID: "user-1"}}
+	svc := newListingServiceWithClock(store, userStore, func() time.Time { return now })
+
+	result, err := svc.GetListing(ctx, "listing-1")
+	if err != nil {
+		t.Fatalf("expected no error for non-expired listing, got %v", err)
+	}
+	if result == nil || result.ListingID != "listing-1" {
+		t.Errorf("expected listing-1, got %v", result)
+	}
+}
+
+func TestGetListingAllowsLegacyNoExpiry(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC)
+
+	listing := &models.Listing{
+		ListingID:        "listing-old",
+		UserID:           "user-1",
+		Status:           models.ListingStatusActive,
+		ModerationStatus: models.ModerationStatusApproved,
+		ExpiresAt:        nil, // legacy listing without expiry
+	}
+	store := &fakeListingStore{
+		listingsByID:   map[string]*models.Listing{"listing-old": listing},
+		listingsByUser: map[string]map[string]*models.Listing{"user-1": {"listing-old": listing}},
+	}
+	userStore := &fakeUserStore{user: &models.User{UserID: "user-1"}}
+	svc := newListingServiceWithClock(store, userStore, func() time.Time { return now })
+
+	result, err := svc.GetListing(ctx, "listing-old")
+	if err != nil {
+		t.Fatalf("expected legacy listing without ExpiresAt to be visible, got %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected listing, got nil")
+	}
+}
+
+func TestRenewListingExtendsExpiresAt(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC)
+	past := now.Add(-time.Hour) // already expired
+
+	listing := &models.Listing{
+		ListingID:        "listing-1",
+		UserID:           "user-1",
+		Status:           models.ListingStatusActive,
+		ModerationStatus: models.ModerationStatusApproved,
+		ExpiresAt:        &past,
+	}
+	store := &fakeListingStore{
+		listingsByID:   map[string]*models.Listing{"listing-1": listing},
+		listingsByUser: map[string]map[string]*models.Listing{"user-1": {"listing-1": listing}},
+	}
+	userStore := &fakeUserStore{
+		user: &models.User{
+			UserID:       "user-1",
+			Subscription: models.Subscription{Tier: models.SubscriptionFree},
+		},
+	}
+	svc := newListingServiceWithClock(store, userStore, func() time.Time { return now })
+
+	renewed, err := svc.RenewListing(ctx, "user-1", "listing-1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	expected := now.Add(freeTierListingDuration)
+	if renewed.ExpiresAt == nil || !renewed.ExpiresAt.Equal(expected) {
+		t.Errorf("expected ExpiresAt=%v, got %v", expected, renewed.ExpiresAt)
+	}
+}
+
+func TestFreeUserCanCreateAfterExpiry(t *testing.T) {
+	ctx := context.Background()
+	past := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	now := time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC)
+
+	// 3 expired listings — should not count toward quota
+	expiredListing := func(id string) *models.Listing {
+		return &models.Listing{
+			ListingID: id,
+			UserID:    "user-1",
+			Status:    models.ListingStatusActive,
+			ExpiresAt: &past,
+		}
+	}
+	store := &fakeListingStore{
+		listingsByUser: map[string]map[string]*models.Listing{
+			"user-1": {
+				"l1": expiredListing("l1"),
+				"l2": expiredListing("l2"),
+				"l3": expiredListing("l3"),
+			},
+		},
+	}
+	// CountActiveByUserID fake must not count expired listings;
+	// override via a custom fake that respects ExpiresAt
+	store2 := &fakeListingStoreWithExpiry{fakeListingStore: store, now: now}
+
+	svc := newListingServiceWithClock(&fakeListingStore{}, &fakeUserStore{
+		user: &models.User{
+			UserID:       "user-1",
+			Subscription: models.Subscription{Tier: models.SubscriptionFree},
+		},
+	}, func() time.Time { return now })
+	svc.listingRepo = store2
+
+	listing, err := svc.CreateListing(ctx, "user-1", &models.CreateListingRequest{
+		Title:       "New listing",
+		Description: "Test",
+		Price:       1000000,
+		PriceUnit:   "total",
+		ListingType: models.ListingTypeSell,
+		Location: models.Location{
+			Address:  "Jl. Sudirman No. 1",
+			Province: "DKI Jakarta",
+			City:     "Jakarta",
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected free user to create listing after all expire, got: %v", err)
+	}
+	if listing == nil {
+		t.Fatal("expected listing, got nil")
+	}
+}
+
+// fakeListingStoreWithExpiry wraps fakeListingStore but filters expired listings
+// from CountActiveByUserID, matching production behavior.
+type fakeListingStoreWithExpiry struct {
+	*fakeListingStore
+	now time.Time
+}
+
+func (f *fakeListingStoreWithExpiry) CountActiveByUserID(ctx context.Context, userID string) (int, error) {
+	if f.listingsByUser == nil || f.listingsByUser[userID] == nil {
+		return 0, nil
+	}
+	count := 0
+	for _, listing := range f.listingsByUser[userID] {
+		if listing.Status != models.ListingStatusActive {
+			continue
+		}
+		if isExpiredAt(listing, f.now) {
+			continue
+		}
+		count++
+	}
+	return count, nil
+}

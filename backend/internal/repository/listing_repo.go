@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -121,7 +122,9 @@ func (r *ListingRepo) ListByUserID(ctx context.Context, userID string, limit int
 }
 
 // CountActiveByUserID counts listings that still consume a user's active slot.
+// Expired listings (expiresAt in the past) are excluded from the count.
 func (r *ListingRepo) CountActiveByUserID(ctx context.Context, userID string) (int, error) {
+	now := time.Now().UTC().Format(time.RFC3339Nano)
 	result, err := r.db.Client.Query(ctx, &dynamodb.QueryInput{
 		TableName:              aws.String(r.db.ListingsTable),
 		IndexName:              aws.String("userId-createdAt-index"),
@@ -129,12 +132,13 @@ func (r *ListingRepo) CountActiveByUserID(ctx context.Context, userID string) (i
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":uid":    &types.AttributeValueMemberS{Value: userID},
 			":active": &types.AttributeValueMemberS{Value: string(models.ListingStatusActive)},
+			":now":    &types.AttributeValueMemberS{Value: now},
 		},
 		ExpressionAttributeNames: map[string]string{
 			"#st": "status",
 		},
-		FilterExpression: aws.String("#st = :active"),
-		Select: types.SelectCount,
+		FilterExpression: aws.String("#st = :active AND (attribute_not_exists(expiresAt) OR expiresAt > :now)"),
+		Select:           types.SelectCount,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("count active listings: %w", err)

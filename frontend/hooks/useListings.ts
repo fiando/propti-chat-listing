@@ -15,6 +15,7 @@ import {
   createListing,
   updateListing,
   deleteListing,
+  renewListing,
   getMyListings,
   saveListing,
   unsaveListing,
@@ -142,6 +143,19 @@ export function useDeleteListing() {
     onSuccess: (_, id) => {
       queryClient.removeQueries({ queryKey: ['listing', id] });
       queryClient.invalidateQueries({ queryKey: ['listings'] });
+      queryClient.invalidateQueries({ queryKey: ['my-listings'] });
+      queryClient.invalidateQueries({ queryKey: ['my-listing-quota-summary'] });
+    },
+  });
+}
+
+export function useRenewListing() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => renewListing(id),
+    onSuccess: (listing) => {
+      queryClient.invalidateQueries({ queryKey: ['listing', listing.listingId] });
+      queryClient.invalidateQueries({ queryKey: ['owner-listing', listing.listingId] });
       queryClient.invalidateQueries({ queryKey: ['my-listings'] });
       queryClient.invalidateQueries({ queryKey: ['my-listing-quota-summary'] });
     },

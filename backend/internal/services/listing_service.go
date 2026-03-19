@@ -18,6 +18,9 @@ const (
 
 	minLocationConfidence = 0.7
 	contactRevealLimit    = 10
+
+	freeTierListingDuration    = 30 * 24 * time.Hour
+	premiumTierListingDuration = 90 * 24 * time.Hour
 )
 
 var contactRevealWindow = 10 * time.Minute
@@ -135,6 +138,7 @@ func (s *ListingService) CreateListing(ctx context.Context, userID string, req *
 	}
 
 	now := s.now()
+	expiresAt := s.listingExpiresAt(now, isPremium)
 	listing := &models.Listing{
 		PK:               fmt.Sprintf("%s#%s", userID, listingID),
 		SK:               listingID,
@@ -153,6 +157,7 @@ func (s *ListingService) CreateListing(ctx context.Context, userID string, req *
 		ImageCount:       len(images),
 		PremiumFeatures:  models.PremiumFeatures{IsPremium: isPremium},
 		ModerationStatus: models.ModerationStatusPending,
+		ExpiresAt:        &expiresAt,
 		CreatedAt:        now,
 		UpdatedAt:        now,
 	}
@@ -244,6 +249,9 @@ func (s *ListingService) GetListing(ctx context.Context, listingID string) (*mod
 	if listing.Status != models.ListingStatusActive || listing.ModerationStatus != models.ModerationStatusApproved {
 		return nil, utils.ErrNotFound
 	}
+	if s.isListingExpired(listing) {
+		return nil, utils.ErrNotFound
+	}
 	if seller, err := s.userRepo.GetByID(ctx, listing.UserID); err == nil && seller != nil {
 		listing.SellerName = seller.Name
 		listing.HasSellerPhone = strings.TrimSpace(seller.Phone) != ""
@@ -290,6 +298,9 @@ func (s *ListingService) RevealListingContact(
 		return nil, utils.ErrNotFound
 	}
 	if listing.Status != models.ListingStatusActive || listing.ModerationStatus != models.ModerationStatusApproved {
+		return nil, utils.ErrNotFound
+	}
+	if s.isListingExpired(listing) {
 		return nil, utils.ErrNotFound
 	}
 
@@ -364,6 +375,9 @@ func (s *ListingService) RecordListingView(ctx context.Context, listingID string
 	if listing.Status != models.ListingStatusActive || listing.ModerationStatus != models.ModerationStatusApproved {
 		return nil, utils.ErrNotFound
 	}
+	if s.isListingExpired(listing) {
+		return nil, utils.ErrNotFound
+	}
 
 	listing.Views++
 	listing.UpdatedAt = s.now()
@@ -423,7 +437,15 @@ func (s *ListingService) ListListings(ctx context.Context, params *models.Listin
 		utils.LogError("scan listings", err)
 		return nil, utils.ErrInternal
 	}
-	return listings, nil
+	now := s.now()
+	active := listings[:0]
+	for _, l := range listings {
+		ll := l
+		if !isExpiredAt(&ll, now) {
+			active = append(active, ll)
+		}
+	}
+	return active, nil
 }
 
 func (s *ListingService) SearchListings(ctx context.Context, params *models.ListingSearchParams) ([]models.Listing, error) {
@@ -495,6 +517,9 @@ func (s *ListingService) ListSavedListings(ctx context.Context, userID string, p
 		if listing.Status != models.ListingStatusActive || listing.ModerationStatus != models.ModerationStatusApproved {
 			continue
 		}
+		if s.isListingExpired(listing) {
+			continue
+		}
 		listings = append(listings, *listing)
 		if len(listings) >= limit {
 			break
@@ -518,6 +543,9 @@ func (s *ListingService) SaveListing(ctx context.Context, userID, listingID stri
 		return utils.ErrInternal
 	}
 	if listing == nil || listing.Status != models.ListingStatusActive || listing.ModerationStatus != models.ModerationStatusApproved {
+		return utils.ErrNotFound
+	}
+	if s.isListingExpired(listing) {
 		return utils.ErrNotFound
 	}
 
@@ -639,6 +667,55 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// listingExpiresAt returns when a new listing expires based on subscription tier.
+func (s *ListingService) listingExpiresAt(from time.Time, isPremium bool) time.Time {
+	if isPremium {
+		return from.Add(premiumTierListingDuration)
+	}
+	return from.Add(freeTierListingDuration)
+}
+
+// isListingExpired reports whether listing has passed its ExpiresAt time.
+// Legacy listings without an ExpiresAt are treated as never expired.
+func (s *ListingService) isListingExpired(listing *models.Listing) bool {
+	return isExpiredAt(listing, s.now())
+}
+
+func isExpiredAt(listing *models.Listing, now time.Time) bool {
+	return listing.ExpiresAt != nil && now.After(*listing.ExpiresAt)
+}
+
+// RenewListing extends ExpiresAt for an owner's listing by the tier-appropriate duration.
+func (s *ListingService) RenewListing(ctx context.Context, userID, listingID string) (*models.Listing, error) {
+	listing, err := s.listingRepo.GetByID(ctx, userID, listingID)
+	if err != nil {
+		return nil, utils.ErrInternal
+	}
+	if listing == nil {
+		return nil, utils.ErrNotFound
+	}
+	if listing.UserID != userID {
+		return nil, utils.ErrForbidden
+	}
+
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil || user == nil {
+		return nil, utils.ErrUnauthorized
+	}
+	isPremium := user.Subscription.Tier == models.SubscriptionPremium
+
+	now := s.now()
+	expiresAt := s.listingExpiresAt(now, isPremium)
+	listing.ExpiresAt = &expiresAt
+	listing.UpdatedAt = now
+
+	if err := s.listingRepo.Put(ctx, listing); err != nil {
+		return nil, utils.ErrInternal
+	}
+
+	return listing, nil
 }
 
 func (s *ListingService) FeatureListing(ctx context.Context, userID, listingID, featureType string, until time.Time) error {

@@ -73,6 +73,7 @@ type Listing struct {
 	Saves            int              `json:"saves" dynamodbav:"saves"`
 	ModerationStatus ModerationStatus `json:"moderationStatus" dynamodbav:"moderationStatus"`
 	ModerationReason string           `json:"moderationReason,omitempty" dynamodbav:"moderationReason,omitempty"`
+	ExpiresAt        *time.Time       `json:"expiresAt,omitempty" dynamodbav:"expiresAt,omitempty"`
 	CreatedAt        time.Time        `json:"createdAt" dynamodbav:"createdAt"`
 	UpdatedAt        time.Time        `json:"updatedAt" dynamodbav:"updatedAt"`
 }

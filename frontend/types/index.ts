@@ -76,6 +76,7 @@ export interface Listing {
   saves: number;
   moderationStatus: ModerationStatus;
   featuredThumbnailUrl?: string;
+  expiresAt?: string;
   createdAt: string;
   updatedAt: string;
 }

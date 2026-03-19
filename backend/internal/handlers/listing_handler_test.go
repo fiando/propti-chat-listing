@@ -65,6 +65,10 @@ func (f *fakeListingHandlerService) DeleteListing(ctx context.Context, userID, l
 	return nil
 }
 
+func (f *fakeListingHandlerService) RenewListing(ctx context.Context, userID, listingID string) (*models.Listing, error) {
+	return nil, nil
+}
+
 func (f *fakeListingHandlerService) SaveListing(ctx context.Context, userID, listingID string) error {
 	return nil
 }

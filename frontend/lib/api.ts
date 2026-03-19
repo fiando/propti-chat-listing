@@ -141,6 +141,11 @@ export async function deleteListing(id: string): Promise<void> {
   await apiClient.delete(`/listings/${id}`);
 }
 
+export async function renewListing(id: string): Promise<Listing> {
+  const response = await apiClient.post<Listing>(`/listings/${id}/renew`);
+  return response.data;
+}
+
 export async function prepareListingUpload(
   data: UploadPrepareRequest
 ): Promise<UploadPrepareResponse> {
