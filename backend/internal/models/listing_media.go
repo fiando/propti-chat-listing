@@ -28,7 +28,12 @@ type ImageEntries []ImageEntry
 
 func (entries *ImageEntries) UnmarshalDynamoDBAttributeValue(value types.AttributeValue) error {
 	if value == nil {
-		*entries = nil
+		*entries = ImageEntries{}
+		return nil
+	}
+
+	if nullValue, ok := value.(*types.AttributeValueMemberNULL); ok && nullValue.Value {
+		*entries = ImageEntries{}
 		return nil
 	}
 

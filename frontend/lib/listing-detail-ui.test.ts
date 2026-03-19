@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
+const detailPageFile = readFileSync(new URL('../app/(app)/listings/[id]/page.tsx', import.meta.url), 'utf8');
 const listingDetailFile = readFileSync(
   new URL('../components/listings/ListingDetail.tsx', import.meta.url),
   'utf8'
@@ -18,4 +19,16 @@ test('listing detail uses a zoom-capable lightbox for the gallery popup', () => 
 
 test('settings page only shows the optional role placeholder when no role is selected', () => {
   assert.match(settingsPageFile, /\{role === '' && <option value="">Pilih peran akun \(opsional\)<\/option>\}/);
+});
+
+test('listing detail page can fall back to the owner endpoint for moderated owner listings', () => {
+  assert.match(detailPageFile, /useOwnerListing/);
+  assert.match(detailPageFile, /const listing = publicListing \?\? ownerListing/);
+  assert.match(detailPageFile, /const error = publicError && ownerError/);
+});
+
+test('listing detail shows a generic owner moderation notice without exposing internal reasons', () => {
+  assert.match(listingDetailFile, /Iklan ini sedang ditinjau oleh tim moderasi Propti/);
+  assert.match(listingDetailFile, /Iklan ini belum bisa ditampilkan ke publik/);
+  assert.doesNotMatch(listingDetailFile, /listing\.moderationReason/);
 });

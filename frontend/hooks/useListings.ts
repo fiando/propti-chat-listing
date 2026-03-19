@@ -45,11 +45,11 @@ export function useListing(id: string) {
   });
 }
 
-export function useOwnerListing(id: string) {
+export function useOwnerListing(id: string, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['owner-listing', id],
     queryFn: () => getOwnerListing(id),
-    enabled: !!id,
+    enabled: Boolean(id) && (options?.enabled ?? true),
   });
 }
 
