@@ -33,7 +33,7 @@ export default function MyListingsPage() {
           </div>
         <Link href="/listings/create" className="btn-primary flex items-center gap-2 text-sm">
           <Plus className="w-4 h-4" />
-          Pasang Iklan Baru
+          Pasang Iklan
         </Link>
       </div>
 
@@ -54,7 +54,7 @@ export default function MyListingsPage() {
           </p>
           <Link href="/listings/create" className="btn-primary inline-flex items-center gap-2">
             <Plus className="w-4 h-4" />
-            Pasang Iklan Gratis
+            Pasang Iklan
           </Link>
         </div>
       ) : (

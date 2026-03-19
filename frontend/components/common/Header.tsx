@@ -273,7 +273,7 @@ export function Header() {
             ) : (
               <>
                 <Plus className="w-4 h-4" />
-                Pasang Iklan Gratis
+                Pasang Iklan
               </>
             )}
           </Link>
