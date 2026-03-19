@@ -22,13 +22,6 @@ export default async function LoginPage({
 
   return (
       <div className="min-h-screen bg-gradient-hero flex flex-col">
-        {/* Header */}
-        <header className="p-6">
-        <Link href="/" className="flex items-center w-fit" aria-label="Propti - Beranda">
-          <ProptiLogo size={36} showWordmark />
-        </Link>
-        </header>
-
       {/* Main content */}
       <main className="flex-1 flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
@@ -36,8 +29,8 @@ export default async function LoginPage({
           <div className="bg-white rounded-3xl shadow-2xl p-8">
             {/* Logo area */}
             <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-gradient-hero rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-                <ProptiLogo size={32} className="drop-shadow-sm" />
+              <div className="flex items-center justify-center mx-auto mb-4">
+                <ProptiLogo size={48} showWordmark />
               </div>
               <h1 className="text-2xl font-bold text-gray-900">Selamat Datang di Propti</h1>
               <p className="text-gray-500 mt-2 text-sm">
