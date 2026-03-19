@@ -54,8 +54,8 @@ const OWNER_MODERATION_NOTICES: Partial<
     tone: 'border-amber-200 bg-amber-50 text-amber-800',
   },
   rejected: {
-    title: 'Iklan ditolak',
-    message: 'Iklan kamu tidak lolos moderasi. Kamu hanya bisa menghapus iklan ini.',
+    title: 'Iklan kamu belum lolos review',
+    message: 'Tenang, kamu bisa hapus iklan ini lalu buat ulang dengan konten yang lebih sesuai.',
     tone: 'border-red-200 bg-red-50 text-red-700',
   },
 };
@@ -173,11 +173,11 @@ export function ListingDetail({
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900">
-                    {listing.moderationStatus === 'rejected' ? 'Iklan ditolak' : 'Iklan sedang direview'}
+                    {listing.moderationStatus === 'rejected' ? 'Belum lolos review' : 'Sedang direview'}
                   </h1>
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-600">
                     {listing.moderationStatus === 'rejected'
-                      ? 'Iklan kamu tidak lolos moderasi. Detail iklan disembunyikan dan tidak bisa dilihat publik.'
+                      ? 'Detail iklan disembunyikan sementara. Hapus iklan ini, lalu buat iklan baru dengan foto yang jelas dan deskripsi yang jujur sesuai kondisi properti.'
                       : 'Detail iklan belum tampil ke publik sampai review selesai.'}
                   </p>
                 </div>
@@ -203,11 +203,26 @@ export function ListingDetail({
 
           <div className="space-y-4">
             <div className="card p-6 sticky top-20">
-              <h2 className="text-lg font-bold text-gray-900">Aksi yang tersedia</h2>
-              <p className="mt-2 text-sm leading-6 text-gray-600">
-                Selama moderasi belum disetujui, Propti hanya menyediakan penghapusan iklan agar konten sensitif
-                tidak terus tersimpan di alur owner.
-              </p>
+              <h2 className="text-lg font-bold text-gray-900">
+                {listing.moderationStatus === 'rejected' ? 'Coba lagi yuk 💪' : 'Sedang dalam review'}
+              </h2>
+              {listing.moderationStatus === 'rejected' ? (
+                <>
+                  <p className="mt-2 text-sm leading-6 text-gray-600">
+                    Tips biar iklan lolos review:
+                  </p>
+                  <ul className="mt-2 space-y-1.5 text-sm text-gray-600">
+                    <li className="flex gap-2"><span>📸</span> Gunakan foto asli yang terang dan jelas</li>
+                    <li className="flex gap-2"><span>✍️</span> Deskripsi jujur sesuai kondisi properti</li>
+                    <li className="flex gap-2"><span>💰</span> Harga realistis sesuai pasaran</li>
+                    <li className="flex gap-2"><span>🚫</span> Hindari kata berlebihan atau menyesatkan</li>
+                  </ul>
+                </>
+              ) : (
+                <p className="mt-2 text-sm leading-6 text-gray-600">
+                  Biasanya selesai dalam beberapa jam. Kamu akan bisa melihat iklan setelah disetujui.
+                </p>
+              )}
 
               <button
                 onClick={onDelete}

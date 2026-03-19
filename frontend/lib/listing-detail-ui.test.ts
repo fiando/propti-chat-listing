@@ -28,7 +28,7 @@ test('listing detail page can fall back to the owner endpoint for moderated owne
 });
 
 test('listing detail shows a generic owner moderation notice without exposing internal reasons', () => {
-  assert.match(listingDetailFile, /Iklan kamu sedang kami tinjau|Iklan sedang direview/);
-  assert.match(listingDetailFile, /Iklan kamu tidak lolos moderasi|Iklan ditolak/);
+  assert.match(listingDetailFile, /sedang kami tinjau|Sedang direview|sedang direview/);
+  assert.match(listingDetailFile, /belum lolos review|Belum lolos review/);
   assert.doesNotMatch(listingDetailFile, /listing\.moderationReason/);
 });
