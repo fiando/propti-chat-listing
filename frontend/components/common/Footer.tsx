@@ -14,7 +14,6 @@ const FOOTER_LINKS: Record<string, FooterLink[]> = {
     { label: 'Cari Properti', href: '/search'},
     { label: 'Pasang Iklan', href: '/listings/create' },
     { label: 'Premium', href: '/profile#premium' },
-    { label: 'Harga', href: '/pricing' },
   ],
   Perusahaan: [
     { label: 'Tentang Kami', href: '/about' },
