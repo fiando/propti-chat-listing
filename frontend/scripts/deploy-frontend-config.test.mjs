@@ -13,10 +13,10 @@ test('frontend deploy workflow injects required auth runtime secrets into Vercel
   assert.match(workflow, /NEXTAUTH_SECRET:\s+\$\{\{\s*secrets\.NEXTAUTH_SECRET\s*\}\}/);
   assert.match(workflow, /GOOGLE_CLIENT_ID:\s+\$\{\{\s*secrets\.GOOGLE_CLIENT_ID\s*\}\}/);
   assert.match(workflow, /GOOGLE_CLIENT_SECRET:\s+\$\{\{\s*secrets\.GOOGLE_CLIENT_SECRET\s*\}\}/);
-  assert.match(workflow, /--env NEXTAUTH_URL="\$\{\{\s*secrets\.NEXTAUTH_URL\s*\}\}"/);
-  assert.match(workflow, /--env NEXTAUTH_SECRET="\$\{\{\s*secrets\.NEXTAUTH_SECRET\s*\}\}"/);
-  assert.match(workflow, /--env GOOGLE_CLIENT_ID="\$\{\{\s*secrets\.GOOGLE_CLIENT_ID\s*\}\}"/);
-  assert.match(workflow, /--env GOOGLE_CLIENT_SECRET="\$\{\{\s*secrets\.GOOGLE_CLIENT_SECRET\s*\}\}"/);
+  assert.match(workflow, /--env NEXTAUTH_URL=\$\{\{\s*secrets\.NEXTAUTH_URL\s*\}\}/);
+  assert.match(workflow, /--env NEXTAUTH_SECRET=\$\{\{\s*secrets\.NEXTAUTH_SECRET\s*\}\}/);
+  assert.match(workflow, /--env GOOGLE_CLIENT_ID=\$\{\{\s*secrets\.GOOGLE_CLIENT_ID\s*\}\}/);
+  assert.match(workflow, /--env GOOGLE_CLIENT_SECRET=\$\{\{\s*secrets\.GOOGLE_CLIENT_SECRET\s*\}\}/);
 });
 
 test('frontend env templates point production traffic at the deployed API base path without /v1', () => {

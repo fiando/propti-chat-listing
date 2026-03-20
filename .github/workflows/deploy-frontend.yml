@@ -74,11 +74,11 @@ jobs:
           working-directory: frontend
           vercel-args: >-
             --prod
-            --env NEXTAUTH_URL="${{ secrets.NEXTAUTH_URL }}"
-            --env NEXTAUTH_SECRET="${{ secrets.NEXTAUTH_SECRET }}"
-            --env GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}"
-            --env GOOGLE_CLIENT_SECRET="${{ secrets.GOOGLE_CLIENT_SECRET }}"
-            --build-env NEXTAUTH_URL="${{ secrets.NEXTAUTH_URL }}"
-            --build-env NEXTAUTH_SECRET="${{ secrets.NEXTAUTH_SECRET }}"
-            --build-env GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}"
-            --build-env GOOGLE_CLIENT_SECRET="${{ secrets.GOOGLE_CLIENT_SECRET }}"
+            --env NEXTAUTH_URL=${{ secrets.NEXTAUTH_URL }}
+            --env NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
+            --env GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+            --env GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
+            --build-env NEXTAUTH_URL=${{ secrets.NEXTAUTH_URL }}
+            --build-env NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
+            --build-env GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+            --build-env GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
