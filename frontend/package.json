@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:deploy-config": "node --test scripts/deploy-frontend-config.test.mjs"
+    "test:deploy-config": "node --test scripts/deploy-frontend-config.test.mjs",
+    "deploy:vercel:prod": "vercel deploy --prod --yes"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
