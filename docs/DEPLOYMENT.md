@@ -121,6 +121,7 @@ Then push your backend changes to `main` and let the `Deploy Backend` workflow p
 
 - The production stack reuses previously stored secret parameter values when they are omitted from repeated `sam deploy` runs.
 - `CAPABILITY_NAMED_IAM` is required because the SAM template creates a named IAM role.
+- The GitHub Actions backend deploy uses `sam deploy --resolve-s3` so SAM can manage an artifact bucket for Lambda package uploads.
 - The backend custom domain remains `https://api.propti.id`.
 - The current SAM mapping keeps non-production stages on `DOKU_ENV=sandbox` and sets `production` to `DOKU_ENV=production`.
 

@@ -61,6 +61,7 @@ jobs:
           sam deploy \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
+            --resolve-s3 \
             --stack-name propti-backend \
             --region ap-southeast-1 \
             --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
