@@ -1,4 +1,7 @@
 import type { Metadata } from 'next';
+import { getServerSession } from 'next-auth';
+import { redirect } from 'next/navigation';
+import { authOptions } from '@/lib/auth';
 import { GoogleLoginButton } from '@/components/auth/GoogleLoginButton';
 import { ProptiLogo } from '@/components/common/ProptiLogo';
 import { Home, Shield, Zap } from 'lucide-react';
@@ -9,6 +12,12 @@ export const metadata: Metadata = {
   description: 'Login untuk mulai jual beli properti dengan mudah',
 };
 
+const AUTH_PATHS = ['/login', '/callback', '/api/auth'];
+
+function isSafeCallbackUrl(url: string): boolean {
+  return url.startsWith('/') && !AUTH_PATHS.some((p) => url.startsWith(p));
+}
+
 export default async function LoginPage({
   searchParams,
 }: {
@@ -16,9 +25,14 @@ export default async function LoginPage({
 }) {
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const callbackUrl =
-    resolvedSearchParams?.callbackUrl && resolvedSearchParams.callbackUrl.startsWith('/')
+    resolvedSearchParams?.callbackUrl && isSafeCallbackUrl(resolvedSearchParams.callbackUrl)
       ? resolvedSearchParams.callbackUrl
       : '/';
+
+  const session = await getServerSession(authOptions);
+  if (session) {
+    redirect(callbackUrl);
+  }
 
   return (
       <div className="min-h-screen bg-gradient-hero flex flex-col">

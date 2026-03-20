@@ -60,8 +60,12 @@ apiClient.interceptors.response.use(
   (error: AxiosError) => {
     if (error.response?.status === 401) {
       if (typeof window !== 'undefined') {
-        const callbackUrl = `${window.location.pathname}${window.location.search}`;
-        window.location.href = `/login?callbackUrl=${encodeURIComponent(callbackUrl)}`;
+        const AUTH_PATHS = ['/login', '/callback', '/api/auth'];
+        const currentPath = window.location.pathname;
+        if (!AUTH_PATHS.some((p) => currentPath.startsWith(p))) {
+          const callbackUrl = `${window.location.pathname}${window.location.search}`;
+          window.location.href = `/login?callbackUrl=${encodeURIComponent(callbackUrl)}`;
+        }
       }
     }
     const message = getApiErrorMessage(error.response?.data, error.message);

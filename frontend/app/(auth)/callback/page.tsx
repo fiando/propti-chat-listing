@@ -9,7 +9,12 @@ export default function CallbackPage() {
   const { status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get('callbackUrl') || '/';
+  const AUTH_PATHS = ['/login', '/callback', '/api/auth'];
+  const rawCallbackUrl = searchParams.get('callbackUrl') || '/';
+  const callbackUrl =
+    rawCallbackUrl.startsWith('/') && !AUTH_PATHS.some((p) => rawCallbackUrl.startsWith(p))
+      ? rawCallbackUrl
+      : '/';
 
   useEffect(() => {
     if (status === 'authenticated') {
