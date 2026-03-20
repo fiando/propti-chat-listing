@@ -1,11 +1,11 @@
 ---
 name: Production deploying
-description: Coordinates production redeploys for this repo. Use when asked to deploy or redeploy latest changes, choose between GitHub Actions and local CLI fallback, verify prerequisites, and confirm frontend/backend production status.
+description: Use when asked how production deployment works in this repo, how to verify GitHub Actions deployment status, or how pushes to main trigger frontend and backend releases
 ---
 
 ## Goal
 
-Redeploy the latest production changes for this repository without rediscovering the setup.
+Explain and verify the production deployment flow for this repository.
 
 ## Deployment surfaces
 
@@ -14,10 +14,17 @@ Redeploy the latest production changes for this repository without rediscovering
 
 ## Default path
 
-Prefer GitHub Actions first:
+Production deployment relies on GitHub Actions:
 
 - `Deploy Frontend` from `.github/workflows/deploy-frontend.yml`
 - `Deploy Backend` from `.github/workflows/deploy-backend.yml`
+
+If you push changes to `main`, GitHub Actions deploys the affected surface automatically:
+
+- changes under `frontend/**` trigger the frontend deploy workflow
+- changes under `backend/**` trigger the backend deploy workflow
+
+`workflow_dispatch` exists for manual reruns, but the normal release path is still GitHub Actions on `main`.
 
 Check first:
 
@@ -29,27 +36,11 @@ gh run list --limit 10
 gh secret list --env production
 ```
 
-## If GitHub Actions are blocked
-
-Use local CLI fallback when GitHub production secrets are incomplete but the local machine is already authenticated.
-
-Frontend fallback:
-
-1. Load `deploy-frontend`
-2. Verify local Vercel auth with `vercel whoami`
-3. Validate and deploy from `frontend/`
-
-Backend fallback:
-
-1. Load `deploy-backend`
-2. Verify local AWS auth with `aws sts get-caller-identity`
-3. Validate and deploy from `backend/`
-
 ## Required prechecks
 
 - Confirm repo state and current `main` commit
 - Check recent failed runs before retrying, so you do not repeat a known secret/auth failure blindly
-- Validate locally before any production CLI deploy:
+- Validate locally before pushing when the changes are deployment-sensitive:
   - Frontend: `npm run test:deploy-config && npm run lint && npm run build`
   - Backend: `go test ./... && sam build`
 
@@ -64,13 +55,13 @@ Backend fallback:
 After deploying:
 
 ```bash
-cd frontend && vercel ls frontend --prod --yes | head -n 20
-cd frontend && vercel inspect <deployment-url>
+gh run list --workflow deploy-frontend.yml --limit 5
+gh run list --workflow deploy-backend.yml --limit 5
 aws cloudformation describe-stacks --stack-name propti-backend --region ap-southeast-1
 ```
 
 Successful state:
 
-- Vercel deployment is `Ready` and aliased to `https://propti.id`
+- Frontend workflow succeeds and the Vercel deployment is `Ready` at `https://propti.id`
 - CloudFormation stack `propti-backend` finishes `UPDATE_COMPLETE`
 - Backend custom domain remains `https://api.propti.id`

@@ -71,4 +71,5 @@ jobs:
               JWTSecret=${{ secrets.JWT_SECRET }} \
               OpenAIAPIKey=${{ secrets.OPENAI_API_KEY }} \
               GoogleMapsAPIKey=${{ secrets.GOOGLE_MAPS_API_KEY }} \
-              MidtransServerKey=${{ secrets.MIDTRANS_SERVER_KEY }}
+              DOKUClientID=${{ secrets.DOKU_CLIENT_ID }} \
+              DOKUSecretKey=${{ secrets.DOKU_SECRET_KEY }}

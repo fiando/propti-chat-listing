@@ -71,7 +71,7 @@ npm run dev
 
 ### Frontend (Vercel)
 
-Preferred path: run the GitHub Actions workflow `Deploy Frontend`.
+Preferred path: push frontend changes to `main`. GitHub Actions runs `Deploy Frontend` automatically for `frontend/**` changes.
 
 Required production secrets:
 - `NEXTAUTH_URL`
@@ -102,42 +102,25 @@ If `gh secret list --env production` returns `no secrets found`, re-add the list
 
 ### Backend (AWS SAM)
 
-Preferred path: run the GitHub Actions workflow `Deploy Backend`.
+Preferred path: push backend changes to `main`. GitHub Actions runs `Deploy Backend` automatically for `backend/**` changes.
 
 Required production secrets:
 - `AWS_ROLE_ARN`
 - `JWT_SECRET`
 - `OPENAI_API_KEY`
 - `GOOGLE_MAPS_API_KEY`
-- `MIDTRANS_SERVER_KEY`
+- `DOKU_CLIENT_ID`
+- `DOKU_SECRET_KEY`
 
 Env-file workflow:
 - committed templates: `backend/.env.production.example`, `backend/.env.development.example`
 - local ignored files: `backend/.env.production`, `backend/.env.development`
 
-Manual redeploy from an AWS-authenticated machine:
-
-```bash
-cd backend
-go test ./...
-sam build
-sam deploy \
-  --no-confirm-changeset \
-  --no-fail-on-empty-changeset \
-  --resolve-s3 \
-  --stack-name propti-backend \
-  --region ap-southeast-1 \
-  --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
-  --parameter-overrides \
-    Stage=production \
-    ApiCustomDomainName=api.propti.id \
-    ApiCustomDomainCertificateArn=arn:aws:acm:ap-southeast-1:260317865867:certificate/a6625ab7-0527-4dbf-aa1e-f22a39a33e98
-```
-
 Notes:
 - The production stack reuses previously stored secret parameter values when they are omitted from repeated `sam deploy` runs.
 - `CAPABILITY_NAMED_IAM` is required because the SAM template creates a named IAM role.
 - The backend custom domain remains `https://api.propti.id`. If DNS needs to be re-pointed, use the stack output `ApiCustomDomainRegionalName`.
+- GitHub Actions is the deployment mechanism for production; `workflow_dispatch` is available for manual reruns without needing to push another commit.
 
 See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the full deployment guide.
 

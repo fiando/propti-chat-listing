@@ -7,7 +7,7 @@ This repository deploys to the existing production projects:
 - Frontend: existing Vercel project for `https://propti.id`
 - Backend: existing AWS SAM stack `propti-backend` in `ap-southeast-1`
 
-Preferred deployment path for both is GitHub Actions. Direct CLI deploys are only appropriate when the corresponding project credentials and secrets already exist.
+Preferred deployment path for both is GitHub Actions. In normal operation, you deploy by pushing the relevant changes to `main`.
 
 ## Env-file workflow
 
@@ -72,19 +72,7 @@ cd frontend && npm run lint
 cd frontend && npm run build
 ```
 
-Then deploy through the GitHub Actions workflow `Deploy Frontend`.
-
-### Direct CLI deploy
-
-```bash
-cd frontend
-npm install
-npm run build
-vercel env ls production
-vercel --prod
-```
-
-Only use direct CLI deploy after confirming that the existing Vercel project already contains the required production env values or you are explicitly passing them during deploy.
+Then push your frontend changes to `main` and let the `Deploy Frontend` workflow publish them. Use `workflow_dispatch` only when you need to rerun the workflow without a new commit.
 
 ### Custom domain checks
 
@@ -103,7 +91,8 @@ Use these in the committed backend production template and GitHub production sec
 | `JWT_SECRET` | JWT signing secret |
 | `OPENAI_API_KEY` | OpenAI API key for AI parsing |
 | `GOOGLE_MAPS_API_KEY` | Google Maps API key |
-| `MIDTRANS_SERVER_KEY` | Midtrans server key |
+| `DOKU_CLIENT_ID` | DOKU client ID |
+| `DOKU_SECRET_KEY` | DOKU secret key |
 | `AWS_ROLE_ARN` | GitHub Actions OIDC role ARN |
 
 ### Runtime values injected by SAM
@@ -115,7 +104,7 @@ These come from `backend/template.yaml` and do not need to be committed in local
 - `DYNAMODB_TRANSACTIONS_TABLE`
 - `DYNAMODB_MODERATIONS_TABLE`
 - `S3_MEDIA_BUCKET`
-- `MIDTRANS_ENV`
+- `DOKU_ENV`
 - `LOG_LEVEL`
 
 ### Preferred deploy flow
@@ -126,37 +115,14 @@ cd backend && go test ./...
 cd backend && sam build
 ```
 
-Then deploy through the GitHub Actions workflow `Deploy Backend`.
-
-### Manual deploy from an AWS-authenticated machine
-
-```bash
-cd backend
-go test ./...
-sam build
-sam deploy \
-  --no-confirm-changeset \
-  --no-fail-on-empty-changeset \
-  --resolve-s3 \
-  --stack-name propti-backend \
-  --region ap-southeast-1 \
-  --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
-  --parameter-overrides \
-    Stage=production \
-    ApiCustomDomainName=api.propti.id \
-    ApiCustomDomainCertificateArn=arn:aws:acm:ap-southeast-1:260317865867:certificate/a6625ab7-0527-4dbf-aa1e-f22a39a33e98 \
-    JWTSecret=your-jwt-secret \
-    OpenAIAPIKey=your-openai-api-key \
-    GoogleMapsAPIKey=your-google-maps-api-key \
-    MidtransServerKey=your-midtrans-server-key
-```
+Then push your backend changes to `main` and let the `Deploy Backend` workflow publish them. Use `workflow_dispatch` only when you need to rerun the workflow without a new commit.
 
 ### Important backend notes
 
 - The production stack reuses previously stored secret parameter values when they are omitted from repeated `sam deploy` runs.
 - `CAPABILITY_NAMED_IAM` is required because the SAM template creates a named IAM role.
 - The backend custom domain remains `https://api.propti.id`.
-- The current SAM mapping sets `MIDTRANS_ENV=sandbox` even when `Stage=production`; treat that as current behavior unless you intentionally change the template.
+- The current SAM mapping keeps non-production stages on `DOKU_ENV=sandbox` and sets `production` to `DOKU_ENV=production`.
 
 ## Deployment troubleshooting
 
