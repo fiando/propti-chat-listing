@@ -97,9 +97,12 @@ export interface User {
     activeListingsCount?: number;
     renewDate?: string;
   };
+  subscriptionStatus?: SubscriptionStatus;
   createdAt: string;
   lastLoginAt: string;
 }
+
+export type SubscriptionStatus = 'active' | 'expiring_soon' | 'expired' | 'free' | 'loading';
 
 export type ContactRevealChannel = 'whatsapp' | 'phone';
 

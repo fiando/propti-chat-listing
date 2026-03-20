@@ -197,7 +197,7 @@ func TestCreateListingDoesNotGeocodeDuringSubmit(t *testing.T) {
 			user: &models.User{
 				UserID: "user-1",
 				Subscription: models.Subscription{
-					Tier: models.SubscriptionPremium,
+					Tier: models.SubscriptionPremium, RenewDate: func() *time.Time { t := time.Now().UTC().Add(30 * 24 * time.Hour); return &t }(),
 				},
 			},
 		},
@@ -329,7 +329,8 @@ func TestCreateListingPremiumTierRejectsWhenActiveQuotaIsReached(t *testing.T) {
 			user: &models.User{
 				UserID: "user-1",
 				Subscription: models.Subscription{
-					Tier: models.SubscriptionPremium,
+					Tier:      models.SubscriptionPremium,
+					RenewDate: func() *time.Time { t := now.Add(30 * 24 * time.Hour); return &t }(),
 				},
 			},
 		},
@@ -365,7 +366,8 @@ func TestCreateListingPremiumTierSetsNinetyDayExpiry(t *testing.T) {
 			user: &models.User{
 				UserID: "user-1",
 				Subscription: models.Subscription{
-					Tier: models.SubscriptionPremium,
+					Tier:      models.SubscriptionPremium,
+					RenewDate: func() *time.Time { t := fixedNow.Add(30 * 24 * time.Hour); return &t }(),
 				},
 			},
 		},
@@ -1019,7 +1021,7 @@ func TestCreateListingDefersModerationWork(t *testing.T) {
 			user: &models.User{
 				UserID: "user-1",
 				Subscription: models.Subscription{
-					Tier: models.SubscriptionPremium,
+					Tier: models.SubscriptionPremium, RenewDate: func() *time.Time { t := time.Now().UTC().Add(30 * 24 * time.Hour); return &t }(),
 				},
 			},
 		},
@@ -1086,7 +1088,7 @@ func TestCreateListingReturnsImmediatelyWithoutInlineModeration(t *testing.T) {
 			user: &models.User{
 				UserID: "user-1",
 				Subscription: models.Subscription{
-					Tier: models.SubscriptionPremium,
+					Tier: models.SubscriptionPremium, RenewDate: func() *time.Time { t := time.Now().UTC().Add(30 * 24 * time.Hour); return &t }(),
 				},
 			},
 		},
@@ -1141,7 +1143,7 @@ func TestCreateListingNormalizesEmptyImagesBeforePersistence(t *testing.T) {
 			user: &models.User{
 				UserID: "user-1",
 				Subscription: models.Subscription{
-					Tier: models.SubscriptionPremium,
+					Tier: models.SubscriptionPremium, RenewDate: func() *time.Time { t := time.Now().UTC().Add(30 * 24 * time.Hour); return &t }(),
 				},
 			},
 		},
@@ -1229,7 +1231,7 @@ func TestUpdateListingRequeuesModerationWithoutInlineExecution(t *testing.T) {
 			user: &models.User{
 				UserID: "user-1",
 				Subscription: models.Subscription{
-					Tier: models.SubscriptionPremium,
+					Tier: models.SubscriptionPremium, RenewDate: func() *time.Time { t := time.Now().UTC().Add(30 * 24 * time.Hour); return &t }(),
 				},
 			},
 		},
@@ -1298,7 +1300,7 @@ func TestUpdateListingNonModeratableChangeKeepsModerationStatus(t *testing.T) {
 	newPrice := float64(1500000000)
 	service := NewListingService(
 		store,
-		&fakeUserStore{user: &models.User{UserID: "user-1", Subscription: models.Subscription{Tier: models.SubscriptionPremium}}},
+		&fakeUserStore{user: &models.User{UserID: "user-1", Subscription: models.Subscription{Tier: models.SubscriptionPremium, RenewDate: func() *time.Time { t := time.Now().UTC().Add(30 * 24 * time.Hour); return &t }()}}},
 		nil, nil, nil, nil,
 	)
 	service.SetModerationEnqueuer(queue)
@@ -1347,7 +1349,7 @@ func TestUpdateListingRejectedListingCannotBeEdited(t *testing.T) {
 	newPrice := float64(1200000000)
 	service := NewListingService(
 		store,
-		&fakeUserStore{user: &models.User{UserID: "user-1", Subscription: models.Subscription{Tier: models.SubscriptionPremium}}},
+		&fakeUserStore{user: &models.User{UserID: "user-1", Subscription: models.Subscription{Tier: models.SubscriptionPremium, RenewDate: func() *time.Time { t := time.Now().UTC().Add(30 * 24 * time.Hour); return &t }()}}},
 		nil, nil, nil, nil,
 	)
 	service.SetModerationEnqueuer(queue)
@@ -1487,7 +1489,7 @@ func TestCreateListingRejectsLegacyBase64Payloads(t *testing.T) {
 			user: &models.User{
 				UserID: "user-1",
 				Subscription: models.Subscription{
-					Tier: models.SubscriptionPremium,
+					Tier: models.SubscriptionPremium, RenewDate: func() *time.Time { t := time.Now().UTC().Add(30 * 24 * time.Hour); return &t }(),
 				},
 			},
 		},
@@ -1551,7 +1553,7 @@ func TestCreateListingPromotesUploadedImagesIntoStructuredMedia(t *testing.T) {
 			user: &models.User{
 				UserID: "user-1",
 				Subscription: models.Subscription{
-					Tier: models.SubscriptionPremium,
+					Tier: models.SubscriptionPremium, RenewDate: func() *time.Time { t := time.Now().UTC().Add(30 * 24 * time.Hour); return &t }(),
 				},
 			},
 		},
@@ -1656,7 +1658,7 @@ func TestUpdateListingRetainsOrderAndDeletesRemovedImages(t *testing.T) {
 			user: &models.User{
 				UserID: "user-1",
 				Subscription: models.Subscription{
-					Tier: models.SubscriptionPremium,
+					Tier: models.SubscriptionPremium, RenewDate: func() *time.Time { t := time.Now().UTC().Add(30 * 24 * time.Hour); return &t }(),
 				},
 			},
 		},
@@ -1684,6 +1686,96 @@ func TestUpdateListingRetainsOrderAndDeletesRemovedImages(t *testing.T) {
 	}
 	if !containsString(media.deletedKeys, "listings/listing-1/image-1") || !containsString(media.deletedKeys, "thumbnails/listing-1/image-1") {
 		t.Fatalf("expected removed image original and thumbnail deletion, got %#v", media.deletedKeys)
+	}
+}
+
+func TestCreateListingBlocksExpiredPremiumUser(t *testing.T) {
+	ctx := context.Background()
+	expiredDate := time.Now().UTC().Add(-24 * time.Hour)
+
+	service := NewListingService(
+		&fakeListingStore{},
+		&fakeUserStore{
+			user: &models.User{
+				UserID: "user-expired",
+				Subscription: models.Subscription{
+					Tier:      models.SubscriptionPremium,
+					RenewDate: &expiredDate,
+				},
+			},
+		},
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	_, err := service.CreateListing(ctx, "user-expired", &models.CreateListingRequest{
+		Title:       "Rumah expired",
+		Description: "Tidak bisa tayang",
+		Price:       500000000,
+		PriceUnit:   "total",
+		ListingType: models.ListingTypeSell,
+		Location: models.Location{
+			Address: "Jl. Expired No. 1",
+		},
+	})
+	// Expired premium user is treated as free tier; free tier allows 3 active listings.
+	// With 0 active listings they can still create, but they should be treated as free user
+	// (not premium). We verify that the user is treated as free by checking the limit applies
+	// as the free tier (3 listings) rather than premium (15 listings).
+	// With 0 active, creation succeeds but under free-tier limits.
+	// This test creates a second scenario where the free quota is full.
+	_ = err // creation with 0 listings is still allowed under free tier
+
+	// Now fill up the free quota and ensure the expired premium user hits it
+	activeListings := make(map[string]*models.Listing, 3)
+	now := time.Now().UTC()
+	for i := 0; i < 3; i++ {
+		id := fmt.Sprintf("listing-%d", i+1)
+		exp := now.Add(24 * time.Hour)
+		activeListings[id] = &models.Listing{
+			ListingID:        id,
+			UserID:           "user-expired",
+			Status:           models.ListingStatusActive,
+			ModerationStatus: models.ModerationStatusApproved,
+			ExpiresAt:        &exp,
+		}
+	}
+
+	service2 := NewListingService(
+		&fakeListingStore{
+			listingsByUser: map[string]map[string]*models.Listing{
+				"user-expired": activeListings,
+			},
+		},
+		&fakeUserStore{
+			user: &models.User{
+				UserID: "user-expired",
+				Subscription: models.Subscription{
+					Tier:      models.SubscriptionPremium,
+					RenewDate: &expiredDate,
+				},
+			},
+		},
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	_, err2 := service2.CreateListing(ctx, "user-expired", &models.CreateListingRequest{
+		Title:       "Rumah 4th",
+		Description: "Harusnya ditolak",
+		Price:       500000000,
+		PriceUnit:   "total",
+		ListingType: models.ListingTypeSell,
+		Location: models.Location{
+			Address: "Jl. Test No. 4",
+		},
+	})
+	if err2 == nil || !strings.Contains(err2.Error(), "free tier allows at most 3 active listing") {
+		t.Fatalf("expected free tier quota error for expired premium user, got %v", err2)
 	}
 }
 

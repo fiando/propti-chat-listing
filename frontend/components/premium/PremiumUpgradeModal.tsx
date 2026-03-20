@@ -1,12 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { Crown, X, Check, Loader2 } from 'lucide-react';
+import { Crown, X, Check, Loader2, RefreshCw } from 'lucide-react';
 import { upgradePremium } from '@/lib/api';
+
+type PremiumModalMode = 'upgrade' | 'renew';
 
 interface PremiumUpgradeModalProps {
   isOpen: boolean;
   onClose: () => void;
+  mode?: PremiumModalMode;
+  currentRenewDate?: string;
 }
 
 const PREMIUM_FEATURES = [
@@ -15,13 +19,19 @@ const PREMIUM_FEATURES = [
   'Masa tayang hingga 90 hari',
 ];
 
-export function PremiumUpgradeModal({ isOpen, onClose }: PremiumUpgradeModalProps) {
+export function PremiumUpgradeModal({ isOpen, onClose, mode = 'upgrade', currentRenewDate }: PremiumUpgradeModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const handleUpgrade = async () => {
+  const isRenewal = mode === 'renew';
+
+  const expiryDateStr = currentRenewDate
+    ? new Date(currentRenewDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+    : null;
+
+  const handleSubmit = async () => {
     setLoading(true);
     setError(null);
     try {
@@ -37,7 +47,7 @@ export function PremiumUpgradeModal({ isOpen, onClose }: PremiumUpgradeModalProp
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <button
         type="button"
-        aria-label="Tutup modal upgrade"
+        aria-label="Tutup modal"
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={onClose}
       />
@@ -54,10 +64,16 @@ export function PremiumUpgradeModal({ isOpen, onClose }: PremiumUpgradeModalProp
             <X className="w-4 h-4" />
           </button>
           <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-3">
-            <Crown className="w-8 h-8 text-white" />
+            {isRenewal ? <RefreshCw className="w-8 h-8 text-white" /> : <Crown className="w-8 h-8 text-white" />}
           </div>
-          <h2 className="text-2xl font-black">Propti Premium</h2>
-          <p className="text-white/80 mt-1 text-sm">Aktifkan hingga 15 listing, unggah 15 foto/listing, tampil selama 90 hari.</p>
+          <h2 className="text-2xl font-black">
+            {isRenewal ? 'Perpanjang Premium' : 'Propti Premium'}
+          </h2>
+          {isRenewal && expiryDateStr ? (
+            <p className="text-white/80 mt-1 text-sm">Berlaku sampai {expiryDateStr}. Perpanjang untuk +1 bulan.</p>
+          ) : (
+            <p className="text-white/80 mt-1 text-sm">Aktifkan hingga 15 listing, unggah 15 foto/listing, tampil selama 90 hari.</p>
+          )}
           <div className="mt-4">
             <span className="text-4xl font-black">Rp 49rb</span>
             <span className="text-white/70 text-sm ml-1">/bulan</span>
@@ -77,9 +93,11 @@ export function PremiumUpgradeModal({ isOpen, onClose }: PremiumUpgradeModalProp
             ))}
           </ul>
 
-          <div className="mb-6 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
-            Paket gratis: maksimal 3 foto per iklan, 3 listing aktif, tayang 30 hari.
-          </div>
+          {!isRenewal && (
+            <div className="mb-6 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+              Paket gratis: maksimal 3 foto per iklan, 3 listing aktif, tayang 30 hari.
+            </div>
+          )}
 
           {error && (
             <div className="bg-red-50 border border-red-100 rounded-xl p-3 mb-4 text-sm text-red-600">
@@ -89,7 +107,7 @@ export function PremiumUpgradeModal({ isOpen, onClose }: PremiumUpgradeModalProp
 
           <button
             type="button"
-            onClick={handleUpgrade}
+            onClick={handleSubmit}
             disabled={loading}
             className="w-full btn-gold flex items-center justify-center gap-2 text-base py-4"
           >
@@ -97,6 +115,11 @@ export function PremiumUpgradeModal({ isOpen, onClose }: PremiumUpgradeModalProp
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
                 Memproses...
+              </>
+            ) : isRenewal ? (
+              <>
+                <RefreshCw className="w-5 h-5" />
+                Perpanjang Premium
               </>
             ) : (
               <>
@@ -114,3 +137,4 @@ export function PremiumUpgradeModal({ isOpen, onClose }: PremiumUpgradeModalProp
     </div>
   );
 }
+

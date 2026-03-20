@@ -65,7 +65,15 @@ func (r *PaymentReconciler) ReconcileUser(ctx context.Context, userID string) er
 			return err
 		}
 
-		renewDate := time.Now().UTC().AddDate(0, 1, 0)
+		now := time.Now().UTC()
+		var renewDate time.Time
+		if user.Subscription.RenewDate != nil && user.Subscription.RenewDate.After(now) {
+			// Renewing before expiry: extend from existing date (no lost days)
+			renewDate = user.Subscription.RenewDate.AddDate(0, 1, 0)
+		} else {
+			// Renewing after expiry (or no prior date): start fresh from now
+			renewDate = now.AddDate(0, 1, 0)
+		}
 		user.Subscription.Tier = models.SubscriptionPremium
 		user.Subscription.RenewDate = &renewDate
 		return r.userRepo.Put(ctx, user)

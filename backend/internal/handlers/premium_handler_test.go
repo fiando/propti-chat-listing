@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -463,4 +464,81 @@ func TestPremiumHandlerCallbackCompletesPremiumUpgrade(t *testing.T) {
 func TestMain(m *testing.M) {
 	_ = os.Setenv("JWT_SECRET", "test-secret")
 	os.Exit(m.Run())
+}
+
+func TestPremiumHandlerRenewalRejectedWhenNotInWindow(t *testing.T) {
+	t.Setenv("PUBLIC_API_BASE_URL", "https://api.propti.test")
+
+	futureExpiry := time.Now().UTC().Add(30 * 24 * time.Hour)
+	userStore := &fakePremiumUserStore{
+		byID: map[string]*models.User{
+			"user-1": {
+				UserID: "user-1",
+				Name:   "Bobby",
+				Email:  "bob@example.com",
+				Phone:  "6281234567890",
+				Subscription: models.Subscription{
+					Tier:      models.SubscriptionPremium,
+					RenewDate: &futureExpiry,
+				},
+			},
+		},
+	}
+	handler := NewPremiumHandler(userStore, &fakePremiumTransactionStore{}, &fakePremiumListingService{}, &fakePaymentProvider{})
+
+	resp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodPost,
+		Path:       "/premium/upgrade",
+		Headers:    authHeaderForPremiumTest(t, "user-1"),
+	})
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected 400 when renewal not yet open, got %d body=%s", resp.StatusCode, resp.Body)
+	}
+	if !strings.Contains(resp.Body, "7 days") {
+		t.Fatalf("expected error message about 7-day window, got: %s", resp.Body)
+	}
+}
+
+func TestPremiumHandlerRenewalAllowedWhenExpiringSoon(t *testing.T) {
+	t.Setenv("PUBLIC_API_BASE_URL", "https://api.propti.test")
+
+	expiringSoon := time.Now().UTC().Add(3 * 24 * time.Hour)
+	userStore := &fakePremiumUserStore{
+		byID: map[string]*models.User{
+			"user-1": {
+				UserID: "user-1",
+				Name:   "Bobby",
+				Email:  "bob@example.com",
+				Phone:  "6281234567890",
+				Subscription: models.Subscription{
+					Tier:      models.SubscriptionPremium,
+					RenewDate: &expiringSoon,
+				},
+			},
+		},
+	}
+	provider := &fakePaymentProvider{
+		createResult: &payments.CreatePaymentResult{
+			Provider:   payments.ProviderDOKU,
+			OrderID:    "PROPTI-PREM-RENEW-001",
+			PaymentID:  "tok-renew",
+			PaymentURL: "https://sandbox.doku.com/checkout-link-v2/tok-renew",
+		},
+	}
+	handler := NewPremiumHandler(userStore, &fakePremiumTransactionStore{}, &fakePremiumListingService{}, provider)
+
+	resp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodPost,
+		Path:       "/premium/upgrade",
+		Headers:    authHeaderForPremiumTest(t, "user-1"),
+	})
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 for renewal within window, got %d body=%s", resp.StatusCode, resp.Body)
+	}
 }

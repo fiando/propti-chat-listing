@@ -4,8 +4,12 @@ import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Bell, Loader2, Save, Settings, ShieldCheck, UserRound } from 'lucide-react';
+import { Bell, Crown, Loader2, RefreshCw, Save, Settings, ShieldCheck, UserRound } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { PremiumUpgradeModal } from '@/components/premium/PremiumUpgradeModal';
+import { SubscriptionStatusBadge } from '@/components/premium/SubscriptionStatusBadge';
+import { shouldShowRenewalCTA } from '@/lib/premium-renewal';
+import { getSubscriptionStatus } from '@/lib/subscription-status';
 import { updateProfile } from '@/lib/api';
 import { buildProfileUpdatePayload } from '@/lib/profile-update-payload';
 import type { UpdateProfileRequest, UserPreferences } from '@/types';
@@ -22,6 +26,9 @@ export default function SettingsPage() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { profile, isLoading } = useAuth();
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const subscriptionStatus = getSubscriptionStatus({ authStatus: status, profile: profile ?? undefined });
+  const showRenewalCTA = shouldShowRenewalCTA(subscriptionStatus);
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState<'buyer' | 'seller' | 'both' | ''>('');
   const [notifications, setNotifications] = useState(true);
@@ -163,9 +170,35 @@ export default function SettingsPage() {
             <ShieldCheck className="w-5 h-5 text-brand-primary" />
             <h2 className="font-bold text-gray-900">Status Akun</h2>
           </div>
-          <p className="text-sm text-gray-600">
-            Paket aktif saat ini: <span className="font-semibold text-gray-900">{profile.subscription.tier === 'premium' ? 'Premium' : 'Gratis'}</span>
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-600">
+              Paket aktif saat ini: <span className="font-semibold text-gray-900">{subscriptionStatus === 'active' || subscriptionStatus === 'expiring_soon' ? 'Premium' : 'Gratis'}</span>
+            </p>
+            <SubscriptionStatusBadge
+              status={subscriptionStatus}
+              renewDate={profile?.subscription?.renewDate}
+            />
+          </div>
+          {showRenewalCTA && (
+            <button
+              type="button"
+              onClick={() => setShowPremiumModal(true)}
+              className="mt-4 w-full btn-gold flex items-center justify-center gap-2"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Perpanjang Premium
+            </button>
+          )}
+          {subscriptionStatus === 'free' && (
+            <button
+              type="button"
+              onClick={() => setShowPremiumModal(true)}
+              className="mt-4 w-full btn-gold flex items-center justify-center gap-2"
+            >
+              <Crown className="w-4 h-4" />
+              Upgrade ke Premium
+            </button>
+          )}
         </div>
 
         {updateMutation.isError && (
@@ -189,6 +222,13 @@ export default function SettingsPage() {
           Simpan Pengaturan
         </button>
       </form>
+
+      <PremiumUpgradeModal
+        isOpen={showPremiumModal}
+        onClose={() => setShowPremiumModal(false)}
+        mode={showRenewalCTA ? 'renew' : 'upgrade'}
+        currentRenewDate={profile?.subscription?.renewDate}
+      />
     </div>
   );
 }
