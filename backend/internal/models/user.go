@@ -4,6 +4,7 @@ import "time"
 
 type UserRole string
 type SubscriptionTier string
+type SubscriptionStatus string
 
 const (
 	UserRoleBuyer  UserRole = "buyer"
@@ -12,6 +13,10 @@ const (
 
 	SubscriptionFree    SubscriptionTier = "free"
 	SubscriptionPremium SubscriptionTier = "premium"
+
+	SubscriptionActive      SubscriptionStatus = "active"
+	SubscriptionExpiringSoon SubscriptionStatus = "expiring_soon"
+	SubscriptionExpired     SubscriptionStatus = "expired"
 )
 
 type UserPreferences struct {

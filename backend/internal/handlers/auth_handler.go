@@ -157,7 +157,13 @@ func (h *AuthHandler) getUser(ctx context.Context, req events.APIGatewayProxyReq
 		utils.LogWarn("count active listings for profile", "userId", userID, "error", err.Error())
 	}
 
-	body, _ := json.Marshal(user)
+	body, _ := json.Marshal(struct {
+		*models.User
+		SubscriptionStatus models.SubscriptionStatus `json:"subscriptionStatus"`
+	}{
+		User:               user,
+		SubscriptionStatus: services.DeriveSubscriptionStatus(user, time.Now()),
+	})
 	return jsonResponse(http.StatusOK, string(body)), nil
 }
 

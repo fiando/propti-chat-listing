@@ -96,7 +96,9 @@ func (h *PremiumHandler) upgradeToPremium(ctx context.Context, req events.APIGat
 	}
 
 	if user.Subscription.Tier == models.SubscriptionPremium {
-		return jsonResponse(http.StatusBadRequest, utils.MarshalErrorResponse(utils.NewAppError(400, "already on premium tier"))), nil
+		if !services.CanInitiateRenewal(user, time.Now()) {
+			return jsonResponse(http.StatusBadRequest, utils.MarshalErrorResponse(utils.NewAppError(400, "Renewal opens 7 days before expiry"))), nil
+		}
 	}
 
 	if existingTx, err := h.findReusablePendingPremiumTransaction(ctx, userID); err != nil {

@@ -14,10 +14,14 @@ import {
   Edit2,
   Check,
   Star,
+  RefreshCw,
 } from 'lucide-react';
 import { PremiumUpgradeModal } from '@/components/premium/PremiumUpgradeModal';
+import { SubscriptionStatusBadge } from '@/components/premium/SubscriptionStatusBadge';
 import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
+import { getSubscriptionStatus } from '@/lib/subscription-status';
+import { shouldShowRenewalCTA } from '@/lib/premium-renewal';
 import type { User as UserProfile } from '@/types';
 
 type ProfilePageClientProps = {
@@ -31,7 +35,10 @@ type ProfilePageClientProps = {
 
 export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientProps) {
   const [showPremiumModal, setShowPremiumModal] = useState(false);
-  const isPremium = profile.subscription.tier === 'premium';
+
+  const subscriptionStatus = getSubscriptionStatus({ authStatus: 'authenticated', profile });
+  const isPremium = subscriptionStatus === 'active' || subscriptionStatus === 'expiring_soon';
+  const showRenewalCTA = shouldShowRenewalCTA(subscriptionStatus);
   const activeListingsCount = profile.subscription.activeListingsCount ?? 0;
 
   const displayName = profile.name || sessionUser?.name || '';
@@ -114,20 +121,33 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
           <h3 className="font-bold text-gray-900">Paket Berlangganan</h3>
         </div>
 
-        {isPremium ? (
-          <div className="flex items-center gap-4 bg-amber-50 border border-amber-200 rounded-2xl p-4">
-            <div className="w-12 h-12 bg-brand-gold rounded-xl flex items-center justify-center">
-              <Crown className="w-6 h-6 text-white" />
+        {isPremium || subscriptionStatus === 'expired' ? (
+          <div>
+            <div className="flex items-center gap-4 bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-3">
+              <div className="w-12 h-12 bg-brand-gold rounded-xl flex items-center justify-center">
+                <Crown className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex-1">
+                <p className="font-bold text-amber-700">Propti Premium</p>
+                <SubscriptionStatusBadge
+                  status={subscriptionStatus}
+                  renewDate={profile.subscription.renewDate}
+                  className="mt-1 text-xs"
+                />
+              </div>
+              {isPremium && <Check className="w-5 h-5 text-amber-500" />}
             </div>
-            <div>
-              <p className="font-bold text-amber-700">Propti Premium Aktif</p>
-              {profile.subscription.renewDate && (
-                <p className="text-xs text-amber-600">
-                  Berlaku hingga {formatDate(profile.subscription.renewDate)}
-                </p>
-              )}
-            </div>
-            <Check className="w-5 h-5 text-amber-500 ml-auto" />
+
+            {showRenewalCTA && (
+              <button
+                type="button"
+                onClick={() => setShowPremiumModal(true)}
+                className="w-full btn-gold flex items-center justify-center gap-2"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Perpanjang Premium - Rp 49rb/bulan
+              </button>
+            )}
           </div>
         ) : (
           <div>
@@ -195,7 +215,10 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
       <PremiumUpgradeModal
         isOpen={showPremiumModal}
         onClose={() => setShowPremiumModal(false)}
+        mode={showRenewalCTA ? 'renew' : 'upgrade'}
+        currentRenewDate={profile.subscription.renewDate}
       />
     </div>
   );
 }
+

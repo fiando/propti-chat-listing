@@ -27,7 +27,7 @@ export function useAuth() {
   const subscriptionStatus = getSubscriptionStatus({ authStatus: status, profile });
   const isSubscriptionLoading = subscriptionStatus === 'loading';
   const isLoading = status === 'loading' || (status === 'authenticated' && isProfileLoading);
-  const isPremium = subscriptionStatus === 'premium';
+  const isPremium = subscriptionStatus === 'active' || subscriptionStatus === 'expiring_soon';
 
   const login = () => signIn('google', { callbackUrl: '/' });
   const logout = () => signOut({ callbackUrl: '/' });
