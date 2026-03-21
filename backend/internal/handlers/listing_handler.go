@@ -24,6 +24,7 @@ type listingService interface {
 	RecordListingView(ctx context.Context, listingID string) (*models.Listing, error)
 	RevealListingContact(ctx context.Context, viewerUserID, listingID string, channel models.ContactRevealChannel) (*models.ListingContactReveal, error)
 	UpdateListing(ctx context.Context, userID, listingID string, req *models.UpdateListingRequest) (*models.Listing, error)
+	RelistListing(ctx context.Context, userID, listingID string) (*models.Listing, error)
 	DeleteListing(ctx context.Context, userID, listingID string) error
 	SaveListing(ctx context.Context, userID, listingID string) error
 	UnsaveListing(ctx context.Context, userID, listingID string) error
@@ -66,6 +67,8 @@ func (h *ListingHandler) Handle(ctx context.Context, req events.APIGatewayProxyR
 		return h.listMyListings(ctx, req)
 	case method == http.MethodGet && path == "/users/me/saved":
 		return h.listSavedListings(ctx, req)
+	case method == http.MethodPost && isOwnerListingRelistPath(path):
+		return h.relistListing(ctx, req)
 	case method == http.MethodGet && isOwnerListingPath(path):
 		return h.getOwnerListing(ctx, req)
 	case method == http.MethodGet && isListingPath(path):
@@ -305,6 +308,24 @@ func (h *ListingHandler) updateListing(ctx context.Context, req events.APIGatewa
 	return h.ownerListingResponse(ctx, http.StatusOK, listing)
 }
 
+func (h *ListingHandler) relistListing(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	userID, err := extractUserID(req)
+	if err != nil {
+		return jsonResponse(http.StatusUnauthorized, utils.MarshalErrorResponse(utils.ErrUnauthorized)), nil
+	}
+
+	listingID := extractListingID(req)
+	if listingID == "" {
+		return jsonResponse(http.StatusBadRequest, utils.MarshalErrorResponse(utils.ErrBadRequest)), nil
+	}
+
+	listing, err := h.listingService.RelistListing(ctx, userID, listingID)
+	if err != nil {
+		return appErrorResponse(err), nil
+	}
+	return h.ownerListingResponse(ctx, http.StatusOK, listing)
+}
+
 func (h *ListingHandler) deleteListing(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	userID, err := extractUserID(req)
 	if err != nil {
@@ -432,6 +453,11 @@ func isListingPath(path string) bool {
 func isOwnerListingPath(path string) bool {
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	return len(parts) == 4 && parts[0] == "users" && parts[1] == "me" && parts[2] == "listings" && parts[3] != ""
+}
+
+func isOwnerListingRelistPath(path string) bool {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	return len(parts) == 5 && parts[0] == "users" && parts[1] == "me" && parts[2] == "listings" && parts[3] != "" && parts[4] == "relist"
 }
 
 func isListingSavePath(path string) bool {

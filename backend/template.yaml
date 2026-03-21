@@ -219,6 +219,12 @@ Resources:
             RestApiId: !Ref ProptiApi
             Path: /users/me/listings/{id}
             Method: GET
+        RelistMyListing:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /users/me/listings/{id}/relist
+            Method: POST
         SavedListings:
           Type: Api
           Properties:

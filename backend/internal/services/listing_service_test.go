@@ -1365,7 +1365,6 @@ func TestUpdateListingRejectedListingCannotBeEdited(t *testing.T) {
 	}
 }
 
-
 func TestParseListingTextReturnsLocationSuggestionsWithoutAutoFinalizing(t *testing.T) {
 	ctx := context.Background()
 
@@ -1776,6 +1775,130 @@ func TestCreateListingBlocksExpiredPremiumUser(t *testing.T) {
 	})
 	if err2 == nil || !strings.Contains(err2.Error(), "free tier allows at most 3 active listing") {
 		t.Fatalf("expected free tier quota error for expired premium user, got %v", err2)
+	}
+}
+
+func TestRelistListingReactivatesExpiredArchivedListingWithFreshExpiry(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, time.March, 21, 10, 0, 0, 0, time.UTC)
+	expiredAt := now.Add(-24 * time.Hour)
+
+	store := &fakeListingStore{
+		listingsByUser: map[string]map[string]*models.Listing{
+			"user-1": {
+				"listing-1": {
+					ListingID:        "listing-1",
+					UserID:           "user-1",
+					Title:            "Rumah siap huni",
+					Status:           models.ListingStatusArchived,
+					ModerationStatus: models.ModerationStatusApproved,
+					CreatedAt:        now.AddDate(0, 0, -45),
+					UpdatedAt:        now.AddDate(0, 0, -5),
+					ExpiresAt:        &expiredAt,
+				},
+			},
+		},
+	}
+
+	service := NewListingService(
+		store,
+		&fakeUserStore{
+			user: &models.User{
+				UserID: "user-1",
+				Subscription: models.Subscription{
+					Tier:      models.SubscriptionFree,
+					RenewDate: nil,
+				},
+			},
+		},
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	service.now = func() time.Time { return now }
+
+	relisted, err := service.RelistListing(ctx, "user-1", "listing-1")
+	if err != nil {
+		t.Fatalf("RelistListing returned error: %v", err)
+	}
+	if relisted.Status != models.ListingStatusActive {
+		t.Fatalf("expected active listing after relist, got %q", relisted.Status)
+	}
+	if relisted.ExpiresAt == nil {
+		t.Fatal("expected relisted listing expiry to be set")
+	}
+	wantExpiry := now.AddDate(0, 0, freeTierListingDurationDays)
+	if !relisted.ExpiresAt.Equal(wantExpiry) {
+		t.Fatalf("expected relisted expiry %s, got %s", wantExpiry.Format(time.RFC3339), relisted.ExpiresAt.Format(time.RFC3339))
+	}
+	if !relisted.CreatedAt.Equal(now) {
+		t.Fatalf("expected createdAt to refresh on relist, got %s", relisted.CreatedAt.Format(time.RFC3339))
+	}
+	if store.lastListing == nil || store.lastListing.Status != models.ListingStatusActive {
+		t.Fatalf("expected relisted listing to be persisted as active, got %#v", store.lastListing)
+	}
+}
+
+func TestRelistListingRejectsWhenFreeTierQuotaIsFull(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, time.March, 21, 10, 0, 0, 0, time.UTC)
+	expiredAt := now.Add(-time.Hour)
+	activeExpiry := now.Add(24 * time.Hour)
+
+	store := &fakeListingStore{
+		listingsByUser: map[string]map[string]*models.Listing{
+			"user-1": {
+				"listing-1": {
+					ListingID:        "listing-1",
+					UserID:           "user-1",
+					Status:           models.ListingStatusArchived,
+					ModerationStatus: models.ModerationStatusApproved,
+					ExpiresAt:        &expiredAt,
+				},
+				"listing-2": {
+					ListingID:        "listing-2",
+					UserID:           "user-1",
+					Status:           models.ListingStatusActive,
+					ModerationStatus: models.ModerationStatusApproved,
+					ExpiresAt:        &activeExpiry,
+				},
+				"listing-3": {
+					ListingID:        "listing-3",
+					UserID:           "user-1",
+					Status:           models.ListingStatusActive,
+					ModerationStatus: models.ModerationStatusApproved,
+					ExpiresAt:        &activeExpiry,
+				},
+				"listing-4": {
+					ListingID:        "listing-4",
+					UserID:           "user-1",
+					Status:           models.ListingStatusActive,
+					ModerationStatus: models.ModerationStatusApproved,
+					ExpiresAt:        &activeExpiry,
+				},
+			},
+		},
+	}
+
+	service := NewListingService(
+		store,
+		&fakeUserStore{
+			user: &models.User{
+				UserID:       "user-1",
+				Subscription: models.Subscription{Tier: models.SubscriptionFree},
+			},
+		},
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	service.now = func() time.Time { return now }
+
+	_, err := service.RelistListing(ctx, "user-1", "listing-1")
+	if err == nil || !strings.Contains(err.Error(), "free tier allows at most 3 active listing") {
+		t.Fatalf("expected free-tier quota error for relist, got %v", err)
 	}
 }
 

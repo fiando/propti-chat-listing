@@ -1,7 +1,7 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
-import { useMyListings, useDeleteListing } from '@/hooks/useListings';
+import { useMyListings, useDeleteListing, useRelistListing } from '@/hooks/useListings';
 import { ListingGrid } from '@/components/listings/ListingGrid';
 import { Plus, Loader2, Home } from 'lucide-react';
 import Link from 'next/link';
@@ -13,7 +13,9 @@ export default function MyListingsPage() {
   const router = useRouter();
   const { data, isLoading } = useMyListings();
   const { mutateAsync: deleteListing } = useDeleteListing();
+  const { mutateAsync: relistListing } = useRelistListing();
   const [deletingId, setDeletingId] = useState<string | undefined>();
+  const [relistingId, setRelistingId] = useState<string | undefined>();
 
   if (status === 'unauthenticated') {
     router.replace('/login');
@@ -26,6 +28,15 @@ export default function MyListingsPage() {
       await deleteListing(id);
     } finally {
       setDeletingId(undefined);
+    }
+  };
+
+  const handleRelist = async (id: string) => {
+    setRelistingId(id);
+    try {
+      await relistListing(id);
+    } finally {
+      setRelistingId(undefined);
     }
   };
 
@@ -74,7 +85,9 @@ export default function MyListingsPage() {
           listings={listings}
           emptyMessage="Belum ada iklan."
           onDelete={handleDelete}
+          onRelist={handleRelist}
           deletingId={deletingId}
+          relistingId={relistingId}
         />
       )}
     </div>

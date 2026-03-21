@@ -18,6 +18,9 @@ import (
 type fakeListingHandlerService struct {
 	publicListing *models.Listing
 	ownerListing  *models.Listing
+	relistListing *models.Listing
+	relistUserID  string
+	relistID      string
 }
 
 type fakeUploadPrepareService struct {
@@ -63,6 +66,15 @@ func (f *fakeListingHandlerService) UpdateListing(ctx context.Context, userID, l
 
 func (f *fakeListingHandlerService) DeleteListing(ctx context.Context, userID, listingID string) error {
 	return nil
+}
+
+func (f *fakeListingHandlerService) RelistListing(ctx context.Context, userID, listingID string) (*models.Listing, error) {
+	f.relistUserID = userID
+	f.relistID = listingID
+	if f.relistListing != nil {
+		return f.relistListing, nil
+	}
+	return f.ownerListing, nil
 }
 
 func (f *fakeListingHandlerService) SaveListing(ctx context.Context, userID, listingID string) error {
@@ -149,6 +161,48 @@ func TestTemplateExposesListingViewAndContactRevealRoutes(t *testing.T) {
 	}
 	if !strings.Contains(content, "Path: /users/me/listings/{id}") {
 		t.Fatal("expected SAM template to expose GET /users/me/listings/{id}")
+	}
+	if !strings.Contains(content, "Path: /users/me/listings/{id}/relist") {
+		t.Fatal("expected SAM template to expose POST /users/me/listings/{id}/relist")
+	}
+}
+
+func TestListingHandlerRelistEndpointReturnsOwnerListing(t *testing.T) {
+	token, err := utils.GenerateToken("user-1", "user-1@example.com")
+	if err != nil {
+		t.Fatalf("generate token: %v", err)
+	}
+
+	service := &fakeListingHandlerService{
+		relistListing: &models.Listing{
+			ListingID:        "listing-1",
+			UserID:           "user-1",
+			Title:            "Relisted",
+			Status:           models.ListingStatusActive,
+			ModerationStatus: models.ModerationStatusApproved,
+		},
+	}
+	handler := NewListingHandler(service, &fakeUploadPrepareService{}, services.NewListingMediaPresenter(&servicesNoopMedia{}))
+
+	resp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: "POST",
+		Path:       "/users/me/listings/listing-1/relist",
+		Headers: map[string]string{
+			"Authorization": "Bearer " + token,
+		},
+		PathParameters: map[string]string{"id": "listing-1"},
+	})
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("expected 200 response, got %d body=%s", resp.StatusCode, resp.Body)
+	}
+	if service.relistUserID != "user-1" || service.relistID != "listing-1" {
+		t.Fatalf("expected relist to be called with owner/listing ids, got user=%q listing=%q", service.relistUserID, service.relistID)
+	}
+	if !strings.Contains(resp.Body, "\"listingId\":\"listing-1\"") {
+		t.Fatalf("expected owner listing payload, got %s", resp.Body)
 	}
 }
 

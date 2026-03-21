@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Heart, MapPin, Bed, Bath, Maximize2, Home, Eye, Star, Trash2, Loader2 } from 'lucide-react';
+import { Heart, MapPin, Bed, Bath, Maximize2, Home, Eye, Star, Trash2, Loader2, RefreshCcw } from 'lucide-react';
 import { cn, formatPrice, LISTING_TYPE_LABELS } from '@/lib/utils';
 import type { Listing } from '@/types';
 import { getListingCardImage } from '@/lib/listing-images';
@@ -11,10 +11,20 @@ interface ListingCardProps {
   onSave?: (id: string) => void;
   isSaved?: boolean;
   onDelete?: (id: string) => void;
+  onRelist?: (id: string) => void;
   isDeleting?: boolean;
+  isRelisting?: boolean;
 }
 
-export function ListingCard({ listing, onSave, isSaved = false, onDelete, isDeleting = false }: ListingCardProps) {
+export function ListingCard({
+  listing,
+  onSave,
+  isSaved = false,
+  onDelete,
+  onRelist,
+  isDeleting = false,
+  isRelisting = false,
+}: ListingCardProps) {
   const handleSave = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -25,6 +35,12 @@ export function ListingCard({ listing, onSave, isSaved = false, onDelete, isDele
     e.preventDefault();
     e.stopPropagation();
     onDelete?.(listing.listingId);
+  };
+
+  const handleRelist = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onRelist?.(listing.listingId);
   };
 
   const isRejected = listing.moderationStatus === 'rejected';
@@ -52,9 +68,15 @@ export function ListingCard({ listing, onSave, isSaved = false, onDelete, isDele
           message: 'Konten belum tampil di Propti sampai review selesai.',
           tone: 'bg-amber-50 text-amber-700 border-amber-200',
         };
+  const isExpiredArchivedListing =
+    listing.status === 'archived' &&
+    typeof listing.expiresAt === 'string' &&
+    Number.isFinite(new Date(listing.expiresAt).getTime()) &&
+    new Date(listing.expiresAt).getTime() <= Date.now();
+  const href = isExpiredArchivedListing ? `/listings/${listing.listingId}/edit` : `/listings/${listing.listingId}`;
 
   return (
-    <Link href={`/listings/${listing.listingId}`} className="card block group cursor-pointer">
+    <Link href={href} className="card block group cursor-pointer">
       {/* Image */}
       <div className="relative h-48 bg-gradient-to-br from-brand-primary/20 to-brand-secondary/30 rounded-t-2xl overflow-hidden">
         {listingImage ? (
@@ -84,6 +106,11 @@ export function ListingCard({ listing, onSave, isSaved = false, onDelete, isDele
               {isPending && (
                 <span className="border text-xs font-bold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border-amber-200">
                   Sedang diproses
+                </span>
+              )}
+              {isExpiredArchivedListing && (
+                <span className="border text-xs font-bold px-2.5 py-1 rounded-full bg-gray-100 text-gray-700 border-gray-200">
+                  Arsip
                 </span>
               )}
               {!isPending && listing.premiumFeatures?.isFeatured && (
@@ -186,6 +213,16 @@ export function ListingCard({ listing, onSave, isSaved = false, onDelete, isDele
                 </span>
               )}
             </div>
+            {onRelist && isExpiredArchivedListing && (
+              <button
+                onClick={handleRelist}
+                disabled={isRelisting}
+                className="mt-3 inline-flex items-center gap-2 rounded-full border border-brand-primary/20 bg-brand-primary/5 px-3 py-2 text-sm font-semibold text-brand-primary transition-colors hover:bg-brand-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isRelisting ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
+                Relist Iklan
+              </button>
+            )}
           </>
         )}
       </div>

@@ -173,6 +173,64 @@ func (s *ListingService) CreateListing(ctx context.Context, userID string, req *
 	return listing, nil
 }
 
+func (s *ListingService) RelistListing(ctx context.Context, userID, listingID string) (*models.Listing, error) {
+	listing, err := s.listingRepo.GetByID(ctx, userID, listingID)
+	if err != nil {
+		return nil, utils.ErrInternal
+	}
+	if listing == nil {
+		return nil, utils.ErrNotFound
+	}
+	if listing.UserID != userID {
+		return nil, utils.ErrForbidden
+	}
+
+	listing, err = s.normalizeListingStateIfNeeded(ctx, listing)
+	if err != nil {
+		return nil, utils.ErrInternal
+	}
+
+	now := s.now()
+	if listing.Status != models.ListingStatusArchived || listing.ExpiresAt == nil || listing.ExpiresAt.After(now) {
+		return nil, utils.NewAppError(400, "only expired archived listings can be relisted")
+	}
+
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, utils.ErrInternal
+	}
+	if user == nil {
+		return nil, utils.ErrUnauthorized
+	}
+
+	isPremium := IsPremiumEntitled(user, now)
+	count, err := s.listingRepo.CountActiveByUserID(ctx, userID)
+	if err != nil {
+		utils.LogError("count active listings for relist", err, "userId", userID, "listingId", listingID)
+		return nil, utils.ErrInternal
+	}
+	if count >= listingLimitForTier(isPremium) {
+		return nil, listingLimitExceededError(isPremium)
+	}
+
+	expiresAt := now.AddDate(0, 0, listingDurationDaysForTier(isPremium))
+	listing.Status = models.ListingStatusActive
+	listing.CreatedAt = now
+	listing.UpdatedAt = now
+	listing.ExpiresAt = &expiresAt
+	listing.PremiumFeatures.IsPremium = isPremium
+	listing.PremiumFeatures.IsFeatured = false
+	listing.PremiumFeatures.FeaturedUntil = nil
+	listing.PremiumFeatures.PromotionUntil = nil
+
+	if err := s.listingRepo.Put(ctx, listing); err != nil {
+		utils.LogError("relist listing", err, "userId", userID, "listingId", listingID)
+		return nil, utils.ErrInternal
+	}
+
+	return listing, nil
+}
+
 func (s *ListingService) UpdateListing(ctx context.Context, userID, listingID string, req *models.UpdateListingRequest) (*models.Listing, error) {
 	listing, err := s.listingRepo.GetByID(ctx, userID, listingID)
 	if err != nil {

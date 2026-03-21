@@ -7,7 +7,9 @@ interface ListingGridProps {
   savedIds?: string[];
   onSave?: (id: string) => void;
   onDelete?: (id: string) => void;
+  onRelist?: (id: string) => void;
   deletingId?: string;
+  relistingId?: string;
   emptyMessage?: string;
 }
 
@@ -16,7 +18,9 @@ export function ListingGrid({
   savedIds = [],
   onSave,
   onDelete,
+  onRelist,
   deletingId,
+  relistingId,
   emptyMessage = 'Belum ada properti yang ditemukan.',
 }: ListingGridProps) {
   if (listings.length === 0) {
@@ -40,7 +44,9 @@ export function ListingGrid({
           isSaved={savedIds.includes(listing.listingId)}
           onSave={onSave}
           onDelete={onDelete}
+          onRelist={onRelist}
           isDeleting={deletingId === listing.listingId}
+          isRelisting={relistingId === listing.listingId}
         />
       ))}
     </div>

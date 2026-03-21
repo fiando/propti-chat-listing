@@ -141,6 +141,11 @@ export async function updateListing(
   return response.data;
 }
 
+export async function relistListing(id: string): Promise<Listing> {
+  const response = await apiClient.post<Listing>(`/users/me/listings/${id}/relist`);
+  return response.data;
+}
+
 export async function deleteListing(id: string): Promise<void> {
   await apiClient.delete(`/listings/${id}`);
 }
