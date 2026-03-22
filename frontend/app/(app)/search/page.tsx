@@ -120,17 +120,17 @@ function SearchResults() {
         {/* Results */}
           <div className="flex-1 min-w-0">
             {/* Results header */}
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h1 className="text-lg font-bold text-gray-900">
-                {params.smartQuery || params.q ? `Hasil pencarian "${params.smartQuery || params.q}"` : 'Semua Properti'}
-              </h1>
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <h1 className="break-words text-lg font-bold text-gray-900">
+                  {params.smartQuery || params.q ? `Hasil pencarian "${params.smartQuery || params.q}"` : 'Semua Properti'}
+                </h1>
                 <p className="text-sm text-gray-500">
                   {isLoading ? 'Mencari...' : `${total.toLocaleString()} properti ditemukan`}
                 </p>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-3 sm:justify-end">
+                <div className="flex w-full items-center gap-2 sm:w-auto">
                   <label htmlFor="sort-results" className="text-sm font-medium text-gray-600">
                     Urutkan
                   </label>
@@ -143,7 +143,7 @@ function SearchResults() {
                         sortBy: event.target.value,
                       }))
                     }
-                    className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-brand-accent focus:outline-none"
+                    className="min-w-0 flex-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-brand-accent focus:outline-none sm:flex-none"
                   >
                     {SORT_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
