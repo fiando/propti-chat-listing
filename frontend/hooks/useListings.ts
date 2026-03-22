@@ -23,6 +23,7 @@ import {
 } from '@/lib/api';
 import { collectActiveListingCount } from '@/lib/my-listing-access';
 import type {
+  Listing,
   SearchParams,
   CreateListingRequest,
   UpdateListingRequest,
@@ -59,7 +60,18 @@ export function useTrackListingView() {
   return useMutation({
     mutationFn: (id: string) => trackListingView(id),
     onSuccess: (listing) => {
-      queryClient.setQueryData(['listing', listing.listingId], listing);
+      queryClient.setQueryData(['listing', listing.listingId], (previous: Listing | undefined) => {
+        if (!previous) {
+          return listing;
+        }
+
+        return {
+          ...previous,
+          ...listing,
+          sellerName: previous?.sellerName ?? listing.sellerName,
+          hasSellerPhone: previous?.hasSellerPhone ?? listing.hasSellerPhone,
+        };
+      });
     },
   });
 }
