@@ -59,3 +59,9 @@ test('owner listing surfaces show expiry feedback to explain active-until or arc
   assert.match(listingCardFile, /getListingExpiryInfo/);
   assert.match(listingDetailFile, /getListingExpiryInfo/);
 });
+
+test('expiry feedback is only shown on owner listing surfaces, not public search/detail views', () => {
+  assert.match(listingCardFile, /const isOwnerListingCard = Boolean\(onDelete \|\| onRelist\)/);
+  assert.match(listingCardFile, /isOwnerListingCard && expiryInfo/);
+  assert.match(listingDetailFile, /\{isOwner && expiryInfo && \(/);
+});

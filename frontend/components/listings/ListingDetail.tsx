@@ -101,6 +101,7 @@ export function ListingDetail({
   }));
   const sellerName = listing.sellerName?.trim() || 'Penjual Propti';
   const hasSellerContact = Boolean(listing.hasSellerPhone);
+  const shouldShowPublicContactCtas = !isAuthenticated || hasSellerContact;
   const ownerModerationNotice = isOwner ? OWNER_MODERATION_NOTICES[listing.moderationStatus] : undefined;
   const shouldHideOwnerContent = isOwner && listing.moderationStatus === 'rejected';
   const expiryInfo = getListingExpiryInfo(listing);
@@ -408,7 +409,7 @@ export function ListingDetail({
               </span>
               <span>Dipasang {formatDate(listing.createdAt)}</span>
             </div>
-            {expiryInfo && (
+            {isOwner && expiryInfo && (
               <div className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${expiryInfo.tone}`}>
                 <p className="font-semibold">{expiryInfo.label}</p>
                 <p className="mt-1">{expiryInfo.detail}</p>
@@ -525,7 +526,7 @@ export function ListingDetail({
               )}
             </div>
             <div className="space-y-3">
-              {hasSellerContact ? (
+              {shouldShowPublicContactCtas ? (
                 <>
                   <button
                     type="button"
@@ -553,11 +554,11 @@ export function ListingDetail({
                     </button>
                   )}
                 </>
-              ) : (
+              ) : isAuthenticated ? (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
                   Nomor penjual belum tersedia.
                 </div>
-              )}
+              ) : null}
             </div>
 
             <div className="flex gap-2 mt-4">

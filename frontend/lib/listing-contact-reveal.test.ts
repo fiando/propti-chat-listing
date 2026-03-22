@@ -25,6 +25,12 @@ test('listing detail gates seller phone behind an explicit contact reveal flow',
   assert.doesNotMatch(listingDetail, /buildListingContactLinks\(listing\.sellerPhone/);
 });
 
+test('public viewers still see contact CTA buttons before login and only authenticated users see unavailable-state messaging', () => {
+  assert.match(listingDetail, /const shouldShowPublicContactCtas = !isAuthenticated \|\| hasSellerContact/);
+  assert.match(listingDetail, /shouldShowPublicContactCtas \? \(/);
+  assert.match(listingDetail, /\) : isAuthenticated \? \(\s*<div className="rounded-xl border border-amber-200 bg-amber-50/);
+});
+
 test('frontend api exposes a dedicated revealListingContact call and hook', () => {
   assert.match(apiSource, /export async function revealListingContact/);
   assert.match(apiSource, /\/listings\/\$\{id\}\/contact-reveal/);

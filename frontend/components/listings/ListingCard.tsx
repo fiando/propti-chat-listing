@@ -71,6 +71,7 @@ export function ListingCard({
         };
   const expiryInfo = getListingExpiryInfo(listing);
   const isExpiredArchivedListing = shouldShowRelistAction(listing);
+  const isOwnerListingCard = Boolean(onDelete || onRelist);
   const href = isExpiredArchivedListing ? `/listings/${listing.listingId}/edit` : `/listings/${listing.listingId}`;
 
   return (
@@ -106,7 +107,7 @@ export function ListingCard({
                   Sedang diproses
                 </span>
               )}
-              {expiryInfo && (
+              {isOwnerListingCard && expiryInfo && (
                 <span className={`border text-xs font-bold px-2.5 py-1 rounded-full ${expiryInfo.tone}`}>
                   {expiryInfo.label}
                 </span>
@@ -184,7 +185,7 @@ export function ListingCard({
                 </span>
                 </div>
               )}
-            {expiryInfo && (
+            {isOwnerListingCard && expiryInfo && (
               <div className={`mb-3 rounded-xl border px-3 py-2 text-xs ${expiryInfo.tone}`}>
                 <p className="font-semibold">{expiryInfo.label}</p>
                 <p className="mt-1">{expiryInfo.detail}</p>
