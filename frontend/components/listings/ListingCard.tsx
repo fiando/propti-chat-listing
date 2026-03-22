@@ -5,6 +5,7 @@ import { Heart, MapPin, Bed, Bath, Maximize2, Home, Eye, Star, Trash2, Loader2, 
 import { cn, formatPrice, LISTING_TYPE_LABELS } from '@/lib/utils';
 import type { Listing } from '@/types';
 import { getListingCardImage } from '@/lib/listing-images';
+import { getListingExpiryInfo, shouldShowRelistAction } from '@/lib/listing-expiry';
 
 interface ListingCardProps {
   listing: Listing;
@@ -68,11 +69,8 @@ export function ListingCard({
           message: 'Konten belum tampil di Propti sampai review selesai.',
           tone: 'bg-amber-50 text-amber-700 border-amber-200',
         };
-  const isExpiredArchivedListing =
-    listing.status === 'archived' &&
-    typeof listing.expiresAt === 'string' &&
-    Number.isFinite(new Date(listing.expiresAt).getTime()) &&
-    new Date(listing.expiresAt).getTime() <= Date.now();
+  const expiryInfo = getListingExpiryInfo(listing);
+  const isExpiredArchivedListing = shouldShowRelistAction(listing);
   const href = isExpiredArchivedListing ? `/listings/${listing.listingId}/edit` : `/listings/${listing.listingId}`;
 
   return (
@@ -108,9 +106,9 @@ export function ListingCard({
                   Sedang diproses
                 </span>
               )}
-              {isExpiredArchivedListing && (
-                <span className="border text-xs font-bold px-2.5 py-1 rounded-full bg-gray-100 text-gray-700 border-gray-200">
-                  Arsip
+              {expiryInfo && (
+                <span className={`border text-xs font-bold px-2.5 py-1 rounded-full ${expiryInfo.tone}`}>
+                  {expiryInfo.label}
                 </span>
               )}
               {!isPending && listing.premiumFeatures?.isFeatured && (
@@ -176,18 +174,24 @@ export function ListingCard({
             )}
             <p className="text-brand-primary font-bold text-lg mb-2">{priceLabel}</p>
 
-            {listing.location?.city && (
-              <div className="flex items-center gap-1 text-gray-500 text-xs mb-3">
+             {listing.location?.city && (
+               <div className="flex items-center gap-1 text-gray-500 text-xs mb-3">
                 <MapPin className="w-3 h-3 flex-shrink-0" />
                 <span className="truncate">
                   {listing.location.district
                     ? `${listing.location.district}, ${listing.location.city}`
                     : listing.location.city}
                 </span>
+                </div>
+              )}
+            {expiryInfo && (
+              <div className={`mb-3 rounded-xl border px-3 py-2 text-xs ${expiryInfo.tone}`}>
+                <p className="font-semibold">{expiryInfo.label}</p>
+                <p className="mt-1">{expiryInfo.detail}</p>
               </div>
             )}
 
-            <div className="flex items-center gap-3 text-xs text-gray-500 border-t border-gray-50 pt-3 flex-wrap">
+             <div className="flex items-center gap-3 text-xs text-gray-500 border-t border-gray-50 pt-3 flex-wrap">
               {listing.propertyDetails?.landArea > 0 && (
                 <span className="flex items-center gap-1">
                   <Maximize2 className="w-3 h-3" />

@@ -574,6 +574,9 @@ func (s *ListingService) ListListings(ctx context.Context, params *models.Listin
 			utils.LogError("normalize listing state", err, "listingId", listings[i].ListingID)
 			return nil, utils.ErrInternal
 		}
+		if current.Status != models.ListingStatusActive || current.ModerationStatus != models.ModerationStatusApproved {
+			continue
+		}
 		normalized = append(normalized, *current)
 	}
 	return normalized, nil

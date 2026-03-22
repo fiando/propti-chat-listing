@@ -580,23 +580,20 @@ func TestListListingsArchivesExpiredListingsAndClearsExpiredPremiumFlags(t *test
 	if err != nil {
 		t.Fatalf("ListListings returned error: %v", err)
 	}
-	if len(listings) != 1 {
-		t.Fatalf("expected one listing, got %d", len(listings))
-	}
-	if listings[0].Status != models.ListingStatusArchived {
-		t.Fatalf("expected expired listing to be archived, got %q", listings[0].Status)
-	}
-	if listings[0].PremiumFeatures.IsFeatured {
-		t.Fatal("expected expired featured flag to be cleared in list results")
-	}
-	if listings[0].PremiumFeatures.FeaturedUntil != nil {
-		t.Fatal("expected expired featured timestamp to be cleared in list results")
-	}
-	if listings[0].PremiumFeatures.PromotionUntil != nil {
-		t.Fatal("expected expired promotion timestamp to be cleared in list results")
+	if len(listings) != 0 {
+		t.Fatalf("expected expired listing to be removed from public results, got %#v", listings)
 	}
 	if store.lastListing == nil || store.lastListing.Status != models.ListingStatusArchived {
 		t.Fatalf("expected expired listing to be persisted as archived, got %#v", store.lastListing)
+	}
+	if store.lastListing.PremiumFeatures.IsFeatured {
+		t.Fatal("expected expired featured flag to be cleared when archiving")
+	}
+	if store.lastListing.PremiumFeatures.FeaturedUntil != nil {
+		t.Fatal("expected expired featured timestamp to be cleared when archiving")
+	}
+	if store.lastListing.PremiumFeatures.PromotionUntil != nil {
+		t.Fatal("expected expired promotion timestamp to be cleared when archiving")
 	}
 }
 
@@ -1907,6 +1904,52 @@ func TestRelistListingRejectsWhenFreeTierQuotaIsFull(t *testing.T) {
 	_, err := service.RelistListing(ctx, "user-1", "listing-1")
 	if err == nil || !strings.Contains(err.Error(), "free tier allows at most 3 active listing") {
 		t.Fatalf("expected free-tier quota error for relist, got %v", err)
+	}
+}
+
+func TestListListingsExcludesEntriesThatBecomeArchivedDuringNormalization(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, time.March, 22, 14, 0, 0, 0, time.UTC)
+	expiredAt := now.Add(-time.Minute)
+
+	store := &fakeListingStore{
+		now: func() time.Time { return now },
+		scanListings: []models.Listing{
+			{
+				ListingID:        "listing-expired",
+				UserID:           "user-1",
+				Title:            "Listing expired",
+				Status:           models.ListingStatusActive,
+				ModerationStatus: models.ModerationStatusApproved,
+				ExpiresAt:        &expiredAt,
+			},
+		},
+		listingsByUser: map[string]map[string]*models.Listing{
+			"user-1": {
+				"listing-expired": {
+					ListingID:        "listing-expired",
+					UserID:           "user-1",
+					Title:            "Listing expired",
+					Status:           models.ListingStatusActive,
+					ModerationStatus: models.ModerationStatusApproved,
+					ExpiresAt:        &expiredAt,
+				},
+			},
+		},
+	}
+
+	service := NewListingService(store, &fakeUserStore{}, nil, nil, nil, nil)
+	service.now = func() time.Time { return now }
+
+	listings, err := service.ListListings(ctx, &models.ListingSearchParams{})
+	if err != nil {
+		t.Fatalf("ListListings returned error: %v", err)
+	}
+	if len(listings) != 0 {
+		t.Fatalf("expected expired listing to be removed from public results, got %#v", listings)
+	}
+	if store.lastListing == nil || store.lastListing.Status != models.ListingStatusArchived {
+		t.Fatalf("expected expired listing to be archived during normalization, got %#v", store.lastListing)
 	}
 }
 

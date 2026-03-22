@@ -11,9 +11,22 @@ function normalizeListingsResponse(data: ListingsApiResponse): Listing[] {
   return data.items ?? data.listings ?? [];
 }
 
+function hasFutureExpiry(listing: Listing, now: number): boolean {
+  if (!listing.expiresAt) {
+    return true;
+  }
+
+  const expiresAt = new Date(listing.expiresAt).getTime();
+  return Number.isFinite(expiresAt) && expiresAt > now;
+}
+
 function getEligibleHomepageListings(listings: Listing[]) {
+  const now = Date.now();
   return listings.filter(
-    (listing) => listing.status === 'active' && listing.moderationStatus === 'approved'
+    (listing) =>
+      listing.status === 'active' &&
+      listing.moderationStatus === 'approved' &&
+      hasFutureExpiry(listing, now)
   );
 }
 
@@ -81,7 +94,10 @@ export function buildHomepageListingSection(
 
 export function selectEligibleHomepageListings(listings: Listing[], limit = DEFAULT_LIMIT): Listing[] {
   const eligible = listings.filter(
-    (listing) => listing.status === 'active' && listing.moderationStatus === 'approved'
+    (listing) =>
+      listing.status === 'active' &&
+      listing.moderationStatus === 'approved' &&
+      hasFutureExpiry(listing, Date.now())
   );
   return sortNewestFirst(eligible).slice(0, limit);
 }

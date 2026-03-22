@@ -126,6 +126,7 @@ type ListingResponse struct {
 	FeaturedThumbnailURL string           `json:"featuredThumbnailUrl,omitempty"`
 	CreatedAt            time.Time        `json:"createdAt"`
 	UpdatedAt            time.Time        `json:"updatedAt"`
+	ExpiresAt            *time.Time       `json:"expiresAt,omitempty"`
 }
 
 func (r ListingResponse) MarshalJSON() ([]byte, error) {

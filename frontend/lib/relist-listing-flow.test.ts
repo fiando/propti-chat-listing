@@ -16,6 +16,14 @@ const listingCardFile = readFileSync(
   new URL('../components/listings/ListingCard.tsx', import.meta.url),
   'utf8'
 );
+const listingDetailPageFile = readFileSync(
+  new URL('../app/(app)/listings/[id]/page.tsx', import.meta.url),
+  'utf8'
+);
+const listingDetailFile = readFileSync(
+  new URL('../components/listings/ListingDetail.tsx', import.meta.url),
+  'utf8'
+);
 
 test('frontend API exposes owner relist endpoint', () => {
   assert.match(apiFile, /export async function relistListing/);
@@ -38,5 +46,16 @@ test('listing grid and card expose relist CTA for archived owner listings', () =
   assert.match(listingGridFile, /onRelist\?: \(id: string\) => void/);
   assert.match(listingCardFile, /onRelist\?: \(id: string\) => void/);
   assert.match(listingCardFile, /Relist Iklan/);
-  assert.match(listingCardFile, /listing\.status === 'archived'/);
+  assert.match(listingCardFile, /shouldShowRelistAction/);
+});
+
+test('owner detail page wires relist action for archived listings', () => {
+  assert.match(listingDetailPageFile, /useRelistListing/);
+  assert.match(listingDetailPageFile, /onRelist=/);
+  assert.match(listingDetailFile, /Relist Iklan/);
+});
+
+test('owner listing surfaces show expiry feedback to explain active-until or archived state', () => {
+  assert.match(listingCardFile, /getListingExpiryInfo/);
+  assert.match(listingDetailFile, /getListingExpiryInfo/);
 });

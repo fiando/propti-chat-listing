@@ -23,6 +23,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Shield,
+  RefreshCcw,
 } from 'lucide-react';
 import Link from 'next/link';
 import Lightbox from 'yet-another-react-lightbox';
@@ -34,6 +35,7 @@ import { getCachedRevealedContact, getOrLoadRevealedContact } from '@/lib/reveal
 import { useToast } from '@/app/toaster';
 import { useRevealListingContact } from '@/hooks/useListings';
 import { getListingGalleryImages } from '@/lib/listing-images';
+import { getListingExpiryInfo, shouldShowRelistAction } from '@/lib/listing-expiry';
 
 interface ListingDetailProps {
   listing: Listing;
@@ -43,6 +45,7 @@ interface ListingDetailProps {
   isSaving?: boolean;
   onSave?: () => void;
   onDelete?: () => void;
+  onRelist?: () => void;
 }
 
 const OWNER_MODERATION_NOTICES: Partial<
@@ -74,6 +77,7 @@ export function ListingDetail({
   isSaving = false,
   onSave,
   onDelete,
+  onRelist,
 }: ListingDetailProps) {
   const [activeImage, setActiveImage] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
@@ -99,6 +103,8 @@ export function ListingDetail({
   const hasSellerContact = Boolean(listing.hasSellerPhone);
   const ownerModerationNotice = isOwner ? OWNER_MODERATION_NOTICES[listing.moderationStatus] : undefined;
   const shouldHideOwnerContent = isOwner && listing.moderationStatus === 'rejected';
+  const expiryInfo = getListingExpiryInfo(listing);
+  const canRelist = isOwner && shouldShowRelistAction(listing);
 
   const handleRevealContact = async (channel: ContactRevealChannel) => {
     if (!isAuthenticated) {
@@ -386,9 +392,16 @@ export function ListingDetail({
 
               {/* Status badge for owner */}
               {isOwner && (
-                <div className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full ${status.color}`}>
-                  <status.icon className="w-3.5 h-3.5" />
-                  {status.label}
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {expiryInfo && (
+                    <div className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${expiryInfo.tone}`}>
+                      {expiryInfo.label}
+                    </div>
+                  )}
+                  <div className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full ${status.color}`}>
+                    <status.icon className="w-3.5 h-3.5" />
+                    {status.label}
+                  </div>
                 </div>
               )}
             </div>
@@ -403,6 +416,12 @@ export function ListingDetail({
               </span>
               <span>Dipasang {formatDate(listing.createdAt)}</span>
             </div>
+            {expiryInfo && (
+              <div className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${expiryInfo.tone}`}>
+                <p className="font-semibold">{expiryInfo.label}</p>
+                <p className="mt-1">{expiryInfo.detail}</p>
+              </div>
+            )}
           </div>
 
           {/* Property specs */}
@@ -574,6 +593,15 @@ export function ListingDetail({
             {/* Owner actions */}
             {isOwner && (
               <div className="mt-4 pt-4 border-t space-y-2">
+                {canRelist && onRelist && (
+                  <button
+                    onClick={onRelist}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl border border-brand-primary/20 bg-brand-primary/5 py-2.5 text-sm font-semibold text-brand-primary transition-colors hover:bg-brand-primary/10"
+                  >
+                    <RefreshCcw className="w-4 h-4" />
+                    Relist Iklan
+                  </button>
+                )}
                 <Link
                   href={`/listings/${listing.listingId}/edit`}
                   className="w-full flex items-center justify-center gap-2 btn-primary text-sm py-2.5"

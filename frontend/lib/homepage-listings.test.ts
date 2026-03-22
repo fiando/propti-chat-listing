@@ -170,3 +170,25 @@ test('buildHomepageListingSection returns empty mode when no approved active lis
   assert.equal(selected.title, '');
   assert.deepEqual(selected.items, []);
 });
+
+test('buildHomepageListingSection excludes archived and already-expired listings from homepage cards', () => {
+  const selected = buildHomepageListingSection(
+    [
+      createListing({
+        listingId: 'active-future',
+        expiresAt: '2099-03-20T00:00:00Z',
+      }),
+      createListing({
+        listingId: 'expired-active',
+        expiresAt: '2026-03-01T00:00:00Z',
+      }),
+      createListing({
+        listingId: 'archived-expired',
+        status: 'archived',
+        expiresAt: '2026-03-01T00:00:00Z',
+      }),
+    ] as never[]
+  );
+
+  assert.deepEqual(selected.items.map((listing) => listing.listingId), ['active-future']);
+});

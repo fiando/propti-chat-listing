@@ -126,6 +126,7 @@ func baseListingResponse(listing *models.Listing) *models.ListingResponse {
 		ModerationReason: listing.ModerationReason,
 		CreatedAt:        listing.CreatedAt,
 		UpdatedAt:        listing.UpdatedAt,
+		ExpiresAt:        listing.ExpiresAt,
 	}
 }
 

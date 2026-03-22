@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Fragment } from 'react';
+import { redirect } from 'next/navigation';
 import {
   MessageCircle,
   Sparkles,
@@ -13,6 +14,8 @@ import {
 import { ShieldIcon } from '@/components/icons/ShieldIcon';
 import { ListingCard } from '@/components/listings/ListingCard';
 import { getHomepageListings } from '@/lib/homepage-listings';
+import { getAuthenticatedHomeRedirectPath } from '@/lib/home-redirect';
+import { getServerAuthProfile } from '@/lib/server-profile';
 
 export const metadata: Metadata = {
   title: 'Propti — Jual Beli Properti Semudah Chat WhatsApp',
@@ -89,6 +92,15 @@ const PRODUCT_PROOF = [
 ];
 
 export default async function HomePage() {
+  const { isAuthenticated, profile } = await getServerAuthProfile();
+  const redirectPath = getAuthenticatedHomeRedirectPath({
+    isAuthenticated,
+    hasProfile: Boolean(profile),
+  });
+  if (redirectPath) {
+    redirect(redirectPath);
+  }
+
   const homepageSection = await getHomepageListings();
 
   return (

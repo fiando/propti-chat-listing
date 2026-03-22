@@ -115,6 +115,26 @@ func TestListingMediaPresenterOwnerDetailSignsGalleryWithoutRawKeys(t *testing.T
 	}
 }
 
+func TestListingMediaPresenterIncludesListingExpiryInResponses(t *testing.T) {
+	expiresAt := time.Date(2026, 4, 20, 0, 0, 0, 0, time.UTC)
+
+	resp, err := NewListingMediaPresenter(&fakeMediaService{}).PresentOwnerDetail(context.Background(), &models.Listing{
+		ListingID: "listing-1",
+		Title:     "Rumah Depok",
+		ExpiresAt: &expiresAt,
+	})
+	if err != nil {
+		t.Fatalf("PresentOwnerDetail returned error: %v", err)
+	}
+
+	if resp.ExpiresAt == nil {
+		t.Fatal("expected owner detail response to include expiresAt")
+	}
+	if !resp.ExpiresAt.Equal(expiresAt) {
+		t.Fatalf("expected expiresAt %s, got %s", expiresAt.Format(time.RFC3339), resp.ExpiresAt.Format(time.RFC3339))
+	}
+}
+
 func TestListingMediaPresenterKeepsLegacyImagesReadable(t *testing.T) {
 	presenter := NewListingMediaPresenter(&fakeMediaService{})
 

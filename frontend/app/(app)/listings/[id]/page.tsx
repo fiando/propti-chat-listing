@@ -1,7 +1,7 @@
 'use client';
 
 import { use, useEffect } from 'react';
-import { useListing, useOwnerListing, useSaveListing, useSavedListings, useTrackListingView } from '@/hooks/useListings';
+import { useListing, useOwnerListing, useSaveListing, useSavedListings, useTrackListingView, useRelistListing } from '@/hooks/useListings';
 import { ListingDetail } from '@/components/listings/ListingDetail';
 import { useDeleteListing } from '@/hooks/useListings';
 import { useRouter } from 'next/navigation';
@@ -13,6 +13,7 @@ import { markListingViewTracked, shouldTrackListingView } from '@/lib/listing-vi
 export default function ListingDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { mutateAsync: deleteListing, isPending: isDeleting } = useDeleteListing();
+  const { mutateAsync: relistListing, isPending: isRelisting } = useRelistListing();
   const { mutateAsync: toggleSave, isPending: isSaving } = useSaveListing();
   const { mutateAsync: trackView } = useTrackListingView();
   const router = useRouter();
@@ -87,6 +88,10 @@ export default function ListingDetailPage({ params }: { params: Promise<{ id: st
     await toggleSave({ id, saved: isSaved });
   };
 
+  const handleRelist = async () => {
+    await relistListing(id);
+  };
+
   return (
     <ListingDetail
       listing={listing}
@@ -96,6 +101,7 @@ export default function ListingDetailPage({ params }: { params: Promise<{ id: st
       isSaving={isSaving}
       onSave={isAuthenticated ? handleSave : undefined}
       onDelete={isDeleting ? undefined : handleDelete}
+      onRelist={isRelisting ? undefined : handleRelist}
     />
   );
 }
