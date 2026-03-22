@@ -371,35 +371,27 @@ export function ListingDetail({
 
           {/* Title & Price */}
           <div className="card p-6">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1">
-                <h1 className="text-2xl font-bold text-gray-900 mb-2">{listing.title}</h1>
-                <div className="flex items-center gap-1.5 text-gray-500 text-sm mb-4">
-                  <MapPin className="w-4 h-4" />
-                  <span>
-                    {[listing.location?.district, listing.location?.city, listing.location?.province]
-                      .filter(Boolean)
-                      .join(', ')}
-                  </span>
-                </div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-black text-brand-primary">{priceLabel}</span>
-                  {listing.priceUnit !== 'total' && (
-                    <span className="text-gray-500 text-sm">{priceUnit}</span>
-                  )}
-                </div>
+            <div>
+              <h1 className="mb-2 break-words text-2xl font-bold text-gray-900">{listing.title}</h1>
+              <div className="mb-4 flex items-start gap-1.5 text-sm text-gray-500">
+                <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                <span className="break-words">
+                  {[listing.location?.district, listing.location?.city, listing.location?.province]
+                    .filter(Boolean)
+                    .join(', ')}
+                </span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black text-brand-primary">{priceLabel}</span>
+                {listing.priceUnit !== 'total' && (
+                  <span className="text-sm text-gray-500">{priceUnit}</span>
+                )}
               </div>
 
-              {/* Status badge for owner */}
               {isOwner && (
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                  {expiryInfo && (
-                    <div className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${expiryInfo.tone}`}>
-                      {expiryInfo.label}
-                    </div>
-                  )}
-                  <div className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full ${status.color}`}>
-                    <status.icon className="w-3.5 h-3.5" />
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <div className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${status.color}`}>
+                    <status.icon className="h-3.5 w-3.5" />
                     {status.label}
                   </div>
                 </div>
@@ -407,7 +399,7 @@ export function ListingDetail({
             </div>
 
             {/* Stats row */}
-            <div className="flex items-center gap-4 mt-4 pt-4 border-t text-sm text-gray-500">
+            <div className="mt-4 flex flex-wrap items-center gap-4 border-t pt-4 text-sm text-gray-500">
               <span className="flex items-center gap-1">
                 <Eye className="w-4 h-4" /> {listing.views} dilihat
               </span>
