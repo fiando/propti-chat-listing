@@ -1,7 +1,11 @@
 import type { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 
-import { exchangeGoogleIdTokenForBackendSession } from '@/lib/backend-auth';
+import {
+  exchangeGoogleIdTokenForBackendSession,
+  getJwtExpiryTimestamp,
+  refreshBackendAuthTokenIfNeeded,
+} from '@/lib/backend-auth';
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.propti.id';
 
@@ -16,9 +20,13 @@ type TokenWithBackendAuth = {
   sub?: string;
   accessToken?: string;
   googleAccessToken?: string;
+  googleAccessTokenExpiresAt?: number;
   googleId?: string;
+  refreshToken?: string;
   backendAccessToken?: string;
+  backendAccessTokenExpiresAt?: number;
   backendUser?: BackendUser;
+  error?: 'MissingRefreshToken' | 'RefreshAccessTokenError';
 };
 
 export const authOptions: NextAuthOptions = {
@@ -26,6 +34,13 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      authorization: {
+        params: {
+          prompt: 'consent',
+          access_type: 'offline',
+          response_type: 'code',
+        },
+      },
     }),
   ],
   callbacks: {
@@ -34,7 +49,9 @@ export const authOptions: NextAuthOptions = {
 
       if (account && profile) {
         nextToken.googleAccessToken = account.access_token;
+        nextToken.googleAccessTokenExpiresAt = account.expires_at ? account.expires_at * 1000 : undefined;
         nextToken.googleId = profile.sub;
+        nextToken.refreshToken = account.refresh_token ?? nextToken.refreshToken;
 
         const googleIdToken = (account as typeof account & { id_token?: string }).id_token;
         if (!googleIdToken) {
@@ -47,18 +64,28 @@ export const authOptions: NextAuthOptions = {
         });
 
         nextToken.backendAccessToken = backendSession.backendAccessToken;
+        nextToken.backendAccessTokenExpiresAt = getJwtExpiryTimestamp(backendSession.backendAccessToken);
         nextToken.backendUser = backendSession.backendUser;
         nextToken.accessToken = backendSession.backendAccessToken;
         nextToken.sub = backendSession.backendUser.userId;
+        nextToken.error = undefined;
+
+        return nextToken;
       }
 
-      return nextToken;
+      return refreshBackendAuthTokenIfNeeded({
+        token: nextToken,
+        apiBaseUrl,
+        googleClientId: process.env.GOOGLE_CLIENT_ID!,
+        googleClientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      });
     },
     async session({ session, token }) {
       const nextToken = token as typeof token & TokenWithBackendAuth;
       return {
         ...session,
         accessToken: nextToken.backendAccessToken,
+        error: nextToken.error,
         user: {
           ...session.user,
           id: nextToken.backendUser?.userId ?? token.sub,
