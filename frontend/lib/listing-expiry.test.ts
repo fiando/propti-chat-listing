@@ -65,6 +65,7 @@ test('getListingExpiryInfo shows active-until feedback for active listings', () 
 
   assert.equal(info?.kind, 'active');
   assert.match(info?.label ?? '', /Aktif sampai/i);
+  assert.match(info?.detail ?? '', /masih tayang/i);
 });
 
 test('getListingExpiryInfo shows expired archive feedback for archived listings', () => {
@@ -74,6 +75,6 @@ test('getListingExpiryInfo shows expired archive feedback for archived listings'
   );
 
   assert.equal(info?.kind, 'expired');
-  assert.match(info?.label ?? '', /Arsip/i);
-  assert.match(info?.detail ?? '', /berakhir/i);
+  assert.match(info?.label ?? '', /Tayangan berakhir/i);
+  assert.match(info?.detail ?? '', /tidak lagi tayang/i);
 });

@@ -57,8 +57,8 @@ export function getListingExpiryInfo(
   if (listing.status === 'archived' || expiresAt <= now) {
     return {
       kind: 'expired',
-      label: 'Arsip',
-      detail: `Listing berakhir pada ${formattedDate}`,
+      label: 'Tayangan berakhir',
+      detail: `Properti ini tidak lagi tayang sejak ${formattedDate}`,
       tone: 'border-gray-200 bg-gray-50 text-gray-700',
     };
   }
@@ -66,8 +66,7 @@ export function getListingExpiryInfo(
   return {
     kind: 'active',
     label: `Aktif sampai ${formattedDate}`,
-    detail: 'Listing masih tampil ke publik sampai tanggal ini.',
+    detail: 'Properti ini masih tayang hingga tanggal tersebut.',
     tone: 'border-emerald-200 bg-emerald-50 text-emerald-700',
   };
 }
-

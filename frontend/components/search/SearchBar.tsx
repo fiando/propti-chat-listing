@@ -93,9 +93,19 @@ export function SearchBar({
 
   return (
     <div className="bg-white rounded-2xl shadow-card border border-gray-100 p-4">
-      {/* Main search row */}
-      <div className="flex gap-3">
-        <div className="flex-1 relative">
+      <div className="flex flex-col gap-3">
+        <div className="relative sm:hidden">
+          <Search className="absolute left-3.5 top-4 w-5 h-5 text-gray-400" />
+          <textarea
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Cari dengan kalimat: rumah dijual di Jogja 500 juta - 1 M, SHM, AC, CCTV..."
+            rows={3}
+            className="min-h-[104px] w-full resize-none rounded-xl border border-gray-200 bg-gray-50 pl-11 pr-4 py-3.5 text-sm leading-6 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-accent"
+          />
+        </div>
+
+        <div className="relative hidden sm:block">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
@@ -103,40 +113,40 @@ export function SearchBar({
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Cari dengan kalimat: rumah dijual di Jogja 500 juta - 1 M, SHM, AC, CCTV..."
-            className="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-accent focus:border-transparent bg-gray-50 transition-all"
+            className="w-full pl-11 pr-4 py-3.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-accent focus:border-transparent bg-gray-50 transition-all"
           />
         </div>
 
-        <button
-          onClick={() => setShowFilters(!showFilters)}
-          className={cn(
-            'flex items-center gap-2 px-4 py-3 rounded-xl border font-medium text-sm transition-all',
-            showFilters
-              ? 'border-brand-primary bg-brand-light text-brand-primary'
-              : 'border-gray-200 text-gray-600 hover:border-gray-300'
-          )}
-        >
-          <SlidersHorizontal className="w-4 h-4" />
-          <span className="hidden sm:inline">Filter</span>
-          {hasFilters && (
-            <span className="w-2 h-2 bg-brand-primary rounded-full" />
-          )}
-        </button>
+        <div className="grid grid-cols-2 gap-3 sm:flex sm:items-center">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={cn(
+              'flex items-center justify-center gap-2 px-4 py-3 rounded-xl border font-medium text-sm transition-all sm:w-auto',
+              showFilters
+                ? 'border-brand-primary bg-brand-light text-brand-primary'
+                : 'border-gray-200 text-gray-600 hover:border-gray-300'
+            )}
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            <span>Filter</span>
+            {hasFilters && <span className="w-2 h-2 bg-brand-primary rounded-full" />}
+          </button>
 
-        <button
-          onClick={handleSearch}
-          disabled={isSearching}
-          className="btn-primary text-sm px-6 py-3"
-        >
-          {isSearching ? (
-            <span className="flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Memproses...
-            </span>
-          ) : (
-            'Cari'
-          )}
-        </button>
+          <button
+            onClick={handleSearch}
+            disabled={isSearching}
+            className="btn-primary text-sm px-6 py-3 w-full sm:w-auto"
+          >
+            {isSearching ? (
+              <span className="flex items-center justify-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Memproses...
+              </span>
+            ) : (
+              'Cari'
+            )}
+          </button>
+        </div>
       </div>
 
       <div className="mt-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
@@ -144,6 +154,7 @@ export function SearchBar({
           <span className="font-semibold text-brand-primary">Cari dengan kalimat.</span>{' '}
           Semua filter dan urutan bisa terisi otomatis dari satu pencarian.
         </p>
+        <p className="text-xs text-gray-400 sm:hidden">Tulis beberapa baris jika query-mu panjang.</p>
         {errorMessage && <p className="text-xs font-medium text-red-500">{errorMessage}</p>}
       </div>
 
