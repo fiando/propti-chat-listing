@@ -14,9 +14,9 @@ const (
 	SubscriptionFree    SubscriptionTier = "free"
 	SubscriptionPremium SubscriptionTier = "premium"
 
-	SubscriptionActive      SubscriptionStatus = "active"
+	SubscriptionActive       SubscriptionStatus = "active"
 	SubscriptionExpiringSoon SubscriptionStatus = "expiring_soon"
-	SubscriptionExpired     SubscriptionStatus = "expired"
+	SubscriptionExpired      SubscriptionStatus = "expired"
 )
 
 type UserPreferences struct {
@@ -57,7 +57,8 @@ type User struct {
 }
 
 type GoogleAuthRequest struct {
-	IDToken string `json:"idToken"`
+	IDToken     string `json:"idToken,omitempty"`
+	AccessToken string `json:"accessToken,omitempty"`
 }
 
 type AuthResponse struct {

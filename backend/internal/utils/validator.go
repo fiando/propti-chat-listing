@@ -34,10 +34,10 @@ func ValidateCreateListingRequest(req *models.CreateListingRequest) error {
 	return nil
 }
 
-// ValidateGoogleAuthRequest checks that an ID token is present.
+// ValidateGoogleAuthRequest checks that either a Google ID token or access token is present.
 func ValidateGoogleAuthRequest(req *models.GoogleAuthRequest) error {
-	if strings.TrimSpace(req.IDToken) == "" {
-		return errors.New("idToken is required")
+	if strings.TrimSpace(req.IDToken) == "" && strings.TrimSpace(req.AccessToken) == "" {
+		return errors.New("idToken or accessToken is required")
 	}
 	return nil
 }

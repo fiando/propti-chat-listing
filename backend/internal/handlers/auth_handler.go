@@ -76,11 +76,22 @@ func (h *AuthHandler) googleLogin(ctx context.Context, req events.APIGatewayProx
 		return jsonResponse(http.StatusBadRequest, utils.MarshalErrorResponse(utils.NewAppError(400, err.Error()))), nil
 	}
 
-	// Verify and decode the Google ID token.
-	googleClaims, err := verifyGoogleIDToken(ctx, authReq.IDToken)
-	if err != nil {
-		utils.LogError("verify google id token", err)
-		return jsonResponse(http.StatusUnauthorized, utils.MarshalErrorResponse(utils.ErrUnauthorized)), nil
+	var (
+		googleClaims *googleIDTokenClaims
+		err          error
+	)
+	if strings.TrimSpace(authReq.IDToken) != "" {
+		googleClaims, err = verifyGoogleIDToken(ctx, authReq.IDToken)
+		if err != nil {
+			utils.LogError("verify google id token", err)
+			return jsonResponse(http.StatusUnauthorized, utils.MarshalErrorResponse(utils.ErrUnauthorized)), nil
+		}
+	} else {
+		googleClaims, err = verifyGoogleAccessToken(ctx, authReq.AccessToken, http.DefaultClient.Do)
+		if err != nil {
+			utils.LogError("verify google access token", err)
+			return jsonResponse(http.StatusUnauthorized, utils.MarshalErrorResponse(utils.ErrUnauthorized)), nil
+		}
 	}
 
 	// Look up existing user by Google subject ID.

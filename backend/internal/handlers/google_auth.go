@@ -5,9 +5,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 )
+
+const googleUserInfoEndpoint = "https://openidconnect.googleapis.com/v1/userinfo"
 
 // googleIDTokenClaims holds the fields we extract from a Google ID token.
 type googleIDTokenClaims struct {
@@ -63,6 +66,48 @@ func verifyGoogleIDToken(ctx context.Context, idToken string) (*googleIDTokenCla
 		return nil, fmt.Errorf("id token has expired")
 	}
 
+	if claims.Sub == "" {
+		return nil, fmt.Errorf("missing sub claim")
+	}
+
+	return &googleIDTokenClaims{
+		Subject: claims.Sub,
+		Email:   claims.Email,
+		Name:    claims.Name,
+		Picture: claims.Picture,
+	}, nil
+}
+
+func verifyGoogleAccessToken(
+	ctx context.Context,
+	accessToken string,
+	doRequest func(req *http.Request) (*http.Response, error),
+) (*googleIDTokenClaims, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, googleUserInfoEndpoint, nil)
+	if err != nil {
+		return nil, fmt.Errorf("build google userinfo request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	response, err := doRequest(req)
+	if err != nil {
+		return nil, fmt.Errorf("fetch google userinfo: %w", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("google userinfo returned status %d", response.StatusCode)
+	}
+
+	var claims struct {
+		Sub     string `json:"sub"`
+		Email   string `json:"email"`
+		Name    string `json:"name"`
+		Picture string `json:"picture"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&claims); err != nil {
+		return nil, fmt.Errorf("decode google userinfo: %w", err)
+	}
 	if claims.Sub == "" {
 		return nil, fmt.Errorf("missing sub claim")
 	}

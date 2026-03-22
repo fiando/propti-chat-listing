@@ -1,5 +1,8 @@
-export function buildBackendAuthPayload({ idToken }) {
-  return { idToken };
+export function buildBackendAuthPayload({ idToken, accessToken }) {
+  return {
+    ...(idToken ? { idToken } : {}),
+    ...(accessToken ? { accessToken } : {}),
+  };
 }
 
 const GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
@@ -43,6 +46,30 @@ export async function exchangeGoogleIdTokenForBackendSession({ apiBaseUrl, idTok
   };
 }
 
+export async function exchangeGoogleAccessTokenForBackendSession({
+  apiBaseUrl,
+  accessToken,
+  fetchImpl = fetch,
+}) {
+  const response = await fetchImpl(`${apiBaseUrl}/auth/google`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(buildBackendAuthPayload({ accessToken })),
+  });
+
+  if (!response.ok) {
+    throw new Error('Backend authentication failed');
+  }
+
+  const data = await response.json();
+  return {
+    backendAccessToken: data.accessToken,
+    backendUser: data.user,
+  };
+}
+
 export async function refreshGoogleTokens({
   refreshToken,
   clientId,
@@ -68,10 +95,6 @@ export async function refreshGoogleTokens({
   }
 
   const data = await response.json();
-  if (!data.id_token) {
-    throw new Error('Google token refresh did not return an ID token');
-  }
-
   return {
     accessToken: data.access_token,
     accessTokenExpiresAt:
@@ -90,6 +113,9 @@ export async function refreshBackendAuthTokenIfNeeded({
   refreshGoogleTokens: refreshGoogleTokensImpl = refreshGoogleTokens,
   exchangeGoogleIdTokenForBackendSession: exchangeGoogleIdTokenForBackendSessionImpl = ({ idToken }) =>
     exchangeGoogleIdTokenForBackendSession({ apiBaseUrl, idToken }),
+  exchangeGoogleAccessTokenForBackendSession: exchangeGoogleAccessTokenForBackendSessionImpl = ({
+    accessToken,
+  }) => exchangeGoogleAccessTokenForBackendSession({ apiBaseUrl, accessToken }),
 }) {
   const backendAccessTokenExpiresAt =
     token.backendAccessTokenExpiresAt ?? getJwtExpiryTimestamp(token.backendAccessToken);
@@ -121,9 +147,14 @@ export async function refreshBackendAuthTokenIfNeeded({
       now,
     });
 
-    const backendSession = await exchangeGoogleIdTokenForBackendSessionImpl({
-      idToken: googleTokens.idToken,
-    });
+    const backendSession = googleTokens.idToken
+      ? await exchangeGoogleIdTokenForBackendSessionImpl({
+          idToken: googleTokens.idToken,
+        })
+      : await exchangeGoogleAccessTokenForBackendSessionImpl({
+          accessToken: googleTokens.accessToken,
+          googleId: token.googleId,
+        });
 
     return {
       ...token,

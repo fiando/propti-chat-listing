@@ -3,6 +3,8 @@ package utils
 import (
 	"strings"
 	"testing"
+
+	"github.com/fiando/propti/backend/internal/models"
 )
 
 func TestValidateMediaLimits(t *testing.T) {
@@ -56,5 +58,11 @@ func TestValidateMediaLimits(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestValidateGoogleAuthRequestAcceptsAccessTokenFallback(t *testing.T) {
+	if err := ValidateGoogleAuthRequest(&models.GoogleAuthRequest{AccessToken: "google-access-token"}); err != nil {
+		t.Fatalf("expected accessToken-only request to be valid, got %v", err)
 	}
 }
