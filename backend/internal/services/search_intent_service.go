@@ -64,7 +64,6 @@ func (s *SearchIntentService) Normalize(intent *models.SearchIntent) (models.Lis
 	}
 
 	params := models.ListingSearchParams{
-		Query:           strings.TrimSpace(intent.KeywordQuery),
 		PriceMin:        intent.PriceMin,
 		PriceMax:        intent.PriceMax,
 		Bedrooms:        intent.Bedrooms,
@@ -85,6 +84,7 @@ func (s *SearchIntentService) Normalize(intent *models.SearchIntent) (models.Lis
 	params.LegalStatus = normalizeLegalStatus(intent.LegalStatus)
 	params.Amenities = normalizeAmenityIDs(intent.Amenities)
 	params.SortBy = normalizeSortBy(intent.SortBy)
+	params.PriceMin, params.PriceMax = normalizePriceBounds(params.PriceMin, params.PriceMax)
 
 	metadata := models.SearchIntentMetadata{}
 	province := normalizeProvinceAlias(intent.Province)
@@ -101,6 +101,10 @@ func (s *SearchIntentService) Normalize(intent *models.SearchIntent) (models.Lis
 	} else {
 		params.Province = province
 		params.City = city
+	}
+
+	if shouldKeepKeywordQuery(strings.TrimSpace(intent.KeywordQuery), params) {
+		params.Query = strings.TrimSpace(intent.KeywordQuery)
 	}
 
 	return params, metadata
@@ -298,6 +302,80 @@ func normalizeSortBy(value string) string {
 	default:
 		return ""
 	}
+}
+
+type pricePreset struct {
+	min float64
+	max float64
+}
+
+var pricePresets = []pricePreset{
+	{min: 0, max: 500000000},
+	{min: 500000000, max: 1000000000},
+	{min: 1000000000, max: 2000000000},
+	{min: 2000000000, max: 5000000000},
+	{min: 5000000000, max: 0},
+}
+
+func normalizePriceBounds(min, max float64) (float64, float64) {
+	if min <= 0 || max <= 0 || min != max {
+		return min, max
+	}
+
+	for index, preset := range pricePresets {
+		if preset.max == 0 {
+			if min >= preset.min {
+				return preset.min, 0
+			}
+			continue
+		}
+		if index < len(pricePresets)-1 && pricePresets[index+1].min == min {
+			return pricePresets[index+1].min, pricePresets[index+1].max
+		}
+		if min >= preset.min && min <= preset.max {
+			return preset.min, preset.max
+		}
+	}
+
+	return min, max
+}
+
+func shouldKeepKeywordQuery(keyword string, params models.ListingSearchParams) bool {
+	if keyword == "" {
+		return false
+	}
+
+	structuredSignals := 0
+	if params.Province != "" {
+		structuredSignals++
+	}
+	if params.City != "" {
+		structuredSignals++
+	}
+	if params.ListingType != "" {
+		structuredSignals++
+	}
+	if params.PriceMin > 0 || params.PriceMax > 0 {
+		structuredSignals++
+	}
+	if params.Bedrooms > 0 {
+		structuredSignals++
+	}
+	if params.Bathrooms > 0 {
+		structuredSignals++
+	}
+	if params.LegalStatus != "" {
+		structuredSignals++
+	}
+	if len(params.Amenities) > 0 {
+		structuredSignals++
+	}
+
+	if structuredSignals >= 2 {
+		return false
+	}
+
+	return true
 }
 
 func normalizeText(value string) string {
