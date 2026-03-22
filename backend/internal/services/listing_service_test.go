@@ -22,6 +22,7 @@ type fakeListingStore struct {
 	listingsByUser      map[string]map[string]*models.Listing
 	listingsByUserIndex map[string][]models.Listing
 	scanListings        []models.Listing
+	now                 func() time.Time
 }
 
 func (f *fakeListingStore) Put(ctx context.Context, listing *models.Listing) error {
@@ -90,6 +91,9 @@ func (f *fakeListingStore) CountActiveByUserID(ctx context.Context, userID strin
 	}
 
 	now := time.Now().UTC()
+	if f.now != nil {
+		now = f.now()
+	}
 	count := 0
 	for _, listing := range f.listingsByUser[userID] {
 		if listing.Status != models.ListingStatusActive {
@@ -245,6 +249,7 @@ func TestCreateListingDoesNotGeocodeDuringSubmit(t *testing.T) {
 func TestCreateListingFreeTierIgnoresArchivedListingsInQuota(t *testing.T) {
 	ctx := context.Background()
 	store := &fakeListingStore{
+		now: func() time.Time { return now },
 		listingsByUser: map[string]map[string]*models.Listing{
 			"user-1": {
 				"listing-1": {
@@ -1602,6 +1607,7 @@ func TestCreateListingPromotesUploadedImagesIntoStructuredMedia(t *testing.T) {
 func TestUpdateListingRetainsOrderAndDeletesRemovedImages(t *testing.T) {
 	ctx := context.Background()
 	store := &fakeListingStore{
+		now: func() time.Time { return now },
 		listingsByUser: map[string]map[string]*models.Listing{
 			"user-1": {
 				"listing-1": {
@@ -1784,6 +1790,7 @@ func TestRelistListingReactivatesExpiredArchivedListingWithFreshExpiry(t *testin
 	expiredAt := now.Add(-24 * time.Hour)
 
 	store := &fakeListingStore{
+		now: func() time.Time { return now },
 		listingsByUser: map[string]map[string]*models.Listing{
 			"user-1": {
 				"listing-1": {
@@ -1847,6 +1854,7 @@ func TestRelistListingRejectsWhenFreeTierQuotaIsFull(t *testing.T) {
 	activeExpiry := now.Add(24 * time.Hour)
 
 	store := &fakeListingStore{
+		now: func() time.Time { return now },
 		listingsByUser: map[string]map[string]*models.Listing{
 			"user-1": {
 				"listing-1": {

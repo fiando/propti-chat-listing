@@ -1,9 +1,13 @@
 package services
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"sort"
 	"strings"
 
 	openai "github.com/sashabaranov/go-openai"
@@ -98,15 +102,25 @@ Respond ONLY with valid JSON:
 
 const parserModel = "gpt-4o-mini"
 const moderationModel = "gpt-4o-mini"
+const openAIModerationModel = "omni-moderation-latest"
+const openAIModerationBaseURL = "https://api.openai.com"
 
 // AIService calls the OpenAI API for listing text parsing and content moderation.
 type AIService struct {
-	client *openai.Client
+	client            *openai.Client
+	httpClient        *http.Client
+	moderationAPIKey  string
+	moderationBaseURL string
 }
 
 // NewAIService creates an AIService using the provided OpenAI API key.
 func NewAIService(apiKey string) *AIService {
-	return &AIService{client: openai.NewClient(apiKey)}
+	return &AIService{
+		client:            openai.NewClient(apiKey),
+		httpClient:        http.DefaultClient,
+		moderationAPIKey:  apiKey,
+		moderationBaseURL: openAIModerationBaseURL,
+	}
 }
 
 // ParseListingText sends raw Indonesian listing text to the parser model and returns structured data.
@@ -150,6 +164,18 @@ type moderationResponse struct {
 func (s *AIService) ModerateContent(ctx context.Context, title, description string) (approved bool, reason string, flags []string, err error) {
 	input := fmt.Sprintf("Title: %s\n\nDescription: %s", title, description)
 
+	harmApproved, harmReason, harmFlags, err := s.moderateHarmfulText(ctx, input)
+	if err != nil {
+		return false, "", nil, err
+	}
+	if !harmApproved {
+		return false, harmReason, harmFlags, nil
+	}
+
+	if s.client == nil {
+		return false, "", nil, fmt.Errorf("openai chat client not configured")
+	}
+
 	resp, err := s.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
 		Model: moderationModel,
 		Messages: []openai.ChatCompletionMessage{
@@ -173,4 +199,128 @@ func (s *AIService) ModerateContent(ctx context.Context, title, description stri
 		return false, "", nil, fmt.Errorf("unmarshal moderation response: %w", err)
 	}
 	return modResp.Approved, modResp.Reason, modResp.Flags, nil
+}
+
+func (s *AIService) ModerateImages(ctx context.Context, images [][]byte) (approved bool, reason string, flags []string, err error) {
+	for idx, imageBytes := range images {
+		input := []openAIModerationInputItem{
+			{
+				Type: "image_url",
+				ImageURL: &openAIModerationImageURL{
+					URL: buildModerationImageDataURL(imageBytes),
+				},
+			},
+		}
+		result, err := s.createModeration(ctx, input)
+		if err != nil {
+			return false, "", nil, fmt.Errorf("openai image moderation request %d: %w", idx+1, err)
+		}
+		if !result.Flagged {
+			continue
+		}
+
+		flags = moderationCategoryFlags(result.Categories)
+		return false, fmt.Sprintf("Gambar %d terdeteksi mengandung konten yang tidak pantas untuk iklan properti", idx+1), flags, nil
+	}
+
+	return true, "", nil, nil
+}
+
+func (s *AIService) moderateHarmfulText(ctx context.Context, input string) (approved bool, reason string, flags []string, err error) {
+	result, err := s.createModeration(ctx, input)
+	if err != nil {
+		return false, "", nil, fmt.Errorf("openai text moderation request: %w", err)
+	}
+	if !result.Flagged {
+		return true, "", nil, nil
+	}
+
+	flags = moderationCategoryFlags(result.Categories)
+	return false, "Konten teks terdeteksi mengandung materi yang tidak aman untuk platform properti", flags, nil
+}
+
+type openAIModerationRequest struct {
+	Model string `json:"model"`
+	Input any    `json:"input"`
+}
+
+type openAIModerationInputItem struct {
+	Type     string                    `json:"type"`
+	Text     string                    `json:"text,omitempty"`
+	ImageURL *openAIModerationImageURL `json:"image_url,omitempty"`
+}
+
+type openAIModerationImageURL struct {
+	URL string `json:"url"`
+}
+
+type openAIModerationResponse struct {
+	Results []openAIModerationResult `json:"results"`
+}
+
+type openAIModerationResult struct {
+	Flagged    bool            `json:"flagged"`
+	Categories map[string]bool `json:"categories"`
+}
+
+func (s *AIService) createModeration(ctx context.Context, input any) (*openAIModerationResult, error) {
+	if strings.TrimSpace(s.moderationAPIKey) == "" {
+		return nil, fmt.Errorf("openai moderation api key not configured")
+	}
+
+	httpClient := s.httpClient
+	if httpClient == nil {
+		httpClient = http.DefaultClient
+	}
+
+	body, err := json.Marshal(openAIModerationRequest{
+		Model: openAIModerationModel,
+		Input: input,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("marshal moderation request: %w", err)
+	}
+
+	url := strings.TrimRight(s.moderationBaseURL, "/") + "/v1/moderations"
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("build moderation request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+s.moderationAPIKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("send moderation request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("moderation request failed with status %d", resp.StatusCode)
+	}
+
+	var moderationResp openAIModerationResponse
+	if err := json.NewDecoder(resp.Body).Decode(&moderationResp); err != nil {
+		return nil, fmt.Errorf("decode moderation response: %w", err)
+	}
+	if len(moderationResp.Results) == 0 {
+		return nil, fmt.Errorf("openai moderation returned no results")
+	}
+
+	return &moderationResp.Results[0], nil
+}
+
+func moderationCategoryFlags(categories map[string]bool) []string {
+	flags := make([]string, 0, len(categories))
+	for category, flagged := range categories {
+		if flagged {
+			flags = append(flags, category)
+		}
+	}
+	sort.Strings(flags)
+	return flags
+}
+
+func buildModerationImageDataURL(imageBytes []byte) string {
+	return "data:image/jpeg;base64," + base64.StdEncoding.EncodeToString(imageBytes)
 }

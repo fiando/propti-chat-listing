@@ -35,8 +35,9 @@ func main() {
 	}
 
 	var aiSvc services.AIParseService
-	if key := os.Getenv("OPENAI_API_KEY"); key != "" {
-		aiSvc = services.NewAIService(key)
+	openAIAPIKey := os.Getenv("OPENAI_API_KEY")
+	if openAIAPIKey != "" {
+		aiSvc = services.NewAIService(openAIAPIKey)
 	}
 
 	mapsSvc := services.NewGoogleMapsServiceFromEnv()
@@ -58,7 +59,7 @@ func main() {
 		listingSvc.SetModerationEnqueuer(moderationQueue)
 	}
 
-	imageModerator, err := services.NewRekognitionImageModerator(ctx)
+	imageModerator, err := services.NewImageModerator(ctx, os.Getenv("IMAGE_MODERATION_PROVIDER"), openAIAPIKey)
 	if err != nil {
 		utils.LogError("init image moderator", err)
 		panic(err)
