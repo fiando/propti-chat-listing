@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
-import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
-import { authOptions } from '@/lib/auth';
 import { GoogleLoginButton } from '@/components/auth/GoogleLoginButton';
 import { ProptiLogo } from '@/components/common/ProptiLogo';
 import { Home, Shield, Zap } from 'lucide-react';
 import Link from 'next/link';
+import { shouldRedirectAuthenticatedLoginVisitor } from '@/lib/login-redirect';
+import { getServerAuthProfile } from '@/lib/server-profile';
 
 export const metadata: Metadata = {
   title: 'Masuk ke Propti',
@@ -29,8 +29,8 @@ export default async function LoginPage({
       ? resolvedSearchParams.callbackUrl
       : '/';
 
-  const session = await getServerSession(authOptions);
-  if (session) {
+  const { isAuthenticated, profile, profileError } = await getServerAuthProfile();
+  if (shouldRedirectAuthenticatedLoginVisitor({ isAuthenticated, hasProfile: Boolean(profile) })) {
     redirect(callbackUrl);
   }
 
@@ -76,6 +76,12 @@ export default async function LoginPage({
                 </div>
               ))}
             </div>
+
+            {profileError ? (
+              <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                Sesi akunmu belum bisa dipulihkan otomatis. Silakan masuk lagi untuk melanjutkan.
+              </div>
+            ) : null}
 
             {/* Login button */}
             <GoogleLoginButton callbackUrl={callbackUrl} />
