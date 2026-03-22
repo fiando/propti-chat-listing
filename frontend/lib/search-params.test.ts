@@ -5,6 +5,7 @@ import { parseSearchParams, serializeSearchParams } from './search-params.ts';
 
 test('parseSearchParams reads comprehensive property filters from the url', () => {
   const params = new URLSearchParams({
+    searchMode: 'smart',
     q: 'rumah keluarga',
     province: 'DKI Jakarta',
     city: 'Jakarta Selatan',
@@ -24,6 +25,8 @@ test('parseSearchParams reads comprehensive property filters from the url', () =
   });
 
   assert.deepEqual(parseSearchParams(params), {
+    searchMode: 'smart',
+    smartQuery: undefined,
     q: 'rumah keluarga',
     province: 'DKI Jakarta',
     city: 'Jakarta Selatan',
@@ -45,6 +48,7 @@ test('parseSearchParams reads comprehensive property filters from the url', () =
 
 test('serializeSearchParams keeps amenities as a compact comma-separated value', () => {
   const params = serializeSearchParams({
+    searchMode: 'manual',
     q: 'rumah keluarga',
     bathrooms: 2,
     buildingAreaMin: 90,
@@ -56,6 +60,7 @@ test('serializeSearchParams keeps amenities as a compact comma-separated value',
     page: 1,
   });
 
+  assert.equal(params.get('searchMode'), 'manual');
   assert.equal(params.get('q'), 'rumah keluarga');
   assert.equal(params.get('bathrooms'), '2');
   assert.equal(params.get('buildingAreaMin'), '90');

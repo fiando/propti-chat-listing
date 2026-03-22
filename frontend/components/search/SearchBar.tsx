@@ -7,6 +7,8 @@ import { cn } from '@/lib/utils';
 import { getCitySuggestions, getProvinceSuggestions } from '@/lib/api';
 import type { SearchParams } from '@/types';
 
+type SearchMode = 'manual' | 'smart';
+
 interface SearchBarProps {
   initialParams?: SearchParams;
   onSearch: (params: SearchParams) => void | Promise<void>;
@@ -21,6 +23,9 @@ export function SearchBar({
   errorMessage,
 }: SearchBarProps) {
   const [q, setQ] = useState(initialParams.smartQuery || initialParams.q || '');
+  const [searchMode, setSearchMode] = useState<SearchMode>(
+    initialParams.searchMode || (initialParams.smartQuery ? 'smart' : 'manual')
+  );
   const [province, setProvince] = useState(initialParams.province || '');
   const [city, setCity] = useState(initialParams.city || '');
   const [listingType, setListingType] = useState(initialParams.listingType || '');
@@ -50,17 +55,27 @@ export function SearchBar({
 
   useEffect(() => {
     setQ(initialParams.smartQuery || initialParams.q || '');
+    setSearchMode(initialParams.searchMode || (initialParams.smartQuery ? 'smart' : 'manual'));
     setProvince(initialParams.province || '');
     setCity(initialParams.city || '');
     setListingType(initialParams.listingType || '');
     setSelectedProvinceId('');
-  }, [initialParams.city, initialParams.listingType, initialParams.province, initialParams.q, initialParams.smartQuery]);
+  }, [
+    initialParams.city,
+    initialParams.listingType,
+    initialParams.province,
+    initialParams.q,
+    initialParams.searchMode,
+    initialParams.smartQuery,
+  ]);
 
   const handleSearch = () => {
+    const trimmedQuery = q.trim();
     void onSearch({
       ...initialParams,
-      smartQuery: q || undefined,
-      q: undefined,
+      searchMode,
+      smartQuery: searchMode === 'smart' ? trimmedQuery || undefined : undefined,
+      q: searchMode === 'manual' ? trimmedQuery || undefined : undefined,
       province: province || undefined,
       city: city || undefined,
       listingType: (listingType as SearchParams['listingType']) || undefined,
@@ -80,6 +95,7 @@ export function SearchBar({
     setSelectedProvinceId('');
     void onSearch({
       ...initialParams,
+      searchMode,
       smartQuery: undefined,
       q: undefined,
       province: undefined,
@@ -94,13 +110,45 @@ export function SearchBar({
   return (
     <div className="bg-white rounded-2xl shadow-card border border-gray-100 p-4">
       <div className="flex flex-col gap-3">
+        <div className="grid grid-cols-2 gap-2">
+          {([
+            { value: 'manual', label: 'Search biasa' },
+            { value: 'smart', label: 'Cari dengan kalimat' },
+          ] as const).map((option) => (
+            <label
+              key={option.value}
+              className={cn(
+                'flex cursor-pointer items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-all',
+                searchMode === option.value
+                  ? 'border-brand-primary bg-brand-light text-brand-primary'
+                  : 'border-gray-200 text-gray-600 hover:border-gray-300'
+              )}
+            >
+              <input
+                type="radio"
+                name="search-mode"
+                value={option.value}
+                checked={searchMode === option.value}
+                onChange={() => setSearchMode(option.value)}
+                className="sr-only"
+              />
+              <span>{option.label}</span>
+            </label>
+          ))}
+        </div>
+
         <div className="relative sm:hidden">
           <Search className="absolute left-3.5 top-4 w-5 h-5 text-gray-400" />
           <textarea
             value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Cari dengan kalimat: rumah dijual di Jogja 500 juta - 1 M, SHM, AC, CCTV..."
-            rows={3}
+            onChange={(e) => setQ(e.target.value.slice(0, 200))}
+            placeholder={
+              searchMode === 'smart'
+                ? 'Cari dengan kalimat: rumah dijual di Jogja 500 juta - 1 M, SHM, AC, CCTV...'
+                : 'Cari lokasi, judul, atau kata kunci properti...'
+            }
+            rows={searchMode === 'smart' ? 3 : 2}
+            maxLength={200}
             className="min-h-[104px] w-full resize-none rounded-xl border border-gray-200 bg-gray-50 pl-11 pr-4 py-3.5 text-sm leading-6 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-accent"
           />
         </div>
@@ -110,9 +158,14 @@ export function SearchBar({
           <input
             type="text"
             value={q}
-            onChange={(e) => setQ(e.target.value)}
+            onChange={(e) => setQ(e.target.value.slice(0, 200))}
             onKeyDown={handleKeyDown}
-            placeholder="Cari dengan kalimat: rumah dijual di Jogja 500 juta - 1 M, SHM, AC, CCTV..."
+            placeholder={
+              searchMode === 'smart'
+                ? 'Cari dengan kalimat: rumah dijual di Jogja 500 juta - 1 M, SHM, AC, CCTV...'
+                : 'Cari lokasi, judul, atau kata kunci properti...'
+            }
+            maxLength={200}
             className="w-full pl-11 pr-4 py-3.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-accent focus:border-transparent bg-gray-50 transition-all"
           />
         </div>
@@ -151,10 +204,21 @@ export function SearchBar({
 
       <div className="mt-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs text-gray-500">
-          <span className="font-semibold text-brand-primary">Cari dengan kalimat.</span>{' '}
-          Semua filter dan urutan bisa terisi otomatis dari satu pencarian.
+          {searchMode === 'smart' ? (
+            <>
+              <span className="font-semibold text-brand-primary">Cari dengan kalimat.</span>{' '}
+              Semua filter dan urutan bisa terisi otomatis dari satu pencarian.
+            </>
+          ) : (
+            'Search biasa lebih cepat dan langsung pakai filter yang kamu pilih sendiri.'
+          )}
         </p>
-        <p className="text-xs text-gray-400 sm:hidden">Tulis beberapa baris jika query-mu panjang.</p>
+        <div className="flex items-center gap-3">
+          {searchMode === 'smart' && (
+            <p className="text-xs text-gray-400 sm:hidden">Tulis beberapa baris jika query-mu panjang.</p>
+          )}
+          <p className="text-xs text-gray-400">{q.length}/200</p>
+        </div>
         {errorMessage && <p className="text-xs font-medium text-red-500">{errorMessage}</p>}
       </div>
 

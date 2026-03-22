@@ -31,6 +31,7 @@ export interface PremiumFeatures {
 export type ListingType = 'sell' | 'rent';
 export type ListingStatus = 'active' | 'sold' | 'archived';
 export type ModerationStatus = 'approved' | 'pending' | 'rejected';
+export type SearchMode = 'manual' | 'smart';
 
 export interface ListingImageView {
   imageId?: string;
@@ -152,6 +153,7 @@ export interface LocationOption {
 }
 
 export interface SearchParams {
+  searchMode?: SearchMode;
   smartQuery?: string;
   q?: string;
   province?: string;

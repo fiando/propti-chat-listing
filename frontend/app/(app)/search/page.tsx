@@ -66,12 +66,31 @@ function SearchResults() {
   };
 
   const handleSearch = async (nextParams: SearchParams) => {
+    const searchMode = nextParams.searchMode ?? 'manual';
     const smartQuery = nextParams.smartQuery?.trim();
     setSmartSearchError(null);
 
+    if (searchMode !== 'smart') {
+      const manualParams: SearchParams = {
+        ...nextParams,
+        searchMode,
+        q: nextParams.q?.trim() || undefined,
+        smartQuery: undefined,
+      };
+      setStagedParams(manualParams);
+      updateSearch(manualParams);
+      return;
+    }
+
     if (!smartQuery) {
-      setStagedParams(nextParams);
-      updateSearch(nextParams);
+      const emptySmartParams: SearchParams = {
+        ...nextParams,
+        searchMode,
+        smartQuery: undefined,
+        q: undefined,
+      };
+      setStagedParams(emptySmartParams);
+      updateSearch(emptySmartParams);
       return;
     }
 
@@ -80,7 +99,9 @@ function SearchResults() {
       const parsed = await parseSearchIntent(smartQuery);
       const mergedParams: SearchParams = {
         ...parsed.searchParams,
+        searchMode,
         smartQuery,
+        q: undefined,
         province: nextParams.province || parsed.searchParams.province,
         city: nextParams.city || parsed.searchParams.city,
         listingType: nextParams.listingType || parsed.searchParams.listingType,
