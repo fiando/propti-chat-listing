@@ -101,9 +101,44 @@ Respond ONLY with valid JSON:
 }`
 
 const parserModel = "gpt-4o-mini"
+const searchIntentModel = "gpt-4.1-nano"
 const moderationModel = "gpt-4o-mini"
 const openAIModerationModel = "omni-moderation-latest"
 const openAIModerationBaseURL = "https://api.openai.com"
+const searchIntentMaxTokens = 250
+
+const searchIntentSystemPrompt = `You extract Indonesian buyer property-search intent into JSON for an existing filter sidebar.
+Return ONLY valid JSON with this shape:
+{
+  "query": "string - copy of the buyer sentence",
+  "keywordQuery": "string - leftover keyword intent not already captured by structured filters, or empty string",
+  "listingType": "sell | rent | empty string",
+  "province": "string",
+  "city": "string",
+  "priceMin": number,
+  "priceMax": number,
+  "bedrooms": integer,
+  "bathrooms": integer,
+  "buildingAreaMin": number,
+  "buildingAreaMax": number,
+  "landAreaMin": number,
+  "landAreaMax": number,
+  "legalStatus": "SHM | HGB | SHSRS | Girik | AJB | Lainnya | empty string",
+  "amenities": ["array of amenity ids from the supported list"],
+  "sortBy": "newest | price_asc | price_desc | popular | empty string",
+  "confidence": number
+}
+
+Supported amenity ids:
+ruang_tamu, ruang_keluarga, dapur, carport, garasi, taman, teras, kanopi, kolam_renang, balkon, gudang, ruang_makan, ruang_kerja, ruang_cuci, kamar_pembantu, kamar_mandi_pembantu, tempat_jemuran, pantry, ac, water_heater, kitchen_set, furnished, semi_furnished, internet_wifi, tv_kabel, pompa_air, sumur_bor, pdams, listrik_3_phase, keamanan_24jam, cctv, one_gate_system, akses_kartu, lift, lobi, gym, clubhouse, masjid, playground, jogging_track, lapangan_olahraga, function_room, loading_dock, akses_container, akses_truk, fire_safety, dekat_tol, jalan_lebar
+
+Rules:
+- Use only the exact enum values above for listingType, legalStatus, amenities, and sortBy.
+- Map "harga termurah" or similar to "price_asc", "harga tertinggi" to "price_desc", "terbaru" to "newest", "paling populer" or "paling banyak dilihat" to "popular".
+- Convert rupiah shorthand into full numbers.
+- KT = bedrooms, KM = bathrooms, LB = building area, LT = land area.
+- Leave string fields empty and numeric fields 0 when not specified.
+- Prefer structured extraction over prose. No explanation, no markdown.`
 
 // AIService calls the OpenAI API for listing text parsing and content moderation.
 type AIService struct {
@@ -142,6 +177,24 @@ func (s *AIService) ParseListingText(ctx context.Context, text string) (*models.
 	return &parsed, nil
 }
 
+func (s *AIService) ParseSearchIntent(ctx context.Context, query string) (*models.SearchIntent, error) {
+	resp, err := s.client.CreateChatCompletion(ctx, buildSearchIntentChatCompletionRequest(query))
+	if err != nil {
+		return nil, fmt.Errorf("openai search intent request: %w", err)
+	}
+
+	if len(resp.Choices) == 0 {
+		return nil, fmt.Errorf("openai returned no choices")
+	}
+
+	content := strings.TrimSpace(resp.Choices[0].Message.Content)
+	var parsed models.SearchIntent
+	if err := json.Unmarshal([]byte(content), &parsed); err != nil {
+		return nil, fmt.Errorf("unmarshal search intent: %w", err)
+	}
+	return &parsed, nil
+}
+
 func buildParseChatCompletionRequest(text string) openai.ChatCompletionRequest {
 	return openai.ChatCompletionRequest{
 		Model: parserModel,
@@ -149,6 +202,19 @@ func buildParseChatCompletionRequest(text string) openai.ChatCompletionRequest {
 			{Role: openai.ChatMessageRoleSystem, Content: parseSystemPrompt},
 			{Role: openai.ChatMessageRoleUser, Content: text},
 		},
+		ResponseFormat: &openai.ChatCompletionResponseFormat{Type: openai.ChatCompletionResponseFormatTypeJSONObject},
+	}
+}
+
+func buildSearchIntentChatCompletionRequest(query string) openai.ChatCompletionRequest {
+	return openai.ChatCompletionRequest{
+		Model: searchIntentModel,
+		Messages: []openai.ChatCompletionMessage{
+			{Role: openai.ChatMessageRoleSystem, Content: searchIntentSystemPrompt},
+			{Role: openai.ChatMessageRoleUser, Content: query},
+		},
+		Temperature:    0,
+		MaxTokens:      searchIntentMaxTokens,
 		ResponseFormat: &openai.ChatCompletionResponseFormat{Type: openai.ChatCompletionResponseFormatTypeJSONObject},
 	}
 }

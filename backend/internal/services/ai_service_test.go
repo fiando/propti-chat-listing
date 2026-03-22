@@ -28,6 +28,28 @@ func TestBuildParseChatCompletionRequestUsesFastParserModel(t *testing.T) {
 	}
 }
 
+func TestBuildSearchIntentChatCompletionRequestUsesCheapBoundedModel(t *testing.T) {
+	t.Parallel()
+
+	req := buildSearchIntentChatCompletionRequest("rumah dijual jogja harga termurah")
+
+	if req.Model != "gpt-4.1-nano" {
+		t.Fatalf("expected cheap search intent model %q, got %q", "gpt-4.1-nano", req.Model)
+	}
+
+	if req.Temperature != 0 {
+		t.Fatalf("expected deterministic search intent temperature, got %v", req.Temperature)
+	}
+
+	if req.MaxTokens != 250 {
+		t.Fatalf("expected bounded search intent max tokens 250, got %d", req.MaxTokens)
+	}
+
+	if req.ResponseFormat == nil || req.ResponseFormat.Type != openai.ChatCompletionResponseFormatTypeJSONObject {
+		t.Fatalf("expected JSON response format, got %#v", req.ResponseFormat)
+	}
+}
+
 func TestParseListingTextSupportsLocationSuggestions(t *testing.T) {
 	t.Parallel()
 

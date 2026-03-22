@@ -8,6 +8,7 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 
+	"github.com/fiando/propti/backend/internal/models"
 	"github.com/fiando/propti/backend/internal/repository"
 	"github.com/fiando/propti/backend/internal/services"
 	"github.com/fiando/propti/backend/internal/utils"
@@ -20,19 +21,25 @@ type LocationCatalogService interface {
 	SearchDistricts(cityID, query string) []services.District
 }
 
+type SearchIntentService interface {
+	ParseIntent(ctx context.Context, query string) (*models.SearchIntentResponse, error)
+}
+
 // SearchHandler handles nearby search and location autocomplete.
 type SearchHandler struct {
 	listingRepo     *repository.ListingRepo
 	mapsService     *services.GoogleMapsService
 	locationCatalog LocationCatalogService
+	searchIntent    SearchIntentService
 }
 
 // NewSearchHandler creates a SearchHandler.
-func NewSearchHandler(listingRepo *repository.ListingRepo, mapsService *services.GoogleMapsService, locationCatalog LocationCatalogService) *SearchHandler {
+func NewSearchHandler(listingRepo *repository.ListingRepo, mapsService *services.GoogleMapsService, locationCatalog LocationCatalogService, searchIntent SearchIntentService) *SearchHandler {
 	return &SearchHandler{
 		listingRepo:     listingRepo,
 		mapsService:     mapsService,
 		locationCatalog: locationCatalog,
+		searchIntent:    searchIntent,
 	}
 }
 
@@ -43,6 +50,8 @@ func (h *SearchHandler) Handle(ctx context.Context, req events.APIGatewayProxyRe
 		return jsonResponse(http.StatusOK, ""), nil
 	case req.HTTPMethod == http.MethodGet && req.Path == "/search/nearby":
 		return h.searchNearby(ctx, req)
+	case req.HTTPMethod == http.MethodPost && req.Path == "/search/parse-intent":
+		return h.parseIntent(ctx, req)
 	case req.HTTPMethod == http.MethodGet && req.Path == "/locations/suggestions":
 		return h.locationSuggestions(ctx, req)
 	case req.HTTPMethod == http.MethodGet && req.Path == "/locations/provinces":
@@ -158,5 +167,28 @@ func (h *SearchHandler) districtSuggestions(_ context.Context, req events.APIGat
 	// q may be empty — returns all districts for the city, useful for initial dropdown population.
 	districts := h.locationCatalog.SearchDistricts(cityID, req.QueryStringParameters["q"])
 	body, _ := json.Marshal(map[string]any{"districts": districts})
+	return jsonResponse(http.StatusOK, string(body)), nil
+}
+
+func (h *SearchHandler) parseIntent(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	if h.searchIntent == nil {
+		return jsonResponse(http.StatusServiceUnavailable, utils.MarshalErrorResponse(utils.NewAppError(503, "smart search unavailable"))), nil
+	}
+
+	var searchReq models.SearchIntentRequest
+	if err := json.Unmarshal([]byte(req.Body), &searchReq); err != nil {
+		return jsonResponse(http.StatusBadRequest, utils.MarshalErrorResponse(utils.ErrBadRequest)), nil
+	}
+
+	if searchReq.Query == "" {
+		return jsonResponse(http.StatusBadRequest, utils.MarshalErrorResponse(utils.NewAppError(400, "query is required"))), nil
+	}
+
+	resp, err := h.searchIntent.ParseIntent(ctx, searchReq.Query)
+	if err != nil {
+		return appErrorResponse(err), nil
+	}
+
+	body, _ := json.Marshal(resp)
 	return jsonResponse(http.StatusOK, string(body)), nil
 }

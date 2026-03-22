@@ -24,6 +24,7 @@ function parseAmenities(value: string | null): string[] | undefined {
 
 export function parseSearchParams(searchParams: URLSearchParams): SearchParams {
   return {
+    smartQuery: searchParams.get('smartQuery') || undefined,
     q: searchParams.get('q') || undefined,
     province: searchParams.get('province') || undefined,
     city: searchParams.get('city') || undefined,

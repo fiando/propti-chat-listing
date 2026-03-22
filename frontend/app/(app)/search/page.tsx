@@ -7,6 +7,7 @@ import { useSaveListing, useSavedListings } from '@/hooks/useListings';
 import { SearchBar } from '@/components/search/SearchBar';
 import { FilterPanel } from '@/components/search/FilterPanel';
 import { ListingGrid } from '@/components/listings/ListingGrid';
+import { parseSearchIntent } from '@/lib/api';
 import { Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { serializeSearchParams } from '@/lib/search-params';
 import type { SearchParams } from '@/types';
@@ -24,6 +25,8 @@ function SearchResults() {
   const { data: savedData } = useSavedListings({ enabled: status === 'authenticated' });
   const { mutateAsync: toggleSave, isPending: isSaving } = useSaveListing();
   const [stagedParams, setStagedParams] = useState<SearchParams>(params);
+  const [isSmartSearching, setIsSmartSearching] = useState(false);
+  const [smartSearchError, setSmartSearchError] = useState<string | null>(null);
 
   const totalPages = Math.ceil(total / 12);
   const savedIds = savedData?.items.map((listing) => listing.listingId) ?? [];
@@ -62,16 +65,47 @@ function SearchResults() {
     await toggleSave({ id: listingId, saved: savedIds.includes(listingId) });
   };
 
+  const handleSearch = async (nextParams: SearchParams) => {
+    const smartQuery = nextParams.smartQuery?.trim();
+    setSmartSearchError(null);
+
+    if (!smartQuery) {
+      setStagedParams(nextParams);
+      updateSearch(nextParams);
+      return;
+    }
+
+    setIsSmartSearching(true);
+    try {
+      const parsed = await parseSearchIntent(smartQuery);
+      const mergedParams: SearchParams = {
+        ...parsed.searchParams,
+        smartQuery,
+        province: nextParams.province || parsed.searchParams.province,
+        city: nextParams.city || parsed.searchParams.city,
+        listingType: nextParams.listingType || parsed.searchParams.listingType,
+        page: 1,
+      };
+
+      setStagedParams(mergedParams);
+      updateSearch(mergedParams);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Cari dengan kalimat gagal diproses.';
+      setSmartSearchError(message);
+    } finally {
+      setIsSmartSearching(false);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       {/* Search bar */}
         <div className="mb-6">
           <SearchBar
             initialParams={params}
-            onSearch={(nextParams) => {
-              setStagedParams(nextParams);
-              updateSearch(nextParams);
-            }}
+            onSearch={handleSearch}
+            isSearching={isSmartSearching}
+            errorMessage={smartSearchError || undefined}
           />
         </div>
 
@@ -89,7 +123,7 @@ function SearchResults() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h1 className="text-lg font-bold text-gray-900">
-                {params.q ? `Hasil pencarian "${params.q}"` : 'Semua Properti'}
+                {params.smartQuery || params.q ? `Hasil pencarian "${params.smartQuery || params.q}"` : 'Semua Properti'}
               </h1>
                 <p className="text-sm text-gray-500">
                   {isLoading ? 'Mencari...' : `${total.toLocaleString()} properti ditemukan`}

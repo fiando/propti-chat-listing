@@ -4,6 +4,7 @@ import type {
   Listing,
   ListingsResponse,
   ParsedListing,
+  SmartSearchResponse,
   SearchParams,
   User,
   CreateListingRequest,
@@ -96,6 +97,11 @@ export async function parseListingText(text: string): Promise<ParsedListing> {
     confidence: number;
   }>('/listings/parse-text', { text });
   return response.data.parsed;
+}
+
+export async function parseSearchIntent(query: string): Promise<SmartSearchResponse> {
+  const response = await apiClient.post<SmartSearchResponse>('/search/parse-intent', { query });
+  return response.data;
 }
 
 export async function createListing(data: CreateListingRequest): Promise<Listing> {

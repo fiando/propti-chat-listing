@@ -34,7 +34,7 @@ func main() {
 		panic(err)
 	}
 
-	var aiSvc services.AIParseService
+	var aiSvc *services.AIService
 	openAIAPIKey := os.Getenv("OPENAI_API_KEY")
 	if openAIAPIKey != "" {
 		aiSvc = services.NewAIService(openAIAPIKey)
@@ -50,6 +50,7 @@ func main() {
 	listingSvc := services.NewListingService(listingRepo, userRepo, aiSvc, s3Svc, mapsSvc, locationCatalog)
 	listingSvc.SetUploadSessionStore(uploadSessionRepo)
 	uploadSessionSvc := services.NewUploadSessionService(uploadSessionRepo, userRepo, listingRepo, s3Svc)
+	searchIntentSvc := services.NewSearchIntentService(aiSvc, locationCatalog)
 	moderationQueue, err := services.NewLambdaModerationEnqueuer(ctx, os.Getenv("LISTINGS_FUNCTION_NAME"))
 	if err != nil {
 		utils.LogError("init moderation queue", err)
@@ -66,13 +67,13 @@ func main() {
 	}
 
 	var textModerator services.ContentModerator
-	if moderator, ok := aiSvc.(services.ContentModerator); ok {
-		textModerator = moderator
+	if aiSvc != nil {
+		textModerator = aiSvc
 	}
 	moderationSvc := services.NewModerationService(textModerator, imageModerator, moderationRepo, listingRepo, s3Svc)
 
 	listingHandler := handlers.NewListingHandler(listingSvc, uploadSessionSvc, services.NewListingMediaPresenter(s3Svc))
-	searchHandler := handlers.NewSearchHandler(listingRepo, mapsSvc, locationCatalog)
+	searchHandler := handlers.NewSearchHandler(listingRepo, mapsSvc, locationCatalog, searchIntentSvc)
 
 	// Route /search/* and /locations/* to searchHandler; all others to listingHandler.
 	lambda.Start(func(ctx context.Context, rawReq json.RawMessage) (interface{}, error) {

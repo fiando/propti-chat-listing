@@ -254,6 +254,12 @@ Resources:
             RestApiId: !Ref ProptiApi
             Path: /search/nearby
             Method: GET
+        SearchParseIntent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /search/parse-intent
+            Method: POST
         LocationSuggestions:
           Type: Api
           Properties:

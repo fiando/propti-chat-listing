@@ -196,7 +196,7 @@ export function FilterPanel({ params, onChange }: FilterPanelProps) {
   const activeAdvancedFilterCount = useMemo(() => countActiveAdvancedFilters(params), [params]);
 
   const handleReset = () => {
-    onChange({ q: params.q });
+    onChange({ smartQuery: params.smartQuery, q: params.q });
   };
 
   const hasActiveFilters =

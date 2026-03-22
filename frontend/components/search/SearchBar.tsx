@@ -2,18 +2,25 @@
 
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Search, SlidersHorizontal, X, ChevronDown } from 'lucide-react';
+import { Search, SlidersHorizontal, X, ChevronDown, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getCitySuggestions, getProvinceSuggestions } from '@/lib/api';
 import type { SearchParams } from '@/types';
 
 interface SearchBarProps {
   initialParams?: SearchParams;
-  onSearch: (params: SearchParams) => void;
+  onSearch: (params: SearchParams) => void | Promise<void>;
+  isSearching?: boolean;
+  errorMessage?: string;
 }
 
-export function SearchBar({ initialParams = {}, onSearch }: SearchBarProps) {
-  const [q, setQ] = useState(initialParams.q || '');
+export function SearchBar({
+  initialParams = {},
+  onSearch,
+  isSearching = false,
+  errorMessage,
+}: SearchBarProps) {
+  const [q, setQ] = useState(initialParams.smartQuery || initialParams.q || '');
   const [province, setProvince] = useState(initialParams.province || '');
   const [city, setCity] = useState(initialParams.city || '');
   const [listingType, setListingType] = useState(initialParams.listingType || '');
@@ -42,17 +49,18 @@ export function SearchBar({ initialParams = {}, onSearch }: SearchBarProps) {
   }, [province, provinces, selectedProvinceId]);
 
   useEffect(() => {
-    setQ(initialParams.q || '');
+    setQ(initialParams.smartQuery || initialParams.q || '');
     setProvince(initialParams.province || '');
     setCity(initialParams.city || '');
     setListingType(initialParams.listingType || '');
     setSelectedProvinceId('');
-  }, [initialParams.city, initialParams.listingType, initialParams.province, initialParams.q]);
+  }, [initialParams.city, initialParams.listingType, initialParams.province, initialParams.q, initialParams.smartQuery]);
 
   const handleSearch = () => {
-    onSearch({
+    void onSearch({
       ...initialParams,
-      q: q || undefined,
+      smartQuery: q || undefined,
+      q: undefined,
       province: province || undefined,
       city: city || undefined,
       listingType: (listingType as SearchParams['listingType']) || undefined,
@@ -70,8 +78,9 @@ export function SearchBar({ initialParams = {}, onSearch }: SearchBarProps) {
     setCity('');
     setListingType('');
     setSelectedProvinceId('');
-    onSearch({
+    void onSearch({
       ...initialParams,
+      smartQuery: undefined,
       q: undefined,
       province: undefined,
       city: undefined,
@@ -93,7 +102,7 @@ export function SearchBar({ initialParams = {}, onSearch }: SearchBarProps) {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Cari properti, lokasi, atau kata kunci..."
+            placeholder="Cari dengan kalimat: rumah dijual di Jogja 500 juta - 1 M, SHM, AC, CCTV..."
             className="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-accent focus:border-transparent bg-gray-50 transition-all"
           />
         </div>
@@ -116,10 +125,26 @@ export function SearchBar({ initialParams = {}, onSearch }: SearchBarProps) {
 
         <button
           onClick={handleSearch}
+          disabled={isSearching}
           className="btn-primary text-sm px-6 py-3"
         >
-          Cari
+          {isSearching ? (
+            <span className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Memproses...
+            </span>
+          ) : (
+            'Cari'
+          )}
         </button>
+      </div>
+
+      <div className="mt-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-xs text-gray-500">
+          <span className="font-semibold text-brand-primary">Cari dengan kalimat.</span>{' '}
+          Semua filter dan urutan bisa terisi otomatis dari satu pencarian.
+        </p>
+        {errorMessage && <p className="text-xs font-medium text-red-500">{errorMessage}</p>}
       </div>
 
       {/* Expanded filters */}

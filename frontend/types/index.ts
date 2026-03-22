@@ -152,6 +152,7 @@ export interface LocationOption {
 }
 
 export interface SearchParams {
+  smartQuery?: string;
   q?: string;
   province?: string;
   city?: string;
@@ -169,6 +170,34 @@ export interface SearchParams {
   sortBy?: string;
   page?: number;
   pageSize?: number;
+}
+
+export interface SmartSearchIntent {
+  query: string;
+  keywordQuery?: string;
+  listingType?: ListingType | '';
+  province?: string;
+  city?: string;
+  priceMin?: number;
+  priceMax?: number;
+  bedrooms?: number;
+  bathrooms?: number;
+  buildingAreaMin?: number;
+  buildingAreaMax?: number;
+  landAreaMin?: number;
+  landAreaMax?: number;
+  legalStatus?: string;
+  amenities?: string[];
+  sortBy?: string;
+  confidence?: number;
+}
+
+export interface SmartSearchResponse {
+  searchParams: SearchParams;
+  normalized: SmartSearchIntent;
+  metadata: {
+    locationResolved: boolean;
+  };
 }
 
 export interface ListingsResponse {
