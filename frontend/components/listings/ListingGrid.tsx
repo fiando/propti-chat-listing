@@ -8,6 +8,8 @@ interface ListingGridProps {
   onSave?: (id: string) => void;
   onDelete?: (id: string) => void;
   onRelist?: (id: string) => void;
+  onShareToWhatsApp?: (listing: Listing) => void;
+  onCopyShareLink?: (listing: Listing) => void;
   deletingId?: string;
   relistingId?: string;
   emptyMessage?: string;
@@ -19,6 +21,8 @@ export function ListingGrid({
   onSave,
   onDelete,
   onRelist,
+  onShareToWhatsApp,
+  onCopyShareLink,
   deletingId,
   relistingId,
   emptyMessage = 'Belum ada properti yang ditemukan.',
@@ -45,6 +49,8 @@ export function ListingGrid({
           onSave={onSave}
           onDelete={onDelete}
           onRelist={onRelist}
+          onShareToWhatsApp={onShareToWhatsApp}
+          onCopyShareLink={onCopyShareLink}
           isDeleting={deletingId === listing.listingId}
           isRelisting={relistingId === listing.listingId}
         />

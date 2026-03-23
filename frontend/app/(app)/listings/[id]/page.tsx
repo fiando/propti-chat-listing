@@ -4,7 +4,7 @@ import { use, useEffect } from 'react';
 import { useListing, useOwnerListing, useSaveListing, useSavedListings, useTrackListingView, useRelistListing } from '@/hooks/useListings';
 import { ListingDetail } from '@/components/listings/ListingDetail';
 import { useDeleteListing } from '@/hooks/useListings';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
@@ -17,8 +17,10 @@ export default function ListingDetailPage({ params }: { params: Promise<{ id: st
   const { mutateAsync: toggleSave, isPending: isSaving } = useSaveListing();
   const { mutateAsync: trackView } = useTrackListingView();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: session, status } = useSession();
   const isAuthenticated = status === 'authenticated';
+  const showSharePrompt = searchParams.get('sharePrompt') === '1';
   const { data: publicListing, isLoading: isPublicLoading, error: publicError } = useListing(id);
   const {
     data: ownerListing,
@@ -102,6 +104,7 @@ export default function ListingDetailPage({ params }: { params: Promise<{ id: st
       onSave={isAuthenticated ? handleSave : undefined}
       onDelete={isDeleting ? undefined : handleDelete}
       onRelist={isRelisting ? undefined : handleRelist}
+      showSharePrompt={showSharePrompt}
     />
   );
 }

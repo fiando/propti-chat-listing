@@ -31,6 +31,7 @@ import Zoom from 'yet-another-react-lightbox/plugins/zoom';
 import { formatAmenityLabel, formatPrice, formatDate, LISTING_TYPE_LABELS, PRICE_UNIT_LABELS } from '@/lib/utils';
 import type { Listing, ContactRevealChannel, RevealListingContactResponse } from '@/types';
 import { buildListingContactLinks } from '@/lib/listing-contact';
+import { buildListingShareMessage, buildListingShareUrl, buildWhatsAppShareUrl } from '@/lib/listing-share';
 import { getCachedRevealedContact, getOrLoadRevealedContact } from '@/lib/revealed-contact-cache';
 import { useToast } from '@/app/toaster';
 import { useRevealListingContact } from '@/hooks/useListings';
@@ -46,6 +47,7 @@ interface ListingDetailProps {
   onSave?: () => void;
   onDelete?: () => void;
   onRelist?: () => void;
+  showSharePrompt?: boolean;
 }
 
 const OWNER_MODERATION_NOTICES: Partial<
@@ -78,6 +80,7 @@ export function ListingDetail({
   onSave,
   onDelete,
   onRelist,
+  showSharePrompt = false,
 }: ListingDetailProps) {
   const [activeImage, setActiveImage] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
@@ -106,6 +109,16 @@ export function ListingDetail({
   const shouldHideOwnerContent = isOwner && listing.moderationStatus === 'rejected';
   const expiryInfo = getListingExpiryInfo(listing);
   const canRelist = isOwner && shouldShowRelistAction(listing);
+
+  const getShareUrl = () => {
+    if (typeof window === 'undefined') {
+      return '';
+    }
+
+    return buildListingShareUrl(listing.listingId, window.location.origin);
+  };
+
+  const getShareMessage = () => buildListingShareMessage(listing, getShareUrl());
 
   const handleRevealContact = async (channel: ContactRevealChannel) => {
     if (!isAuthenticated) {
@@ -140,13 +153,14 @@ export function ListingDetail({
   };
 
   const handleShare = async () => {
-    const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+    const shareUrl = getShareUrl();
+    const shareMessage = getShareMessage();
 
     try {
       if (navigator.share) {
         await navigator.share({
           title: listing.title,
-          text: `${listing.title} — ${priceLabel}`,
+          text: shareMessage,
           url: shareUrl,
         });
         return;
@@ -156,6 +170,28 @@ export function ListingDetail({
       toast('Link iklan berhasil disalin.', 'success');
     } catch {
       toast('Gagal membagikan link iklan.', 'error');
+    }
+  };
+
+  const handleShareToWhatsApp = () => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const whatsappUrl = buildWhatsAppShareUrl(getShareMessage());
+    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleCopyShareLink = async () => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(getShareUrl());
+      toast('Link iklan berhasil disalin.', 'success');
+    } catch {
+      toast('Gagal menyalin link iklan.', 'error');
     }
   };
 
@@ -511,6 +547,35 @@ export function ListingDetail({
 
         {/* Right: Contact + Actions */}
         <div className="space-y-4">
+          {isOwner && showSharePrompt && (
+            <div className="rounded-2xl border border-brand-primary/10 bg-brand-light/40 p-5">
+              <p className="text-sm font-semibold uppercase tracking-wide text-brand-primary">Siap dibagikan</p>
+              <h3 className="mt-2 text-lg font-bold text-gray-900">Bagikan link ini ke WhatsApp</h3>
+              <p className="mt-2 text-sm leading-6 text-gray-600">
+                Gunakan satu link Propti sebagai halaman utama listing kamu. Nomor tetap aman sampai
+                pembeli login untuk melihat kontak.
+              </p>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={handleShareToWhatsApp}
+                  className="flex items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-3 text-sm font-semibold text-white hover:opacity-90 transition-opacity"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  Bagikan WA
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleCopyShareLink()}
+                  className="flex items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <Share2 className="h-4 w-4" />
+                  Salin link iklan
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Contact card */}
           <div className="card p-6 sticky top-20">
             <h3 className="font-bold text-gray-900 mb-4">Hubungi Penjual</h3>
@@ -561,7 +626,7 @@ export function ListingDetail({
               ) : null}
             </div>
 
-            <div className="flex gap-2 mt-4">
+             <div className="flex gap-2 mt-4">
               <button
                 onClick={onSave}
                 disabled={!onSave || isSaving}
@@ -574,10 +639,10 @@ export function ListingDetail({
                 <Heart className={`w-4 h-4 ${isSaved ? 'fill-red-500' : ''}`} />
                 {isSaving ? 'Memproses...' : isSaved ? 'Tersimpan' : 'Simpan'}
               </button>
-              <button
-                onClick={handleShare}
-                className="flex-1 flex items-center justify-center gap-2 border border-gray-200 text-gray-600 rounded-xl py-2.5 text-sm font-medium hover:bg-gray-50 transition-colors"
-              >
+               <button
+                 onClick={handleShare}
+                 className="flex-1 flex items-center justify-center gap-2 border border-gray-200 text-gray-600 rounded-xl py-2.5 text-sm font-medium hover:bg-gray-50 transition-colors"
+               >
                 <Share2 className="w-4 h-4" />
                 Bagikan
               </button>

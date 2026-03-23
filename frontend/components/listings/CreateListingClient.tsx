@@ -216,7 +216,7 @@ export function CreateListingClient({
       clearCreateListingDraft(window.localStorage);
     }
     setDraftRestored(false);
-    router.push(`/listings/${listing.listingId}`);
+    router.push(`/listings/${listing.listingId}?sharePrompt=1`);
   };
 
   const handleSubmit = async (

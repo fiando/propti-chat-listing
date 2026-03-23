@@ -1,7 +1,21 @@
 'use client';
 
 import Link from 'next/link';
-import { Heart, MapPin, Bed, Bath, Maximize2, Home, Eye, Star, Trash2, Loader2, RefreshCcw } from 'lucide-react';
+import {
+  Heart,
+  MapPin,
+  Bed,
+  Bath,
+  Maximize2,
+  Home,
+  Eye,
+  Star,
+  Trash2,
+  Loader2,
+  RefreshCcw,
+  MessageCircle,
+  Link2,
+} from 'lucide-react';
 import { cn, formatPrice, LISTING_TYPE_LABELS } from '@/lib/utils';
 import type { Listing } from '@/types';
 import { getListingCardImage } from '@/lib/listing-images';
@@ -13,6 +27,8 @@ interface ListingCardProps {
   isSaved?: boolean;
   onDelete?: (id: string) => void;
   onRelist?: (id: string) => void;
+  onShareToWhatsApp?: (listing: Listing) => void;
+  onCopyShareLink?: (listing: Listing) => void;
   isDeleting?: boolean;
   isRelisting?: boolean;
 }
@@ -23,6 +39,8 @@ export function ListingCard({
   isSaved = false,
   onDelete,
   onRelist,
+  onShareToWhatsApp,
+  onCopyShareLink,
   isDeleting = false,
   isRelisting = false,
 }: ListingCardProps) {
@@ -42,6 +60,18 @@ export function ListingCard({
     e.preventDefault();
     e.stopPropagation();
     onRelist?.(listing.listingId);
+  };
+
+  const handleShareToWhatsApp = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onShareToWhatsApp?.(listing);
+  };
+
+  const handleCopyShareLink = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onCopyShareLink?.(listing);
   };
 
   const isRejected = listing.moderationStatus === 'rejected';
@@ -227,6 +257,28 @@ export function ListingCard({
                 {isRelisting ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
                 Relist Iklan
               </button>
+            )}
+            {(onShareToWhatsApp || onCopyShareLink) && isOwnerListingCard && (
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={handleShareToWhatsApp}
+                  disabled={!onShareToWhatsApp}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#25D366] px-3 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  Bagikan WA
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCopyShareLink}
+                  disabled={!onCopyShareLink}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Link2 className="h-4 w-4" />
+                  Salin Link
+                </button>
+              </div>
             )}
           </>
         )}
