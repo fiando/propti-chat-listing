@@ -1,9 +1,10 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Analytics } from '@vercel/analytics/next';
 import '../styles/globals.css';
 import { Providers } from './providers';
 
 export const metadata: Metadata = {
+  applicationName: 'Propti',
   title: {
     default: 'Propti — Jual Beli Properti Semudah Chat WhatsApp',
     template: '%s | Propti',
@@ -59,6 +60,17 @@ export const metadata: Metadata = {
     ],
   },
   manifest: '/site.webmanifest',
+  appleWebApp: {
+    capable: true,
+    title: 'Propti',
+    statusBarStyle: 'default',
+  },
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
   themeColor: '#1B4332',
 };
 

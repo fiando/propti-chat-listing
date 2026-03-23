@@ -6,17 +6,12 @@ import { Home, Shield, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { shouldRedirectAuthenticatedLoginVisitor } from '@/lib/login-redirect';
 import { getServerAuthProfile } from '@/lib/server-profile';
+import { getSafeAuthCallbackUrl } from '@/lib/auth-callback';
 
 export const metadata: Metadata = {
   title: 'Masuk ke Propti',
   description: 'Login untuk mulai jual beli properti dengan mudah',
 };
-
-const AUTH_PATHS = ['/login', '/callback', '/api/auth'];
-
-function isSafeCallbackUrl(url: string): boolean {
-  return url.startsWith('/') && !AUTH_PATHS.some((p) => url.startsWith(p));
-}
 
 export default async function LoginPage({
   searchParams,
@@ -24,10 +19,7 @@ export default async function LoginPage({
   searchParams?: Promise<{ callbackUrl?: string }>;
 }) {
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
-  const callbackUrl =
-    resolvedSearchParams?.callbackUrl && isSafeCallbackUrl(resolvedSearchParams.callbackUrl)
-      ? resolvedSearchParams.callbackUrl
-      : '/';
+  const callbackUrl = getSafeAuthCallbackUrl(resolvedSearchParams?.callbackUrl);
 
   const { isAuthenticated, profile, profileError } = await getServerAuthProfile();
   if (shouldRedirectAuthenticatedLoginVisitor({ isAuthenticated, hasProfile: Boolean(profile) })) {

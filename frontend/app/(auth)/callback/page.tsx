@@ -1,28 +1,75 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Loader2 } from 'lucide-react';
+import { getPostLoginDecision, getSafeAuthCallbackUrl } from '@/lib/auth-callback';
+
+const MAX_SESSION_SYNC_ATTEMPTS = 4;
+const SESSION_SYNC_RETRY_MS = 750;
 
 export default function CallbackPage() {
-  const { status } = useSession();
+  const { status, update } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const AUTH_PATHS = ['/login', '/callback', '/api/auth'];
-  const rawCallbackUrl = searchParams.get('callbackUrl') || '/';
-  const callbackUrl =
-    rawCallbackUrl.startsWith('/') && !AUTH_PATHS.some((p) => rawCallbackUrl.startsWith(p))
-      ? rawCallbackUrl
-      : '/';
+  const [syncAttempt, setSyncAttempt] = useState(0);
+  const callbackUrl = getSafeAuthCallbackUrl(searchParams.get('callbackUrl'));
 
   useEffect(() => {
-    if (status === 'authenticated') {
-      router.replace(callbackUrl);
-    } else if (status === 'unauthenticated') {
-      router.replace('/login');
-    }
-  }, [status, router, callbackUrl]);
+    let cancelled = false;
+    let retryTimer: number | undefined;
+
+    const navigateTo = (targetUrl: string) => {
+      router.refresh();
+      window.location.replace(targetUrl);
+    };
+
+    const syncSessionAndRedirect = async () => {
+      const decision = getPostLoginDecision({
+        status,
+        syncAttempt,
+        maxSyncAttempts: MAX_SESSION_SYNC_ATTEMPTS,
+      });
+
+      if (decision === 'redirect-target') {
+        navigateTo(callbackUrl);
+        return;
+      }
+
+      if (decision === 'redirect-login') {
+        navigateTo(`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`);
+        return;
+      }
+
+      if (status === 'loading') {
+        return;
+      }
+
+      const refreshedSession = await update();
+      if (cancelled) {
+        return;
+      }
+
+      if (refreshedSession) {
+        navigateTo(callbackUrl);
+        return;
+      }
+
+      retryTimer = window.setTimeout(() => {
+        setSyncAttempt((currentAttempt) => currentAttempt + 1);
+      }, SESSION_SYNC_RETRY_MS);
+    };
+
+    void syncSessionAndRedirect();
+
+    return () => {
+      cancelled = true;
+      if (retryTimer) {
+        window.clearTimeout(retryTimer);
+      }
+    };
+  }, [callbackUrl, router, status, syncAttempt, update]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#F8F9FA]">
