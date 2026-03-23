@@ -173,3 +173,51 @@ test('refreshBackendAuthTokenIfNeeded falls back to Google access token exchange
   assert.deepEqual(result.backendUser, { userId: 'user-123', email: 'user@example.com' });
   assert.equal(result.error, undefined);
 });
+
+test('refreshBackendAuthTokenIfNeeded refreshes token that expires within 5 minutes', async () => {
+  const now = 1_700_000_000_000;
+  // Token expires in 4 minutes — within the 5-minute refresh skew window
+  const almostExpiredToken = createUnsignedJwt({ exp: Math.floor(now / 1000) + 4 * 60 });
+  const refreshedToken = createUnsignedJwt({ exp: Math.floor(now / 1000) + 7 * 24 * 60 * 60 });
+
+  const result = await backendAuth.refreshBackendAuthTokenIfNeeded({
+    token: {
+      backendAccessToken: almostExpiredToken,
+      refreshToken: 'google-refresh-token',
+    },
+    now: () => now,
+    refreshGoogleTokens: async () => ({
+      accessToken: 'google-access-token',
+      accessTokenExpiresAt: now + 60 * 60 * 1000,
+      refreshToken: 'google-refresh-token-2',
+      idToken: 'google-id-token-2',
+    }),
+    exchangeGoogleIdTokenForBackendSession: async () => ({
+      backendAccessToken: refreshedToken,
+      backendUser: { userId: 'user-123', email: 'user@example.com' },
+    }),
+  });
+
+  assert.equal(result.backendAccessToken, refreshedToken, 'Token expiring within 5 minutes should be refreshed');
+  assert.equal(result.error, undefined);
+});
+
+test('refreshBackendAuthTokenIfNeeded skips refresh when token has more than 5 minutes remaining', async () => {
+  const now = 1_700_000_000_000;
+  // Token expires in 10 minutes — outside the 5-minute refresh skew window
+  const validToken = createUnsignedJwt({ exp: Math.floor(now / 1000) + 10 * 60 });
+
+  const result = await backendAuth.refreshBackendAuthTokenIfNeeded({
+    token: {
+      backendAccessToken: validToken,
+      refreshToken: 'google-refresh-token',
+    },
+    now: () => now,
+    refreshGoogleTokens: async () => {
+      assert.fail('Should not refresh when token has more than 5 minutes remaining');
+    },
+  });
+
+  assert.equal(result.backendAccessToken, validToken, 'Token with >5 minutes remaining should not be refreshed');
+  assert.equal(result.error, undefined);
+});
