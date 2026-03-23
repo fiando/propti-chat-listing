@@ -18,21 +18,21 @@ import { getAuthenticatedHomeRedirectPath } from '@/lib/home-redirect';
 import { getServerAuthProfile } from '@/lib/server-profile';
 
 export const metadata: Metadata = {
-  title: 'Propti — Jual Beli Properti Semudah Chat WhatsApp',
+  title: 'Propti — Satu Listing Properti yang Lebih Rapi dan Siap Dibagikan',
 };
 
 const HERO_PROOF_POINTS = [
   {
-    title: 'AI parse dari chat apa adanya',
-    desc: 'Tempel teks WhatsApp lalu cek bagaimana judul, harga, luas, dan lokasi dirapikan otomatis.',
+    title: 'Satu listing properti yang lebih rapi',
+    desc: 'Susun satu halaman listing yang lebih enak dilihat, lebih mudah dicek, dan lebih siap dikirim ke calon pembeli.',
   },
   {
-    title: 'Moderasi sebelum tampil',
-    desc: 'Homepage hanya menampilkan listing aktif yang sudah lolos moderasi dan siap dihubungi.',
+    title: 'Lebih dipercaya sebelum dibagikan',
+    desc: 'Detail penting, media, dan alur kontak ditata lebih jelas supaya listing terasa lebih serius dibanding posting acak di chat atau sosial media.',
   },
   {
-    title: 'Fokus ke info properti yang paling dicari',
-    desc: 'Judul, harga, media, lokasi, dan alur kontak dirapikan dalam satu alur yang sederhana.',
+    title: 'Siap dibagikan ke semua channel',
+    desc: 'Setelah rapi di Propti, listing yang sama bisa kamu pakai sebagai halaman utama saat membagikan ke WhatsApp dan channel lain.',
   },
 ];
 
@@ -64,30 +64,30 @@ const PRODUCT_PROOF = [
   {
     icon: <MessageCircle className="w-6 h-6 text-[#25D366]" />,
     bg: 'bg-[#25D366]/10',
-    title: 'AI parser yang bisa dicek langsung',
-    desc: 'Demo parse di halaman ini menunjukkan bagaimana teks WhatsApp diubah menjadi field listing yang lebih rapi.',
-    tag: 'Product proof',
+    title: 'Mulai dari teks iklan yang sudah kamu punya',
+    desc: 'Paste teks WhatsApp untuk membuat draft lebih cepat, lalu jadikan Propti sebagai pusat listing yang lebih rapi, lebih dipercaya, dan siap kamu bagikan.',
+    tag: 'Pusat listing',
   },
   {
     icon: <ShieldIcon className="w-6 h-6 text-blue-600" />,
     bg: 'bg-blue-50',
-    title: 'Moderasi sebelum listing tayang',
-    desc: 'Listing yang muncul di homepage berasal dari iklan aktif yang sudah melewati pemeriksaan dasar.',
-    tag: 'Kualitas listing',
+    title: 'Halaman listing yang terasa lebih meyakinkan',
+    desc: 'Listing aktif melewati moderasi dasar dan menampilkan detail penting dalam format yang lebih konsisten untuk calon pembeli.',
+    tag: 'Lebih dipercaya',
   },
   {
     icon: <Sparkles className="w-6 h-6 text-brand-gold" />,
     bg: 'bg-amber-50',
-    title: 'Edit seperlunya, bukan isi ulang',
-    desc: 'AI mengisi detail utama lebih dulu supaya owner dan agen tinggal meninjau bagian yang perlu dibenahi.',
-    tag: 'Low friction',
+    title: 'Bukan isi ulang, cukup rapikan lalu terbitkan',
+    desc: 'AI mengisi detail utama lebih dulu supaya owner dan agen tinggal merapikan bagian yang perlu dibenahi sebelum listing dibagikan.',
+    tag: 'Cepat dipakai',
   },
   {
     icon: <TrendingUp className="w-6 h-6 text-brand-primary" />,
     bg: 'bg-brand-light',
-    title: 'Semua info penting dalam satu alur sederhana',
-    desc: 'Mulai dari pasang listing, media, moderasi, sampai alur kontak calon pembeli dibuat ringkas dan mudah dipakai.',
-    tag: 'Mudah dipakai',
+    title: 'Satu tempat untuk siap tayang dan siap share',
+    desc: 'Mulai dari pasang listing, media, moderasi, sampai alur kontak calon pembeli dibuat ringkas agar satu link Propti bisa jadi sumber utama listingmu.',
+    tag: 'Siap dibagikan',
   },
 ];
 
@@ -115,18 +115,19 @@ export default async function HomePage() {
         <div className="relative max-w-6xl mx-auto px-4 pt-16 pb-24 md:pt-24 md:pb-32 text-center">
           <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm border border-white/20 text-white text-sm font-medium px-4 py-2 rounded-full mb-6">
             <span className="w-2 h-2 bg-[#25D366] rounded-full animate-pulse" />
-            AI parser + moderasi listing untuk owner & agen
+            Pusat listing untuk owner & agen
           </div>
 
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-white leading-tight mb-4 text-balance">
-            Jual Beli Properti
+            Satu Listing Properti
             <br />
-            <span className="text-brand-accent">Semudah Chat WhatsApp</span>
+            <span className="text-brand-accent">yang Lebih Rapi</span>
           </h1>
 
           <p className="text-lg md:text-xl text-white/80 max-w-3xl mx-auto mb-10 text-balance">
-            Paste detail properti dari WhatsApp, cek hasil parse AI, lalu terbitkan listing yang
-            sudah dirapikan dan siap ditinjau calon pembeli.
+            Buat satu halaman listing yang lebih rapi, lebih dipercaya, dan siap dibagikan ke semua
+            channel. Mulai dari teks WhatsApp, rapikan detailnya, lalu pakai link Propti sebagai
+            pusat listingmu.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
@@ -174,8 +175,8 @@ export default async function HomePage() {
           </span>
           <h2 className="section-title">Pasang Iklan dalam 3 Langkah</h2>
           <p className="section-subtitle max-w-xl mx-auto">
-            Tidak perlu isi formulir panjang. Cukup paste teks WhatsApp-mu dan biarkan AI yang
-            bekerja.
+            Tidak perlu mulai dari nol. Cukup paste teks WhatsApp-mu, rapikan hasilnya, lalu
+            terbitkan satu link listing yang siap dibagikan.
           </p>
         </div>
 
@@ -300,8 +301,8 @@ export default async function HomePage() {
           </span>
           <h2 className="section-title">Yang Bisa kamu Cek Langsung di Propti</h2>
           <p className="section-subtitle max-w-2xl mx-auto">
-            Fokus kami bukan klaim besar, tapi alur produk yang memudahkan input listing dan menjaga
-            kualitas tampilannya.
+            Fokus kami bukan klaim besar, tapi alur produk yang membantu kamu menyiapkan satu
+            listing utama sebelum dibagikan ke channel lain.
           </p>
         </div>
 
@@ -332,11 +333,11 @@ export default async function HomePage() {
         </div>
         <div className="relative max-w-4xl mx-auto px-4 text-center">
           <h2 className="text-3xl md:text-4xl font-black text-white mb-4">
-            Coba alur listing yang lebih ringkas
+            Siapkan satu listing, lalu bagikan ke mana saja
           </h2>
           <p className="text-white/80 text-lg mb-8 max-w-2xl mx-auto">
-            Mulai dari satu teks iklan, lihat hasil parse-nya, lalu terbitkan saat detail listing sudah
-            siap dibagikan.
+            Mulai dari satu teks iklan, rapikan jadi halaman listing yang lebih meyakinkan, lalu
+            gunakan link Propti itu saat kamu promosi di WhatsApp dan channel lain.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
@@ -355,7 +356,8 @@ export default async function HomePage() {
             </Link>
           </div>
           <p className="text-white/50 text-sm mt-6">
-            Cocok untuk mulai dari satu listing dan melihat sendiri bagaimana Propti merapikan data.
+            Cocok untuk owner dan agen yang ingin punya satu link listing utama sebelum menyebarkan
+            iklannya.
           </p>
         </div>
       </section>
