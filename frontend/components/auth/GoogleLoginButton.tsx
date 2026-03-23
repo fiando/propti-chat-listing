@@ -1,20 +1,12 @@
 'use client';
 
 import { signIn } from 'next-auth/react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { buildPostLoginCallbackUrl } from '@/lib/auth-callback';
 
 export function GoogleLoginButton({ callbackUrl = '/' }: { callbackUrl?: string }) {
   const [loading, setLoading] = useState(false);
-  const [isStandalone, setIsStandalone] = useState(false);
-
-  useEffect(() => {
-    const navigatorWithStandalone = navigator as Navigator & { standalone?: boolean };
-    const standalone = window.matchMedia('(display-mode: standalone)').matches || navigatorWithStandalone.standalone === true;
-
-    setIsStandalone(standalone);
-  }, []);
 
   const handleLogin = async () => {
     setLoading(true);
@@ -52,13 +44,6 @@ export function GoogleLoginButton({ callbackUrl = '/' }: { callbackUrl?: string 
         )}
         {loading ? 'Sedang masuk...' : 'Masuk dengan Google'}
       </button>
-
-      {isStandalone ? (
-        <p className="text-xs text-gray-500 text-center">
-          Di mode PWA, Google bisa membuka tampilan browser terpisah. Setelah selesai login, Propti akan
-          menyinkronkan sesi dan membawamu kembali otomatis.
-        </p>
-      ) : null}
     </div>
   );
 }
