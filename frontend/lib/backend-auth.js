@@ -6,7 +6,7 @@ export function buildBackendAuthPayload({ idToken, accessToken }) {
 }
 
 const GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
-const BACKEND_TOKEN_REFRESH_SKEW_MS = 60 * 1000;
+const BACKEND_TOKEN_REFRESH_SKEW_MS = 5 * 60 * 1000;
 
 export function getJwtExpiryTimestamp(token) {
   if (!token) {
