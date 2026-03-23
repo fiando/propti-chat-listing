@@ -122,6 +122,7 @@ func baseListingResponse(listing *models.Listing) *models.ListingResponse {
 		HasSellerPhone:   listing.HasSellerPhone,
 		Views:            listing.Views,
 		Saves:            listing.Saves,
+		ContactReveals:   listing.ContactReveals,
 		ModerationStatus: listing.ModerationStatus,
 		ModerationReason: listing.ModerationReason,
 		CreatedAt:        listing.CreatedAt,

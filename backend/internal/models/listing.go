@@ -71,6 +71,7 @@ type Listing struct {
 	HasSellerPhone   bool             `json:"hasSellerPhone" dynamodbav:"-"`
 	Views            int              `json:"views" dynamodbav:"views"`
 	Saves            int              `json:"saves" dynamodbav:"saves"`
+	ContactReveals   int              `json:"contactReveals" dynamodbav:"contactReveals"`
 	ModerationStatus ModerationStatus `json:"moderationStatus" dynamodbav:"moderationStatus"`
 	ModerationReason string           `json:"moderationReason,omitempty" dynamodbav:"moderationReason,omitempty"`
 	CreatedAt        time.Time        `json:"createdAt" dynamodbav:"createdAt"`

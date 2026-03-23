@@ -3,7 +3,7 @@
 import { useSession } from 'next-auth/react';
 import { useMyListings, useDeleteListing, useRelistListing } from '@/hooks/useListings';
 import { ListingGrid } from '@/components/listings/ListingGrid';
-import { Plus, Loader2, Home, Eye, Heart } from 'lucide-react';
+import { Plus, Loader2, Home, Eye, Heart, Phone } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -50,7 +50,7 @@ export default function MyListingsPage() {
   };
 
   const listings = data?.items || [];
-  const { totalViews, totalSaves, activeListings } = summarizeOwnerListings(listings);
+  const { totalViews, totalSaves, totalContactReveals, activeListings } = summarizeOwnerListings(listings);
 
   const handleShareToWhatsApp = (listing: Listing) => {
     if (typeof window === 'undefined') {
@@ -94,11 +94,12 @@ export default function MyListingsPage() {
       </div>
 
       {!isLoading && listings.length > 0 && (
-        <div className="mb-8 grid gap-4 sm:grid-cols-3">
+        <div className="mb-8 grid gap-4 sm:grid-cols-4">
           {[
             { icon: Home, label: 'Iklan Aktif', value: activeListings },
             { icon: Eye, label: 'Total Dilihat', value: totalViews },
             { icon: Heart, label: 'Total Disimpan', value: totalSaves },
+            { icon: Phone, label: 'Kontak Terbuka', value: totalContactReveals },
           ].map((item) => (
             <div key={item.label} className="card p-5">
               <div className="flex items-center gap-3">

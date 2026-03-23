@@ -24,6 +24,10 @@ const listingDetailFile = readFileSync(
 );
 const listingLayoutPath = new URL('../app/(app)/listings/[id]/layout.tsx', import.meta.url);
 const listingLayoutFile = existsSync(listingLayoutPath) ? readFileSync(listingLayoutPath, 'utf8') : '';
+const robotsPath = new URL('../app/robots.ts', import.meta.url);
+const robotsFile = existsSync(robotsPath) ? readFileSync(robotsPath, 'utf8') : '';
+const sitemapPath = new URL('../app/sitemap.ts', import.meta.url);
+const sitemapFile = existsSync(sitemapPath) ? readFileSync(sitemapPath, 'utf8') : '';
 
 test('listing detail route exports dynamic metadata for canonical sharing and previews', () => {
   assert.match(listingLayoutFile, /export async function generateMetadata/);
@@ -34,6 +38,7 @@ test('listing detail route exports dynamic metadata for canonical sharing and pr
 test('owner listing dashboard surfaces summary metrics and share helpers', () => {
   assert.match(myListingsPageFile, /totalViews/);
   assert.match(myListingsPageFile, /totalSaves/);
+  assert.match(myListingsPageFile, /totalContactReveals/);
   assert.match(myListingsPageFile, /onShareToWhatsApp/);
   assert.match(myListingsPageFile, /onCopyShareLink/);
 });
@@ -54,4 +59,12 @@ test('owner detail page reads a share prompt flag and renders explicit distribut
   assert.match(listingDetailPageFile, /sharePrompt/);
   assert.match(listingDetailFile, /Bagikan link ini ke WhatsApp/);
   assert.match(listingDetailFile, /Salin link iklan/);
+  assert.match(listingDetailFile, /contactReveals/);
+});
+
+test('app exposes robots and sitemap metadata routes for listing discovery', () => {
+  assert.match(robotsFile, /export default function robots/);
+  assert.match(robotsFile, /sitemap:\s*['"`]https:\/\/propti\.id\/sitemap\.xml['"`]/);
+  assert.match(sitemapFile, /export default async function sitemap/);
+  assert.match(sitemapFile, /\/listings\/\$\{listing\.listingId\}/);
 });

@@ -75,6 +75,7 @@ export interface Listing {
   hasSellerPhone?: boolean;
   views: number;
   saves: number;
+  contactReveals?: number;
   moderationStatus: ModerationStatus;
   featuredThumbnailUrl?: string;
   createdAt: string;

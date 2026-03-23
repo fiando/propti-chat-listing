@@ -121,6 +121,7 @@ type ListingResponse struct {
 	HasSellerPhone       bool             `json:"hasSellerPhone"`
 	Views                int              `json:"views"`
 	Saves                int              `json:"saves"`
+	ContactReveals       int              `json:"contactReveals"`
 	ModerationStatus     ModerationStatus `json:"moderationStatus"`
 	ModerationReason     string           `json:"moderationReason,omitempty"`
 	FeaturedThumbnailURL string           `json:"featuredThumbnailUrl,omitempty"`

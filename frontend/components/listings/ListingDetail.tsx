@@ -443,6 +443,11 @@ export function ListingDetail({
               <span className="flex items-center gap-1">
                 <Heart className="w-4 h-4" /> {listing.saves} disimpan
               </span>
+              {isOwner && (
+                <span className="flex items-center gap-1">
+                  <Phone className="w-4 h-4" /> {listing.contactReveals ?? 0} kontak dibuka
+                </span>
+              )}
               <span>Dipasang {formatDate(listing.createdAt)}</span>
             </div>
             {isOwner && expiryInfo && (

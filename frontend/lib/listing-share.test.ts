@@ -37,6 +37,7 @@ const baseListing = {
   },
   views: 12,
   saves: 4,
+  contactReveals: 2,
   moderationStatus: 'approved',
   createdAt: '2026-03-20T00:00:00Z',
   updatedAt: '2026-03-20T00:00:00Z',
@@ -68,12 +69,14 @@ test('summarizeOwnerListings aggregates owner listing counts and intent signals'
       status: 'archived',
       views: 3,
       saves: 1,
+      contactReveals: 0,
     },
     {
       ...baseListing,
       listingId: 'listing-789',
       views: 8,
       saves: 2,
+      contactReveals: 5,
     },
   ]);
 
@@ -82,5 +85,6 @@ test('summarizeOwnerListings aggregates owner listing counts and intent signals'
     activeListings: 2,
     totalViews: 23,
     totalSaves: 7,
+    totalContactReveals: 7,
   });
 });

@@ -12,6 +12,7 @@ type ShareListingRecord = {
   status: string;
   views: number;
   saves: number;
+  contactReveals?: number;
   location?: ShareListingLocation;
   featuredThumbnailUrl?: string;
 };
@@ -61,19 +62,23 @@ export function buildWhatsAppShareUrl(message: string) {
   return `https://wa.me/?text=${encodeURIComponent(message)}`;
 }
 
-export function summarizeOwnerListings(listings: Array<Pick<ShareListingRecord, 'status' | 'views' | 'saves'>>) {
+export function summarizeOwnerListings(
+  listings: Array<Pick<ShareListingRecord, 'status' | 'views' | 'saves' | 'contactReveals'>>
+) {
   return listings.reduce(
     (summary, listing) => ({
       totalListings: summary.totalListings + 1,
       activeListings: summary.activeListings + (listing.status === 'active' ? 1 : 0),
       totalViews: summary.totalViews + listing.views,
       totalSaves: summary.totalSaves + listing.saves,
+      totalContactReveals: summary.totalContactReveals + (listing.contactReveals ?? 0),
     }),
     {
       totalListings: 0,
       activeListings: 0,
       totalViews: 0,
       totalSaves: 0,
+      totalContactReveals: 0,
     }
   );
 }

@@ -701,9 +701,32 @@ func TestGetListingIncludesSellerNameWithoutSellerPhone(t *testing.T) {
 func TestRevealListingContactReturnsSellerPhoneWhenAvailable(t *testing.T) {
 	ctx := context.Background()
 
-	service := NewListingService(
-		&fakeListingStore{
-			listingsByID: map[string]*models.Listing{
+	userStore := &fakeUserStore{
+		usersByID: map[string]*models.User{
+			"viewer-1": {
+				UserID: "viewer-1",
+				Name:   "Pembeli Aktif",
+			},
+			"seller-1": {
+				UserID: "seller-1",
+				Name:   "Budi Hartono",
+				Phone:  "081234567890",
+			},
+		},
+	}
+
+	store := &fakeListingStore{
+		listingsByID: map[string]*models.Listing{
+			"listing-1": {
+				ListingID:        "listing-1",
+				UserID:           "seller-1",
+				Title:            "Rumah Depok",
+				Status:           models.ListingStatusActive,
+				ModerationStatus: models.ModerationStatusApproved,
+			},
+		},
+		listingsByUser: map[string]map[string]*models.Listing{
+			"seller-1": {
 				"listing-1": {
 					ListingID:        "listing-1",
 					UserID:           "seller-1",
@@ -712,25 +735,12 @@ func TestRevealListingContactReturnsSellerPhoneWhenAvailable(t *testing.T) {
 					ModerationStatus: models.ModerationStatusApproved,
 				},
 			},
-			listingsByUser: map[string]map[string]*models.Listing{
-				"seller-1": {
-					"listing-1": {
-						ListingID:        "listing-1",
-						UserID:           "seller-1",
-						Title:            "Rumah Depok",
-						Status:           models.ListingStatusActive,
-						ModerationStatus: models.ModerationStatusApproved,
-					},
-				},
-			},
 		},
-		&fakeUserStore{
-			user: &models.User{
-				UserID: "seller-1",
-				Name:   "Budi Hartono",
-				Phone:  "081234567890",
-			},
-		},
+	}
+
+	service := NewListingService(
+		store,
+		userStore,
 		nil,
 		nil,
 		nil,
@@ -749,6 +759,12 @@ func TestRevealListingContactReturnsSellerPhoneWhenAvailable(t *testing.T) {
 	}
 	if contact.Channel != models.ContactRevealChannelWhatsApp {
 		t.Fatalf("expected contact reveal channel to round-trip, got %q", contact.Channel)
+	}
+	if store.lastListing == nil || store.lastListing.ContactReveals != 1 {
+		t.Fatalf("expected successful reveal to increment contact reveal count, got %#v", store.lastListing)
+	}
+	if got := userStore.usersByID["viewer-1"].ContactRevealThrottle.RevealCount; got != 1 {
+		t.Fatalf("expected viewer reveal throttle to increment, got %d", got)
 	}
 }
 
@@ -817,6 +833,9 @@ func TestRevealListingContactDoesNotConsumeQuotaWhenSellerPhoneUnavailable(t *te
 
 	if got := userStore.usersByID["viewer-1"].ContactRevealThrottle.RevealCount; got != 2 {
 		t.Fatalf("expected failed reveal to keep quota usage unchanged, got %d", got)
+	}
+	if store := service.listingRepo.(*fakeListingStore); store.lastListing != nil {
+		t.Fatalf("expected failed reveal to avoid persisting listing changes, got %#v", store.lastListing)
 	}
 }
 

@@ -402,6 +402,12 @@ func (s *ListingService) RevealListingContact(
 		return nil, utils.ErrInternal
 	}
 
+	listing.ContactReveals++
+	listing.UpdatedAt = s.now()
+	if err := s.listingRepo.Put(ctx, listing); err != nil {
+		return nil, utils.ErrInternal
+	}
+
 	utils.LogInfo(
 		"listing contact revealed",
 		"listingId", listingID,
