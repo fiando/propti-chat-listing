@@ -38,7 +38,7 @@ export function Footer() {
               <span className="text-2xl font-black tracking-tight text-white">Propti</span>
             </div>
             <p className="text-white/60 text-sm leading-relaxed mb-6">
-              Jual beli properti semudah chat WhatsApp. AI kami otomatis rapikan iklanmu.
+              Satu listing properti yang lebih rapi, lebih dipercaya, dan siap dibagikan ke semua channel.
             </p>
             <div className="flex items-center gap-3">
               {[Facebook, Instagram, Twitter].map((Icon, i) => (

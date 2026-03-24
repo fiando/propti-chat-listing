@@ -24,13 +24,13 @@ func jwtSecret() []byte {
 	return []byte(secret)
 }
 
-// GenerateToken creates a signed JWT for the given user, valid for 24 hours.
+// GenerateToken creates a signed JWT for the given user, valid for 7 days.
 func GenerateToken(userID, email string) (string, error) {
 	claims := &Claims{
 		UserID: userID,
 		Email:  email,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			Issuer:    "propti",
 		},
