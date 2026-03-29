@@ -6,20 +6,18 @@ import { Providers } from './providers';
 export const metadata: Metadata = {
   applicationName: 'Propti',
   title: {
-    default: 'Propti — Pasang Listing Properti Langsung dari WhatsApp',
+    default: 'Propti — Jual Beli Properti Semudah Chat WhatsApp',
     template: '%s | Propti',
   },
   description:
-    'Kirim pesan WhatsApp ke Propti — teks atau voice note — dan AI kami ubah jadi listing properti rapi dan siap tayang dalam hitungan detik.',
+    'Platform properti Indonesia berbasis AI. Paste teks iklan dari WhatsApp, AI kami rapikan jadi listing rapi, lengkap, dan siap tayang — dalam hitungan detik.',
   keywords: [
     'properti Indonesia',
     'jual rumah',
     'sewa rumah',
     'pasang iklan properti',
     'AI listing properti',
-    'listing properti WhatsApp',
-    'buat listing via WhatsApp',
-    'pasang properti via WA',
+    'iklan rumah WhatsApp',
     'real estate Indonesia',
   ],
   authors: [{ name: 'Propti', url: 'https://propti.id' }],
@@ -30,9 +28,9 @@ export const metadata: Metadata = {
     locale: 'id_ID',
     url: 'https://propti.id',
     siteName: 'Propti',
-    title: 'Propti — Pasang Listing Properti Langsung dari WhatsApp',
+    title: 'Propti — Jual Beli Properti Semudah Chat WhatsApp',
     description:
-      'Kirim pesan ke WhatsApp Propti, AI parse jadi listing rapi dan siap tayang. Dukung teks dan pesan suara.',
+      'Paste iklan dari WhatsApp, AI kami ubah jadi listing properti rapi dan siap tayang. Gratis untuk 3 iklan pertama.',
     images: [
       {
         url: '/og-image.jpg',
@@ -44,9 +42,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Propti — Pasang Listing Properti Langsung dari WhatsApp',
+    title: 'Propti — Jual Beli Properti Semudah Chat WhatsApp',
     description:
-      'Kirim pesan ke WhatsApp Propti, AI parse jadi listing rapi dan siap tayang. Dukung teks dan pesan suara.',
+      'Paste iklan dari WhatsApp, AI kami ubah jadi listing properti rapi dan siap tayang.',
     images: ['/og-image.jpg'],
   },
   icons: {

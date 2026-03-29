@@ -11,6 +11,7 @@ import {
   TrendingUp,
   ChevronRight,
   Mic,
+  Zap,
 } from 'lucide-react';
 import { ShieldIcon } from '@/components/icons/ShieldIcon';
 import { ListingCard } from '@/components/listings/ListingCard';
@@ -19,21 +20,21 @@ import { getAuthenticatedHomeRedirectPath } from '@/lib/home-redirect';
 import { getServerAuthProfile } from '@/lib/server-profile';
 
 export const metadata: Metadata = {
-  title: 'Propti — Pasang Listing Properti Langsung dari WhatsApp',
+  title: 'Propti — Satu Listing Properti yang Lebih Rapi dan Siap Dibagikan',
 };
 
 const HERO_PROOF_POINTS = [
   {
-    title: 'Kirim WA, listing langsung terbuat',
-    desc: 'Tidak perlu buka website atau isi form. Ceritakan propertimu ke WhatsApp Propti, AI parse otomatis jadi listing rapi dan siap tayang.',
+    title: 'Satu listing properti yang lebih rapi',
+    desc: 'Susun satu halaman listing yang lebih enak dilihat, lebih mudah dicek, dan lebih siap dikirim ke calon pembeli.',
   },
   {
-    title: 'Dukung teks dan pesan suara',
-    desc: 'Lebih cepat ngomong? Kirim voice note ke Propti — audio kamu ditranskripsi otomatis dan langsung dijadikan listing dalam hitungan detik.',
+    title: 'Lebih dipercaya sebelum dibagikan',
+    desc: 'Detail penting, media, dan alur kontak ditata lebih jelas supaya listing terasa lebih serius dibanding posting acak di chat atau sosial media.',
   },
   {
-    title: 'Kelola listing dari WhatsApp',
-    desc: 'Cek listing aktif, edit, hapus, atau cari properti — semua bisa lewat perintah WhatsApp ke Propti, kapan saja.',
+    title: 'Siap dibagikan ke semua channel',
+    desc: 'Setelah rapi di Propti, listing yang sama bisa kamu pakai sebagai halaman utama saat membagikan ke WhatsApp dan channel lain.',
   },
 ];
 
@@ -42,22 +43,22 @@ const HOW_IT_WORKS = [
     step: 1,
     icon: MessageCircle,
     color: 'bg-[#25D366]',
-    title: 'Kirim Pesan ke Propti',
-    desc: 'Kirim teks atau voice note ke WhatsApp Propti. Ceritakan properti sesantai ngobrol — tidak perlu format khusus.',
+    title: 'Paste Teks Iklan',
+    desc: 'Copy paste iklan propertimu dari WhatsApp atau ketik langsung. Tidak perlu format khusus.',
   },
   {
     step: 2,
     icon: Sparkles,
     color: 'bg-brand-gold',
-    title: 'AI Parse Otomatis',
-    desc: 'AI kami ekstrak semua detail penting: harga, luas tanah, kamar, dan lokasi. Voice note ditranskripsi lalu diparse dalam hitungan detik.',
+    title: 'AI Rapikan Otomatis',
+    desc: 'AI kami ekstrak semua detail penting: harga, luas tanah, kamar, dan lokasi dalam hitungan detik.',
   },
   {
     step: 3,
     icon: Radio,
     color: 'bg-brand-primary',
-    title: 'Listing Siap Tayang',
-    desc: 'Listing tersimpan di Propti dan siap dibagikan. Cek via chat WA atau buka propti.id, edit seperlunya, lalu bagikan link listingmu.',
+    title: 'Tinjau lalu Tayang',
+    desc: 'Cek hasil parse, edit seperlunya, lalu terbitkan listing dengan informasi yang lebih rapi.',
   },
 ];
 
@@ -65,30 +66,48 @@ const PRODUCT_PROOF = [
   {
     icon: <MessageCircle className="w-6 h-6 text-[#25D366]" />,
     bg: 'bg-[#25D366]/10',
-    title: 'Buat listing langsung dari WhatsApp',
-    desc: 'Kirim pesan ke WhatsApp Propti kapan saja, dari mana saja. AI langsung parse dan simpan listing-mu — tidak perlu buka browser atau isi form panjang.',
-    tag: 'Tanpa buka website',
-  },
-  {
-    icon: <Mic className="w-6 h-6 text-violet-600" />,
-    bg: 'bg-violet-50',
-    title: 'Voice note diubah jadi listing otomatis',
-    desc: 'Lebih cepat ngomong daripada mengetik? Kirim voice note ke Propti — audio kamu ditranskripsi otomatis dan diparse jadi listing rapi dalam hitungan detik.',
-    tag: 'Dukung suara',
+    title: 'Mulai dari teks iklan yang sudah kamu punya',
+    desc: 'Paste teks WhatsApp untuk membuat draft lebih cepat, lalu jadikan Propti sebagai pusat listing yang lebih rapi, lebih dipercaya, dan siap kamu bagikan.',
+    tag: 'Pusat listing',
   },
   {
     icon: <ShieldIcon className="w-6 h-6 text-blue-600" />,
     bg: 'bg-blue-50',
-    title: 'Halaman listing yang lebih meyakinkan',
-    desc: 'Listing Propti melewati moderasi dasar dan tampil dengan format yang konsisten — lebih dipercaya pembeli dibanding pesan WhatsApp biasa.',
+    title: 'Halaman listing yang terasa lebih meyakinkan',
+    desc: 'Listing aktif melewati moderasi dasar dan menampilkan detail penting dalam format yang lebih konsisten untuk calon pembeli.',
     tag: 'Lebih dipercaya',
+  },
+  {
+    icon: <Sparkles className="w-6 h-6 text-brand-gold" />,
+    bg: 'bg-amber-50',
+    title: 'Bukan isi ulang, cukup rapikan lalu terbitkan',
+    desc: 'AI mengisi detail utama lebih dulu supaya owner dan agen tinggal merapikan bagian yang perlu dibenahi sebelum listing dibagikan.',
+    tag: 'Cepat dipakai',
   },
   {
     icon: <TrendingUp className="w-6 h-6 text-brand-primary" />,
     bg: 'bg-brand-light',
-    title: 'Kelola listing sepenuhnya dari WhatsApp',
-    desc: 'Cek listing aktif, edit deskripsi, hapus, atau cari properti — semua lewat perintah WhatsApp ke Propti, tanpa perlu login ke website.',
-    tag: 'Kelola dari WA',
+    title: 'Satu tempat untuk siap tayang dan siap share',
+    desc: 'Mulai dari pasang listing, media, moderasi, sampai alur kontak calon pembeli dibuat ringkas agar satu link Propti bisa jadi sumber utama listingmu.',
+    tag: 'Siap dibagikan',
+  },
+];
+
+const WHATSAPP_PERKS = [
+  {
+    icon: MessageCircle,
+    title: 'Kirim teks, listing langsung terbuat',
+    desc: 'Chat ke nomor WhatsApp Propti dengan teks iklan biasa — AI parse dan simpan listing otomatis tanpa perlu buka website.',
+  },
+  {
+    icon: Mic,
+    title: 'Voice note juga bisa',
+    desc: 'Lebih cepat ngomong? Kirim pesan suara ke Propti, audio ditranskripsi lalu diparse jadi listing rapi dalam hitungan detik.',
+  },
+  {
+    icon: Zap,
+    title: 'Kelola dari WhatsApp',
+    desc: 'Cek listing aktif, edit, hapus, atau cari properti — semua lewat perintah chat tanpa perlu login ke website.',
   },
 ];
 
@@ -116,19 +135,19 @@ export default async function HomePage() {
         <div className="relative max-w-6xl mx-auto px-4 pt-16 pb-24 md:pt-24 md:pb-32 text-center">
           <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm border border-white/20 text-white text-sm font-medium px-4 py-2 rounded-full mb-6">
             <span className="w-2 h-2 bg-[#25D366] rounded-full animate-pulse" />
-            Buat & kelola listing langsung dari WhatsApp
+            Pusat listing untuk owner & agen
           </div>
 
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-white leading-tight mb-4 text-balance">
-            Pasang Listing Properti
+            Satu Listing Properti
             <br />
-            <span className="text-brand-accent">Langsung dari WhatsApp</span>
+            <span className="text-brand-accent">yang Lebih Rapi</span>
           </h1>
 
           <p className="text-lg md:text-xl text-white/80 max-w-3xl mx-auto mb-10 text-balance">
-            Kirim pesan ke nomor WhatsApp Propti — teks bebas atau voice note — dan AI kami ubah
-            jadi halaman listing rapi yang siap dibagikan. Tanpa buka website, tanpa isi form
-            panjang.
+            Buat satu halaman listing yang lebih rapi, lebih dipercaya, dan siap dibagikan ke semua
+            channel. Mulai dari teks WhatsApp, rapikan detailnya, lalu pakai link Propti sebagai
+            pusat listingmu.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
@@ -137,7 +156,7 @@ export default async function HomePage() {
               className="group flex items-center justify-center gap-2 bg-white text-brand-primary font-bold px-8 py-4 rounded-2xl hover:bg-brand-light transition-all duration-200 shadow-xl hover:shadow-2xl hover:-translate-y-0.5 text-lg"
             >
               <MessageCircle className="w-5 h-5 text-[#25D366]" />
-              Pasang Listing via WhatsApp
+              Paste listing saya
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
             <Link
@@ -174,10 +193,10 @@ export default async function HomePage() {
           <span className="inline-block bg-brand-light text-brand-primary text-sm font-semibold px-4 py-1.5 rounded-full mb-4">
             Cara Kerja
           </span>
-          <h2 className="section-title">Buat Listing dalam 3 Langkah Lewat WhatsApp</h2>
+          <h2 className="section-title">Pasang Iklan dalam 3 Langkah</h2>
           <p className="section-subtitle max-w-xl mx-auto">
-            Tidak perlu buka website. Cukup kirim pesan atau voice note ke WhatsApp Propti, dan
-            listing properti kamu siap tayang.
+            Tidak perlu mulai dari nol. Cukup paste teks WhatsApp-mu, rapikan hasilnya, lalu
+            terbitkan satu link listing yang siap dibagikan.
           </p>
         </div>
 
@@ -215,7 +234,7 @@ export default async function HomePage() {
                 <div className="w-6 h-6 bg-[#25D366] rounded-full flex items-center justify-center">
                   <MessageCircle className="w-3 h-3 text-white" />
                 </div>
-                <span className="text-sm font-semibold text-gray-600">Kamu kirim ke WhatsApp Propti</span>
+                <span className="text-sm font-semibold text-gray-600">Contoh Teks WhatsApp</span>
               </div>
               <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 font-mono text-sm text-gray-600 leading-relaxed">
                 Dijual rumah 2 lantai, 3KT 2KM, LT 120m2 LB 90m2 SHM, harga 850jt nego, lok Depok
@@ -227,7 +246,7 @@ export default async function HomePage() {
                 <div className="w-6 h-6 bg-brand-gold rounded-full flex items-center justify-center">
                   <Sparkles className="w-3 h-3 text-white" />
                 </div>
-                <span className="text-sm font-semibold text-gray-600">AI Propti Parse Otomatis</span>
+                <span className="text-sm font-semibold text-gray-600">Hasil AI Parse Otomatis</span>
               </div>
               <div className="bg-white rounded-2xl p-4 shadow-sm border border-brand-accent/30 space-y-2">
                 {[
@@ -252,13 +271,47 @@ export default async function HomePage() {
               className="inline-flex items-center gap-2 bg-[#25D366] text-white font-semibold px-6 py-3 rounded-xl hover:opacity-90 transition-opacity shadow-lg"
             >
               <MessageCircle className="w-4 h-4" />
-              Pasang Listing via WhatsApp
+              Paste listing saya
               <ArrowRight className="w-4 h-4" />
             </Link>
-            <p className="mt-3 text-sm text-gray-500 flex items-center justify-center gap-1.5">
-              <Mic className="w-3.5 h-3.5 text-violet-500" />
-              Bisa juga kirim voice note — audio ditranskripsi dan diparse otomatis
-            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="max-w-6xl mx-auto px-4 py-12 md:py-16">
+        <div className="bg-gradient-to-r from-[#25D366]/8 to-[#25D366]/3 border border-[#25D366]/20 rounded-3xl p-6 md:p-8">
+          <div className="flex flex-col md:flex-row md:items-center gap-6 md:gap-10">
+            <div className="md:w-64 flex-shrink-0">
+              <span className="inline-flex items-center gap-1.5 bg-[#25D366]/15 text-[#128C7E] text-xs font-semibold px-3 py-1 rounded-full mb-3">
+                <Zap className="w-3 h-3" />
+                Fitur WhatsApp Listing
+              </span>
+              <h2 className="text-xl font-bold text-gray-900 mb-2 leading-snug">
+                Atau pasang listing langsung via WhatsApp
+              </h2>
+              <p className="text-sm text-gray-500 leading-relaxed">
+                Kirim pesan ke nomor Propti — tanpa buka website, tanpa isi form.
+              </p>
+              <Link
+                href="/profile"
+                className="inline-flex items-center gap-1.5 mt-4 text-sm font-semibold text-[#128C7E] hover:text-[#25D366] transition-colors"
+              >
+                Hubungkan WhatsApp saya
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+
+            <div className="flex-1 grid sm:grid-cols-3 gap-4">
+              {WHATSAPP_PERKS.map((perk) => (
+                <div key={perk.title} className="flex flex-col gap-2 bg-white/70 rounded-2xl p-4 border border-[#25D366]/10">
+                  <div className="w-8 h-8 bg-[#25D366]/15 rounded-xl flex items-center justify-center">
+                    <perk.icon className="w-4 h-4 text-[#128C7E]" />
+                  </div>
+                  <p className="text-sm font-semibold text-gray-800 leading-snug">{perk.title}</p>
+                  <p className="text-xs text-gray-500 leading-relaxed">{perk.desc}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -302,12 +355,12 @@ export default async function HomePage() {
       <section className="max-w-6xl mx-auto px-4 py-16 md:py-24">
         <div className="text-center mb-12">
           <span className="inline-block bg-brand-light text-brand-primary text-sm font-semibold px-4 py-1.5 rounded-full mb-4">
-            WhatsApp Listing
+            Bukti Produk
           </span>
-          <h2 className="section-title">Kenapa Pasang Listing Lewat WhatsApp?</h2>
+          <h2 className="section-title">Yang Bisa kamu Cek Langsung di Propti</h2>
           <p className="section-subtitle max-w-2xl mx-auto">
-            Kami hadirkan cara termudah untuk owner dan agen pasang listing properti — langsung
-            dari WhatsApp yang sudah kamu pakai sehari-hari.
+            Fokus kami bukan klaim besar, tapi alur produk yang membantu kamu menyiapkan satu
+            listing utama sebelum dibagikan ke channel lain.
           </p>
         </div>
 
@@ -338,11 +391,11 @@ export default async function HomePage() {
         </div>
         <div className="relative max-w-4xl mx-auto px-4 text-center">
           <h2 className="text-3xl md:text-4xl font-black text-white mb-4">
-            Cukup kirim pesan, listing langsung tayang
+            Siapkan satu listing, lalu bagikan ke mana saja
           </h2>
           <p className="text-white/80 text-lg mb-8 max-w-2xl mx-auto">
-            Hubungkan WhatsApp-mu ke Propti satu kali, lalu kirim teks atau voice note kapan saja
-            — listing properti rapi siap dalam hitungan detik.
+            Mulai dari satu teks iklan, rapikan jadi halaman listing yang lebih meyakinkan, lalu
+            gunakan link Propti itu saat kamu promosi di WhatsApp dan channel lain.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
@@ -350,7 +403,7 @@ export default async function HomePage() {
               className="flex items-center justify-center gap-2 bg-white text-brand-primary font-bold px-8 py-4 rounded-2xl hover:bg-brand-light transition-all shadow-xl text-lg"
             >
               <MessageCircle className="w-5 h-5 text-[#25D366]" />
-              Pasang Listing via WhatsApp
+              Paste listing saya
             </Link>
             <Link
               href="/search"
@@ -361,7 +414,8 @@ export default async function HomePage() {
             </Link>
           </div>
           <p className="text-white/50 text-sm mt-6">
-            Cocok untuk owner dan agen yang ingin posting listing secepat kirim pesan WhatsApp.
+            Cocok untuk owner dan agen yang ingin punya satu link listing utama sebelum menyebarkan
+            iklannya.
           </p>
         </div>
       </section>
