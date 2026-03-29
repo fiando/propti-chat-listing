@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -54,7 +55,16 @@ func NewAuthHandler(db *repository.DynamoDB) *AuthHandler {
 			services.NewWhatsAppIdentityService(
 				userRepo,
 				repository.NewOTPRepo(db),
-				services.WhatsAppIdentityOptions{},
+				services.WhatsAppIdentityOptions{
+					SendOTP: newWhatsAppOTPSender(
+						services.NewTwilioWhatsAppProvider(services.TwilioWhatsAppProviderConfig{
+							AccountSID: strings.TrimSpace(os.Getenv("TWILIO_ACCOUNT_SID")),
+							AuthToken:  strings.TrimSpace(os.Getenv("TWILIO_AUTH_TOKEN")),
+							From:       strings.TrimSpace(os.Getenv("TWILIO_WHATSAPP_FROM")),
+							APIBaseURL: strings.TrimSpace(os.Getenv("TWILIO_API_BASE_URL")),
+						}),
+					),
+				},
 			),
 		)),
 	}
@@ -81,6 +91,22 @@ func mustWhatsAppIdentityService(service *services.WhatsAppIdentityService, err 
 		panic(err)
 	}
 	return service
+}
+
+func newWhatsAppOTPSender(provider services.WhatsAppProvider) func(ctx context.Context, phone, otpCode string) error {
+	if provider == nil {
+		return nil
+	}
+	return func(ctx context.Context, phone, otpCode string) error {
+		_, err := provider.Send(ctx, models.WhatsAppSendRequest{
+			To: phone,
+			Message: models.WhatsAppOutboundMessage{
+				Type: models.WhatsAppMessageTypeText,
+				Text: fmt.Sprintf("Kode OTP Propti kamu: %s. Berlaku 5 menit. Jangan bagikan kode ini.", otpCode),
+			},
+		})
+		return err
+	}
 }
 
 // googleLogin verifies a Google ID token and upserts the user, returning a JWT.

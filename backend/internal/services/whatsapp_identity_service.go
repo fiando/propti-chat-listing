@@ -31,6 +31,7 @@ type WhatsAppIdentityOptions struct {
 	Now                     func() time.Time
 	IDGenerator             func() string
 	OTPGenerator            func() (string, error)
+	SendOTP                 func(ctx context.Context, phone, otpCode string) error
 	OTPExpiry               time.Duration
 	MaxChallengeRetries     int
 	MaxVerificationAttempts int
@@ -56,6 +57,7 @@ type WhatsAppIdentityService struct {
 	now                     func() time.Time
 	idGenerator             func() string
 	otpGenerator            func() (string, error)
+	sendOTP                 func(ctx context.Context, phone, otpCode string) error
 	otpExpiry               time.Duration
 	maxChallengeRetries     int
 	maxVerificationAttempts int
@@ -100,6 +102,7 @@ func NewWhatsAppIdentityService(userStore WhatsAppIdentityUserStore, otpStore re
 		now:                     nowFn,
 		idGenerator:             idGen,
 		otpGenerator:            otpGen,
+		sendOTP:                 opts.SendOTP,
 		otpExpiry:               expiry,
 		maxChallengeRetries:     maxRetries,
 		maxVerificationAttempts: maxAttempts,
@@ -160,6 +163,12 @@ func (s *WhatsAppIdentityService) StartLink(ctx context.Context, userID, phone s
 
 	if err := s.otpStore.Put(ctx, challenge); err != nil {
 		return nil, utils.ErrInternal
+	}
+	if s.sendOTP != nil {
+		if err := s.sendOTP(ctx, challenge.Phone, challenge.OTPCode); err != nil {
+			utils.LogError("send whatsapp otp", err, "userId", userID, "phone", challenge.Phone)
+			return nil, utils.NewAppError(502, "failed to send otp message")
+		}
 	}
 
 	return &WhatsAppLinkChallenge{

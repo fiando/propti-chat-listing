@@ -61,6 +61,22 @@ type fakeWhatsAppOTPStore struct {
 	challenges map[string]*repository.OTPChallenge
 }
 
+type fakeWhatsAppOTPSender struct {
+	calls []struct {
+		phone string
+		code  string
+	}
+	err error
+}
+
+func (f *fakeWhatsAppOTPSender) Send(_ context.Context, phone, code string) error {
+	f.calls = append(f.calls, struct {
+		phone string
+		code  string
+	}{phone: phone, code: code})
+	return f.err
+}
+
 func (f *fakeWhatsAppOTPStore) Put(_ context.Context, challenge *repository.OTPChallenge) error {
 	if f.challenges == nil {
 		f.challenges = map[string]*repository.OTPChallenge{}
@@ -130,6 +146,57 @@ func TestWhatsAppIdentityStartLinkCreatesChallengeWithExpiry(t *testing.T) {
 	}
 	if stored.RetryCount != 1 {
 		t.Fatalf("expected retry count 1, got %d", stored.RetryCount)
+	}
+}
+
+func TestWhatsAppIdentityStartLinkSendsOTPWhenSenderConfigured(t *testing.T) {
+	now := time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)
+	users := &fakeWhatsAppIdentityUserStore{usersByID: map[string]*models.User{"user-1": {UserID: "user-1"}}}
+	otpStore := &fakeWhatsAppOTPStore{}
+	sender := &fakeWhatsAppOTPSender{}
+
+	svc, err := NewWhatsAppIdentityService(users, otpStore, WhatsAppIdentityOptions{
+		Now:          func() time.Time { return now },
+		OTPGenerator: func() (string, error) { return "123456", nil },
+		SendOTP:      sender.Send,
+	})
+	if err != nil {
+		t.Fatalf("NewWhatsAppIdentityService returned error: %v", err)
+	}
+
+	_, err = svc.StartLink(context.Background(), "user-1", "+628123456789")
+	if err != nil {
+		t.Fatalf("StartLink returned error: %v", err)
+	}
+	if len(sender.calls) != 1 {
+		t.Fatalf("expected 1 otp send call, got %d", len(sender.calls))
+	}
+	if sender.calls[0].phone != "+628123456789" || sender.calls[0].code != "123456" {
+		t.Fatalf("unexpected otp send payload: %#v", sender.calls[0])
+	}
+}
+
+func TestWhatsAppIdentityStartLinkReturns502WhenOTPSendFails(t *testing.T) {
+	now := time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)
+	users := &fakeWhatsAppIdentityUserStore{usersByID: map[string]*models.User{"user-1": {UserID: "user-1"}}}
+	otpStore := &fakeWhatsAppOTPStore{}
+	sender := &fakeWhatsAppOTPSender{err: errors.New("twilio down")}
+
+	svc, err := NewWhatsAppIdentityService(users, otpStore, WhatsAppIdentityOptions{
+		Now:          func() time.Time { return now },
+		OTPGenerator: func() (string, error) { return "123456", nil },
+		SendOTP:      sender.Send,
+	})
+	if err != nil {
+		t.Fatalf("NewWhatsAppIdentityService returned error: %v", err)
+	}
+
+	_, err = svc.StartLink(context.Background(), "user-1", "+628123456789")
+	if err == nil {
+		t.Fatal("expected send otp failure")
+	}
+	if appCode(t, err) != 502 {
+		t.Fatalf("expected 502, got %d (%v)", appCode(t, err), err)
 	}
 }
 
