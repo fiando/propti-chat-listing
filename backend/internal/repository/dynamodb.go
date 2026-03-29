@@ -35,7 +35,7 @@ func NewDynamoDB(ctx context.Context) (*DynamoDB, error) {
 		ModerationsTable:      getEnv("DYNAMODB_MODERATIONS_TABLE", "propti-moderations"),
 		UploadSessionsTable:   getEnv("DYNAMODB_UPLOAD_SESSIONS_TABLE", "propti-upload-sessions"),
 		WhatsAppSessionsTable: getEnv("DYNAMODB_WHATSAPP_SESSIONS_TABLE", "propti-whatsapp-sessions"),
-		OTPChallengesTable:    getEnv("DYNAMODB_OTP_CHALLENGES_TABLE", "propti-otp-challenges"),
+		OTPChallengesTable:    resolveOTPChallengesTableEnv(),
 	}, nil
 }
 
@@ -44,4 +44,14 @@ func getEnv(key, defaultValue string) string {
 		return val
 	}
 	return defaultValue
+}
+
+func resolveOTPChallengesTableEnv() string {
+	if val := os.Getenv("DYNAMODB_OTP_CHALLENGES_TABLE"); val != "" {
+		return val
+	}
+	if val := os.Getenv("DYNAMODB_WHATSAPP_OTP_TABLE"); val != "" {
+		return val
+	}
+	return "propti-otp-challenges"
 }
