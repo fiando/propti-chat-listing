@@ -13,7 +13,7 @@ import (
 )
 
 type OTPChallenge struct {
-	ChallengeID  string     `json:"challengeId" dynamodbav:"challengeId"`
+	ChallengeID  string     `json:"challengeId" dynamodbav:"otpId"`
 	UserID       string     `json:"userId" dynamodbav:"userId"`
 	Phone        string     `json:"phone" dynamodbav:"phone"`
 	OTPCode      string     `json:"-" dynamodbav:"otpCode"`
@@ -71,7 +71,7 @@ func (r *OTPRepo) GetByID(ctx context.Context, challengeID string) (*OTPChalleng
 	result, err := r.db.Client.GetItem(ctx, &dynamodb.GetItemInput{
 		TableName: aws.String(r.db.OTPChallengesTable),
 		Key: map[string]types.AttributeValue{
-			"challengeId": &types.AttributeValueMemberS{Value: challengeID},
+			"otpId": &types.AttributeValueMemberS{Value: challengeID},
 		},
 	})
 	if err != nil {
