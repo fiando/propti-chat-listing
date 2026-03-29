@@ -73,4 +73,8 @@ jobs:
               OpenAIAPIKey=${{ secrets.OPENAI_API_KEY }} \
               GoogleMapsAPIKey=${{ secrets.GOOGLE_MAPS_API_KEY }} \
               DOKUClientID=${{ secrets.DOKU_CLIENT_ID }} \
-              DOKUSecretKey=${{ secrets.DOKU_SECRET_KEY }}
+              DOKUSecretKey=${{ secrets.DOKU_SECRET_KEY }} \
+              WhatsAppProvider=${{ secrets.WHATSAPP_PROVIDER }} \
+              TwilioAccountSID=${{ secrets.TWILIO_ACCOUNT_SID }} \
+              TwilioAuthToken=${{ secrets.TWILIO_AUTH_TOKEN }} \
+              TwilioWhatsAppFrom=${{ secrets.TWILIO_WHATSAPP_FROM }}

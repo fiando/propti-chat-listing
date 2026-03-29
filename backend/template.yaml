@@ -18,7 +18,7 @@ Globals:
         DYNAMODB_UPLOAD_SESSIONS_TABLE: !Ref UploadSessionsTable
         DYNAMODB_WHATSAPP_SESSIONS_TABLE: !Ref WhatsAppSessionsTable
         DYNAMODB_WHATSAPP_OTP_TABLE: !Ref WhatsAppOTPTable
-        WHATSAPP_PROVIDER: twilio
+        WHATSAPP_PROVIDER: !Ref WhatsAppProvider
         S3_MEDIA_BUCKET: !Ref MediaBucket
         JWT_SECRET: !Ref JWTSecret
         OPENAI_API_KEY: !Ref OpenAIAPIKey
@@ -26,9 +26,9 @@ Globals:
         GOOGLE_MAPS_API_KEY: !Ref GoogleMapsAPIKey
         DOKU_CLIENT_ID: !Ref DOKUClientID
         DOKU_SECRET_KEY: !Ref DOKUSecretKey
-        TWILIO_ACCOUNT_SID: ""
-        TWILIO_AUTH_TOKEN: ""
-        TWILIO_WHATSAPP_FROM: ""
+        TWILIO_ACCOUNT_SID: !Ref TwilioAccountSID
+        TWILIO_AUTH_TOKEN: !Ref TwilioAuthToken
+        TWILIO_WHATSAPP_FROM: !Ref TwilioWhatsAppFrom
         META_WHATSAPP_ACCESS_TOKEN: ""
         META_WHATSAPP_PHONE_NUMBER_ID: ""
         META_WHATSAPP_VERIFY_TOKEN: ""
@@ -86,6 +86,21 @@ Parameters:
   DOKUSecretKey:
     Type: String
     NoEcho: true
+  WhatsAppProvider:
+    Type: String
+    Default: twilio
+    AllowedValues: [twilio, meta]
+  TwilioAccountSID:
+    Type: String
+    Default: ""
+    NoEcho: true
+  TwilioAuthToken:
+    Type: String
+    Default: ""
+    NoEcho: true
+  TwilioWhatsAppFrom:
+    Type: String
+    Default: ""
 
 Conditions:
   HasApiCustomDomain: !And
