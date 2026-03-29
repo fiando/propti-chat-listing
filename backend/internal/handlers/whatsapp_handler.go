@@ -263,7 +263,23 @@ func toHTTPRequest(req events.APIGatewayProxyRequest) (*http.Request, error) {
 		rawBody = string(decoded)
 	}
 
-	targetURL := "https://webhook.local" + req.Path
+	proto := strings.TrimSpace(req.Headers["X-Forwarded-Proto"])
+	if proto == "" {
+		proto = strings.TrimSpace(req.Headers["x-forwarded-proto"])
+	}
+	if proto == "" {
+		proto = "https"
+	}
+
+	host := strings.TrimSpace(req.Headers["X-Forwarded-Host"])
+	if host == "" {
+		host = strings.TrimSpace(req.Headers["x-forwarded-host"])
+	}
+	if host == "" {
+		host = "webhook.local"
+	}
+
+	targetURL := proto + "://" + host + req.Path
 	if len(req.QueryStringParameters) > 0 {
 		query := url.Values{}
 		for key, val := range req.QueryStringParameters {

@@ -324,3 +324,23 @@ func TestWhatsAppHandlerTemplateWiresWebhookLambdaRoutes(t *testing.T) {
 		t.Fatal("expected SAM template to expose /whatsapp/webhook/status route")
 	}
 }
+
+func TestToHTTPRequestPrefersForwardedURLForWebhookSignature(t *testing.T) {
+	httpReq, err := toHTTPRequest(events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodPost,
+		Path:       "/whatsapp/webhook",
+		Headers: map[string]string{
+			"X-Forwarded-Proto": "https",
+			"X-Forwarded-Host":  "api.propti.id",
+			"Content-Type":      "application/x-www-form-urlencoded",
+		},
+		Body: "MessageSid=SM123&Body=hi",
+	})
+	if err != nil {
+		t.Fatalf("toHTTPRequest returned error: %v", err)
+	}
+
+	if got, want := httpReq.URL.String(), "https://api.propti.id/whatsapp/webhook"; got != want {
+		t.Fatalf("expected forwarded webhook URL %q, got %q", want, got)
+	}
+}
