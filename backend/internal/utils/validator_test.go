@@ -77,8 +77,9 @@ func TestNormalizeWhatsAppPhone(t *testing.T) {
 	}{
 		{name: "already international", input: "+628123456789", want: "+628123456789"},
 		{name: "local indonesia", input: "08123456789", want: "+628123456789"},
+		{name: "indonesia country prefix without plus", input: "628123456789", want: "+628123456789"},
+		{name: "indonesia local without leading zero", input: "8123456789", want: "+628123456789"},
 		{name: "strip spaces and dashes", input: "+62 812-3456-789", want: "+628123456789"},
-		{name: "reject missing plus", input: "628123456789", wantErr: true},
 		{name: "reject non digits", input: "+62812ABCD", wantErr: true},
 	}
 

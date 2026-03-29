@@ -92,6 +92,15 @@ func NormalizeWhatsAppPhone(phone string) (string, error) {
 	trimmed := strings.TrimSpace(phone)
 	trimmed = strings.ReplaceAll(trimmed, " ", "")
 	trimmed = strings.ReplaceAll(trimmed, "-", "")
+	trimmed = strings.ReplaceAll(trimmed, "(", "")
+	trimmed = strings.ReplaceAll(trimmed, ")", "")
+
+	if strings.HasPrefix(trimmed, "62") && !strings.HasPrefix(trimmed, "+") {
+		trimmed = "+" + trimmed
+	}
+	if strings.HasPrefix(trimmed, "8") {
+		trimmed = "+62" + trimmed
+	}
 	if strings.HasPrefix(trimmed, "0") {
 		trimmed = "+62" + strings.TrimPrefix(trimmed, "0")
 	}
