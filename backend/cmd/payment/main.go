@@ -26,6 +26,7 @@ func main() {
 	userRepo := repository.NewUserRepo(db)
 	listingRepo := repository.NewListingRepo(db)
 	transactionRepo := repository.NewTransactionRepo(db)
+	otpRepo := repository.NewOTPRepo(db)
 
 	var aiSvc services.AIParseService
 	if key := os.Getenv("OPENAI_API_KEY"); key != "" {
@@ -47,6 +48,12 @@ func main() {
 	}
 
 	listingSvc := services.NewListingService(listingRepo, userRepo, aiSvc, s3Svc, mapsSvc, locationCatalog)
+	identitySvc, err := services.NewWhatsAppIdentityService(userRepo, otpRepo, services.WhatsAppIdentityOptions{})
+	if err != nil {
+		utils.LogError("init whatsapp identity service", err)
+		panic(err)
+	}
+	listingSvc.SetWriteEligibilityGuard(identitySvc)
 	dokuBaseURL := "https://api-sandbox.doku.com"
 	if os.Getenv("DOKU_ENV") == "production" {
 		dokuBaseURL = "https://api.doku.com"

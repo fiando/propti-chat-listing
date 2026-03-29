@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { MessageCircle, PenLine, ArrowLeft, Phone, X, AlertTriangle, Crown } from 'lucide-react';
+import { MessageCircle, PenLine, ArrowLeft, AlertTriangle, Crown, Loader2, ShieldCheck, X } from 'lucide-react';
 import { TextParseForm } from '@/components/listings/TextParseForm';
 import { ListingForm } from '@/components/listings/ListingForm';
 import { useCreateListing } from '@/hooks/useListings';
@@ -24,10 +24,16 @@ import {
   getCreateListingErrorMessage,
 } from '@/lib/create-listing-errors';
 import { normalizeAmenityIds } from '@/lib/listing-form-utils';
-import { prepareListingUpload, updateProfile, uploadListingImage } from '@/lib/api';
-import { getPhoneModalSubmitLabel, shouldRequirePhone } from '@/lib/create-listing-phone';
+import {
+  createWhatsAppLinkChallenge,
+  getWhatsAppLinkStatus,
+  uploadListingImage,
+  verifyWhatsAppLink,
+  prepareListingUpload,
+} from '@/lib/api';
 import { uploadPendingListingImages } from '@/lib/listing-images';
 import { ImageLimits } from '@/types';
+import { normalizeWhatsAppLinkPhone } from '@/lib/whatsapp-linking';
 
 type Step = 'choose' | 'parse' | 'form';
 
@@ -40,14 +46,12 @@ type CreateAccessState = {
 type CreateListingClientProps = {
   initialIsAuthenticated: boolean;
   initialTier: 'free' | 'basic' | 'premium' | 'pro';
-  initialPhone?: string | null;
   initialCreateAccessState: CreateAccessState;
 };
 
 export function CreateListingClient({
   initialIsAuthenticated,
   initialTier,
-  initialPhone,
   initialCreateAccessState,
 }: CreateListingClientProps) {
   const router = useRouter();
@@ -57,12 +61,17 @@ export function CreateListingClient({
   const [parseTextDraft, setParseTextDraft] = useState('');
   const [formDraft, setFormDraft] = useState<Partial<ListingFormValues> | null>(null);
   const [draftRestored, setDraftRestored] = useState(false);
-  const [showPhoneModal, setShowPhoneModal] = useState(false);
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
   const [pendingSubmitData, setPendingSubmitData] = useState<ListingFormValues | null>(null);
-  const [phoneInput, setPhoneInput] = useState('');
-  const [profilePhone, setProfilePhone] = useState(initialPhone ?? '');
-  const [isSavingPhone, setIsSavingPhone] = useState(false);
-  const [isSubmittingListingFromPhoneModal, setIsSubmittingListingFromPhoneModal] = useState(false);
+  const [waPhoneInput, setWaPhoneInput] = useState('');
+  const [waOtpInput, setWaOtpInput] = useState('');
+  const [waChallengeId, setWaChallengeId] = useState('');
+  const [waStatusMessage, setWaStatusMessage] = useState('');
+  const [waStatusError, setWaStatusError] = useState('');
+  const [isLoadingWaStatus, setIsLoadingWaStatus] = useState(false);
+  const [isRequestingWaOtp, setIsRequestingWaOtp] = useState(false);
+  const [isVerifyingWaOtp, setIsVerifyingWaOtp] = useState(false);
+  const [isSubmittingListingFromWaModal, setIsSubmittingListingFromWaModal] = useState(false);
   const { mutateAsync: createListing, isPending } = useCreateListing();
   const { toast } = useToast();
 
@@ -87,10 +96,32 @@ export function CreateListingClient({
       return;
     }
 
-    setShowPhoneModal(false);
+    setShowWhatsAppModal(false);
     setPendingSubmitData(null);
     setStep('choose');
   }, [hasCreateAccessError, isCreateBlocked]);
+
+  const ensureWhatsAppWriteEligible = useCallback(async () => {
+    setIsLoadingWaStatus(true);
+    try {
+      const status = await getWhatsAppLinkStatus();
+      if (status.eligible) {
+        return true;
+      }
+      setShowWhatsAppModal(true);
+      setWaPhoneInput(status.linkedPhone ? `+${status.linkedPhone}` : '');
+      setWaStatusMessage('');
+      setWaStatusError('');
+      return false;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Status WhatsApp tidak bisa dicek.';
+      setShowWhatsAppModal(true);
+      setWaStatusError(message);
+      return false;
+    } finally {
+      setIsLoadingWaStatus(false);
+    }
+  }, []);
 
   const applyDraft = useCallback((draft: NonNullable<ReturnType<typeof loadCreateListingDraft>>) => {
     setStep(draft.step);
@@ -229,10 +260,7 @@ export function CreateListingClient({
     router.push(`/listings/${listing.listingId}?sharePrompt=1`);
   };
 
-  const handleSubmit = async (
-    data: ListingFormValues,
-    options?: { phoneOverride?: string }
-  ) => {
+  const handleSubmit = async (data: ListingFormValues) => {
     setFormDraft(data);
 
     if (!isAuthenticated) {
@@ -245,14 +273,9 @@ export function CreateListingClient({
       return;
     }
 
-    if (
-      shouldRequirePhone({
-        profilePhone,
-        phoneOverride: options?.phoneOverride,
-      })
-    ) {
+    const isEligible = await ensureWhatsAppWriteEligible();
+    if (!isEligible) {
       setPendingSubmitData(data);
-      setShowPhoneModal(true);
       return;
     }
 
@@ -282,42 +305,69 @@ export function CreateListingClient({
     setStep(nextStep);
   };
 
-  const handlePhoneSubmit = async () => {
-    const trimmedPhone = phoneInput.trim();
+  const handleRequestWaOtp = async () => {
+    const normalizedPhone = normalizeWhatsAppLinkPhone(waPhoneInput);
+    if (!normalizedPhone) {
+      setWaStatusError('Isi nomor WhatsApp dulu.');
+      return;
+    }
+    setIsRequestingWaOtp(true);
+    setWaStatusError('');
+    setWaStatusMessage('');
+    try {
+      const result = await createWhatsAppLinkChallenge(normalizedPhone);
+      setWaChallengeId(result.challengeId);
+      setWaPhoneInput(`+${result.phone}`);
+      setWaStatusMessage('OTP berhasil dikirim. Cek WhatsApp kamu lalu verifikasi.');
+    } catch (error) {
+      setWaStatusError(error instanceof Error ? error.message : 'Gagal kirim OTP WhatsApp.');
+    } finally {
+      setIsRequestingWaOtp(false);
+    }
+  };
 
-    if (!trimmedPhone || !pendingSubmitData) return;
+  const handleVerifyWaOtpAndSubmit = async () => {
+    if (!pendingSubmitData) return;
+    if (!waChallengeId || waOtpInput.trim().length !== 6) {
+      setWaStatusError('Masukkan OTP 6 digit untuk lanjut pasang iklan.');
+      return;
+    }
 
     if (isCreateBlocked || hasCreateAccessError) {
-      setShowPhoneModal(false);
+      setShowWhatsAppModal(false);
       setPendingSubmitData(null);
       toast(createAccessState.message || CREATE_LISTING_ACCESS_ERROR_MESSAGE, 'error');
       return;
     }
 
-    setIsSavingPhone(true);
+    setIsVerifyingWaOtp(true);
+    setWaStatusError('');
+    setWaStatusMessage('');
     try {
-      await updateProfile({ phone: trimmedPhone });
-      setProfilePhone(trimmedPhone);
-    } catch {
-      toast('Gagal menyimpan nomor telepon. Coba lagi.', 'error');
-      setIsSavingPhone(false);
+      await verifyWhatsAppLink(waChallengeId, waOtpInput.trim());
+    } catch (error) {
+      setWaStatusError(error instanceof Error ? error.message : 'OTP tidak valid.');
+      setIsVerifyingWaOtp(false);
       return;
     }
-
-    setIsSavingPhone(false);
-    setIsSubmittingListingFromPhoneModal(true);
+    setIsVerifyingWaOtp(false);
+    setIsSubmittingListingFromWaModal(true);
 
     try {
       await submitListing(pendingSubmitData);
       setPendingSubmitData(null);
+      setShowWhatsAppModal(false);
+      setWaOtpInput('');
+      setWaChallengeId('');
     } catch (error) {
       toast(getCreateListingErrorMessage(error), 'error');
     } finally {
-      setIsSubmittingListingFromPhoneModal(false);
+      setIsSubmittingListingFromWaModal(false);
     }
   };
 
-  const isPhoneModalBusy = isSavingPhone || isSubmittingListingFromPhoneModal;
+  const isWhatsAppModalBusy =
+    isLoadingWaStatus || isRequestingWaOtp || isVerifyingWaOtp || isSubmittingListingFromWaModal;
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
@@ -524,23 +574,23 @@ export function CreateListingClient({
         />
       )}
 
-      {showPhoneModal && (
+      {showWhatsAppModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
             <div className="mb-4 flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-light">
-                  <Phone className="h-5 w-5 text-brand-primary" />
+                  <MessageCircle className="h-5 w-5 text-brand-primary" />
                 </div>
                 <div>
-                  <h2 className="font-bold text-gray-900">Tambah Nomor Telepon</h2>
-                  <p className="text-xs text-gray-500">Agar pembeli bisa menghubungimu</p>
+                  <h2 className="font-bold text-gray-900">Hubungkan WhatsApp</h2>
+                  <p className="text-xs text-gray-500">Wajib sebelum pasang iklan pertama</p>
                 </div>
               </div>
               <button
                 type="button"
-                onClick={() => setShowPhoneModal(false)}
-                disabled={isPhoneModalBusy}
+                onClick={() => setShowWhatsAppModal(false)}
+                disabled={isWhatsAppModalBusy}
                 className="text-gray-400 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <X className="h-5 w-5" />
@@ -549,25 +599,61 @@ export function CreateListingClient({
 
             <input
               type="tel"
-              value={phoneInput}
-              onChange={(e) => setPhoneInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && !isPhoneModalBusy && void handlePhoneSubmit()}
+              value={waPhoneInput}
+              onChange={(e) => setWaPhoneInput(e.target.value)}
               placeholder="08xxxxxxxxxx"
-              className="input-field mb-4"
-              disabled={isPhoneModalBusy}
+              className="input-field mb-3"
+              disabled={isWhatsAppModalBusy}
             />
 
             <button
               type="button"
-              onClick={handlePhoneSubmit}
-              disabled={!phoneInput.trim() || isPhoneModalBusy}
-              className="btn-primary w-full disabled:opacity-50"
+              onClick={() => void handleRequestWaOtp()}
+              disabled={normalizeWhatsAppLinkPhone(waPhoneInput) === '' || isWhatsAppModalBusy}
+              className="mb-3 w-full btn-primary inline-flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              {getPhoneModalSubmitLabel({
-                isSavingPhone,
-                isSubmittingListing: isSubmittingListingFromPhoneModal,
-              })}
+              {isRequestingWaOtp ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+              Minta OTP WhatsApp
             </button>
+
+            <input
+              type="text"
+              value={waOtpInput}
+              onChange={(event) => setWaOtpInput(event.target.value.replace(/\D+/g, '').slice(0, 6))}
+              inputMode="numeric"
+              placeholder="Masukkan 6 digit OTP"
+              className="input-field mb-3"
+              disabled={isWhatsAppModalBusy}
+            />
+
+            <button
+              type="button"
+              onClick={() => void handleVerifyWaOtpAndSubmit()}
+              disabled={waOtpInput.trim().length !== 6 || !waChallengeId || isWhatsAppModalBusy}
+              className="w-full btn-primary inline-flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {isVerifyingWaOtp || isSubmittingListingFromWaModal ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ShieldCheck className="h-4 w-4" />
+              )}
+              Verifikasi & Pasang Iklan
+            </button>
+
+            <p className="mt-3 text-xs text-gray-500">
+              Kamu juga bisa kelola koneksi WhatsApp di halaman <Link className="text-brand-primary underline" href="/profile">Profil Saya</Link>.
+            </p>
+
+            {waStatusError && (
+              <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
+                {waStatusError}
+              </p>
+            )}
+            {waStatusMessage && (
+              <p className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+                {waStatusMessage}
+              </p>
+            )}
           </div>
         </div>
       )}

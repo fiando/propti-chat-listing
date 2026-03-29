@@ -17,7 +17,6 @@ export default async function CreateListingPage() {
     <CreateListingClient
       initialIsAuthenticated={isAuthenticated}
       initialTier={tier}
-      initialPhone={profile?.phone ?? ''}
       initialCreateAccessState={initialCreateAccessState}
     />
   );

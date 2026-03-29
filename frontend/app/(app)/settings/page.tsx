@@ -29,7 +29,6 @@ export default function SettingsPage() {
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const subscriptionStatus = getSubscriptionStatus({ authStatus: status, profile: profile ?? undefined });
   const showRenewalCTA = shouldShowRenewalCTA(subscriptionStatus);
-  const [phone, setPhone] = useState('');
   const [role, setRole] = useState<'buyer' | 'seller' | 'both' | ''>('');
   const [notifications, setNotifications] = useState(true);
   const [saved, setSaved] = useState(false);
@@ -39,7 +38,6 @@ export default function SettingsPage() {
     if (!profile) {
       return;
     }
-    setPhone(profile.phone ?? '');
     setRole(profile.role ?? '');
     setNotifications(profile.preferences?.notifications ?? true);
   }, [profile]);
@@ -65,7 +63,6 @@ export default function SettingsPage() {
     setSaved(false);
 
     const payload: UpdateProfileRequest = buildProfileUpdatePayload({
-      phone,
       role,
       notifications,
       preferences: profile?.preferences ?? DEFAULT_PREFERENCES,
@@ -98,7 +95,7 @@ export default function SettingsPage() {
 
       {returnTo && (
         <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-          Lengkapi nomor telepon dulu supaya calon pembeli bisa menghubungi kamu. Setelah disimpan,
+          Hubungkan WhatsApp dulu supaya kamu bisa pasang iklan. Setelah tersambung dan terverifikasi,
           kamu akan dikembalikan ke proses pasang iklan.
         </div>
       )}
@@ -119,16 +116,6 @@ export default function SettingsPage() {
             <label className="block">
               <span className="text-sm font-medium text-gray-700">Email</span>
               <input value={profile.email} disabled className="input-field mt-1 bg-gray-50 text-gray-500" />
-            </label>
-
-            <label className="block">
-              <span className="text-sm font-medium text-gray-700">Nomor Telepon</span>
-              <input
-                value={phone}
-                onChange={(event) => setPhone(event.target.value)}
-                placeholder="Contoh: 081234567890"
-                className="input-field mt-1"
-              />
             </label>
 
             <label className="block">

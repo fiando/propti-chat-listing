@@ -5,7 +5,6 @@ import { useState } from 'react';
 import {
   User,
   Mail,
-  Phone,
   Crown,
   Home,
   TrendingUp,
@@ -165,12 +164,6 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
               <Mail className="w-3.5 h-3.5" />
               {displayEmail}
             </div>
-            {profile.phone && (
-              <div className="flex items-center gap-1.5 text-gray-500 text-sm mt-1">
-                <Phone className="w-3.5 h-3.5" />
-                {profile.phone}
-              </div>
-            )}
           </div>
         </div>
 
