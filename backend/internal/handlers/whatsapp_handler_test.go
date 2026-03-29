@@ -344,3 +344,24 @@ func TestToHTTPRequestPrefersForwardedURLForWebhookSignature(t *testing.T) {
 		t.Fatalf("expected forwarded webhook URL %q, got %q", want, got)
 	}
 }
+
+func TestToHTTPRequestPrefersHostHeaderOverForwardedHost(t *testing.T) {
+	httpReq, err := toHTTPRequest(events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodPost,
+		Path:       "/whatsapp/webhook",
+		Headers: map[string]string{
+			"Host":              "api.propti.id",
+			"X-Forwarded-Proto": "https",
+			"X-Forwarded-Host":  "4s6kgocbpg.execute-api.ap-southeast-1.amazonaws.com",
+			"Content-Type":      "application/x-www-form-urlencoded",
+		},
+		Body: "MessageSid=SM123&Body=halo",
+	})
+	if err != nil {
+		t.Fatalf("toHTTPRequest returned error: %v", err)
+	}
+
+	if got, want := httpReq.URL.String(), "https://api.propti.id/whatsapp/webhook"; got != want {
+		t.Fatalf("expected host header URL %q, got %q", want, got)
+	}
+}

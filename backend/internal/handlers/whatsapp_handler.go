@@ -263,17 +263,14 @@ func toHTTPRequest(req events.APIGatewayProxyRequest) (*http.Request, error) {
 		rawBody = string(decoded)
 	}
 
-	proto := strings.TrimSpace(req.Headers["X-Forwarded-Proto"])
-	if proto == "" {
-		proto = strings.TrimSpace(req.Headers["x-forwarded-proto"])
-	}
+	proto := headerValue(req.Headers, "X-Forwarded-Proto")
 	if proto == "" {
 		proto = "https"
 	}
 
-	host := strings.TrimSpace(req.Headers["X-Forwarded-Host"])
+	host := headerValue(req.Headers, "Host")
 	if host == "" {
-		host = strings.TrimSpace(req.Headers["x-forwarded-host"])
+		host = headerValue(req.Headers, "X-Forwarded-Host")
 	}
 	if host == "" {
 		host = "webhook.local"
@@ -296,4 +293,16 @@ func toHTTPRequest(req events.APIGatewayProxyRequest) (*http.Request, error) {
 		httpReq.Header.Set(key, value)
 	}
 	return httpReq, nil
+}
+
+func headerValue(headers map[string]string, key string) string {
+	if headers == nil {
+		return ""
+	}
+	for k, v := range headers {
+		if strings.EqualFold(strings.TrimSpace(k), key) {
+			return strings.TrimSpace(v)
+		}
+	}
+	return ""
 }
