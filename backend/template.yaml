@@ -29,6 +29,7 @@ Globals:
         TWILIO_ACCOUNT_SID: !Ref TwilioAccountSID
         TWILIO_AUTH_TOKEN: !Ref TwilioAuthToken
         TWILIO_WHATSAPP_FROM: !Ref TwilioWhatsAppFrom
+        WEB_BASE_URL: !Ref WebBaseURL
         META_WHATSAPP_ACCESS_TOKEN: ""
         META_WHATSAPP_PHONE_NUMBER_ID: ""
         META_WHATSAPP_VERIFY_TOKEN: ""
@@ -101,6 +102,9 @@ Parameters:
   TwilioWhatsAppFrom:
     Type: String
     Default: ""
+  WebBaseURL:
+    Type: String
+    Default: "https://propti.id"
 
 Conditions:
   HasApiCustomDomain: !And

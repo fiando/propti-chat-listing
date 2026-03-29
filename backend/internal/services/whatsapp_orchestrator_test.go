@@ -356,3 +356,58 @@ func appCodeFromErr(t *testing.T, err error) int {
 	}
 	return appErr.Code
 }
+
+func TestWhatsAppOrchestratorCreatePopulatesListingDeepLink(t *testing.T) {
+	t.Parallel()
+
+	listingSvc := &fakeWhatsAppOrchestratorListingService{
+		parseResp:  &models.ParseTextResponse{Parsed: models.ParsedListing{Title: "Rumah Bagus", Price: 500000000, PriceUnit: "total"}},
+		createResp: &models.Listing{ListingID: "listing-abc"},
+	}
+	orchestrator, err := NewWhatsAppCommandOrchestrator(
+		listingSvc,
+		&fakeWhatsAppOrchestratorSearchIntentService{},
+		&fakeWhatsAppOrchestratorUserStore{user: &models.User{UserID: "user-1", Subscription: models.Subscription{Tier: models.SubscriptionFree}}},
+		&fakeWhatsAppOrchestratorEligibilityGuard{},
+		WhatsAppCommandOrchestratorOptions{WebBaseURL: "https://propti.id"},
+	)
+	if err != nil {
+		t.Fatalf("NewWhatsAppCommandOrchestrator error: %v", err)
+	}
+
+	resp, err := orchestrator.HandleText(context.Background(), WhatsAppCommandRequest{UserID: "user-1", Text: "jual rumah bagus"})
+	if err != nil {
+		t.Fatalf("HandleText error: %v", err)
+	}
+	if resp.WebDeepLink != "https://propti.id/listings/listing-abc" {
+		t.Fatalf("expected listing deep link https://propti.id/listings/listing-abc, got %q", resp.WebDeepLink)
+	}
+}
+
+func TestWhatsAppOrchestratorEditPopulatesListingDeepLink(t *testing.T) {
+	t.Parallel()
+
+	listingSvc := &fakeWhatsAppOrchestratorListingService{
+		parseResp:  &models.ParseTextResponse{Parsed: models.ParsedListing{Title: "Rumah Diperbarui"}},
+		updateResp: &models.Listing{ListingID: "listing-xyz"},
+	}
+	renewDate := time.Now().UTC().Add(24 * time.Hour)
+	orchestrator, err := NewWhatsAppCommandOrchestrator(
+		listingSvc,
+		&fakeWhatsAppOrchestratorSearchIntentService{},
+		&fakeWhatsAppOrchestratorUserStore{user: &models.User{UserID: "user-1", Subscription: models.Subscription{Tier: models.SubscriptionPremium, RenewDate: &renewDate}}},
+		&fakeWhatsAppOrchestratorEligibilityGuard{},
+		WhatsAppCommandOrchestratorOptions{WebBaseURL: "https://propti.id"},
+	)
+	if err != nil {
+		t.Fatalf("NewWhatsAppCommandOrchestrator error: %v", err)
+	}
+
+	resp, err := orchestrator.HandleText(context.Background(), WhatsAppCommandRequest{UserID: "user-1", Text: "edit listing-xyz | ubah judul"})
+	if err != nil {
+		t.Fatalf("HandleText edit error: %v", err)
+	}
+	if resp.WebDeepLink != "https://propti.id/listings/listing-xyz" {
+		t.Fatalf("expected listing deep link https://propti.id/listings/listing-xyz, got %q", resp.WebDeepLink)
+	}
+}

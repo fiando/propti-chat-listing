@@ -77,4 +77,5 @@ jobs:
               WhatsAppProvider=${{ secrets.WHATSAPP_PROVIDER }} \
               TwilioAccountSID=${{ secrets.TWILIO_ACCOUNT_SID }} \
               TwilioAuthToken=${{ secrets.TWILIO_AUTH_TOKEN }} \
-              TwilioWhatsAppFrom=${{ secrets.TWILIO_WHATSAPP_FROM }}
+              TwilioWhatsAppFrom=${{ secrets.TWILIO_WHATSAPP_FROM }} \
+              WebBaseURL=https://propti.id

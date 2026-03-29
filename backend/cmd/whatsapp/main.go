@@ -155,7 +155,10 @@ func main() {
 		searchIntentSvc,
 		userRepo,
 		identitySvc,
-		services.WhatsAppCommandOrchestratorOptions{MetricsSink: metricsSvc},
+		services.WhatsAppCommandOrchestratorOptions{
+			MetricsSink: metricsSvc,
+			WebBaseURL:  strings.TrimSpace(os.Getenv("WEB_BASE_URL")),
+		},
 	)
 	if err != nil {
 		utils.LogError("init whatsapp command orchestrator", err)
@@ -195,6 +198,7 @@ func main() {
 		Policy:              policy,
 		StatusSink:          &whatsAppDeliveryStatusLogger{},
 		MetaVerifyToken:     metaVerifyToken,
+		WebBaseURL:          strings.TrimSpace(os.Getenv("WEB_BASE_URL")),
 	})
 
 	lambda.Start(handler.Handle)

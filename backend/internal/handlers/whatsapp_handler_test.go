@@ -26,6 +26,16 @@ type fakeWebhookProvider struct {
 	statusErr    error
 
 	verifyCalls int
+	sentMessages []models.WhatsAppSendRequest
+	sendErr      error
+}
+
+func (f *fakeWebhookProvider) Send(_ context.Context, req models.WhatsAppSendRequest) (models.WhatsAppSendResult, error) {
+	if f.sendErr != nil {
+		return models.WhatsAppSendResult{}, f.sendErr
+	}
+	f.sentMessages = append(f.sentMessages, req)
+	return models.WhatsAppSendResult{ProviderMessageID: "FAKE-MSG"}, nil
 }
 
 func (f *fakeWebhookProvider) ParseInboundWebhook(_ context.Context, _ *http.Request) (*models.WhatsAppMessageEnvelope, error) {
@@ -80,13 +90,18 @@ func (f *fakeWhatsAppVoiceService) HandleInboundVoice(_ context.Context, req ser
 }
 
 type fakeWhatsAppPolicy struct {
-	recordErr error
-	recorded  *models.WhatsAppMessageEnvelope
+	recordErr    error
+	recorded     *models.WhatsAppMessageEnvelope
+	outboundErr  error
 }
 
 func (f *fakeWhatsAppPolicy) RecordInboundMessage(_ context.Context, envelope models.WhatsAppMessageEnvelope) error {
 	f.recorded = &envelope
 	return f.recordErr
+}
+
+func (f *fakeWhatsAppPolicy) EnsureOutboundAllowed(_ context.Context, _ models.WhatsAppSendRequest) error {
+	return f.outboundErr
 }
 
 type fakeStatusSink struct {
@@ -363,5 +378,230 @@ func TestToHTTPRequestPrefersHostHeaderOverForwardedHost(t *testing.T) {
 
 	if got, want := httpReq.URL.String(), "https://api.propti.id/whatsapp/webhook"; got != want {
 		t.Fatalf("expected host header URL %q, got %q", want, got)
+	}
+}
+
+func TestWhatsAppHandlerInboundTextSendsReplyOnSuccess(t *testing.T) {
+	t.Parallel()
+
+	provider := &fakeWebhookProvider{
+		inboundEnvelope: &models.WhatsAppMessageEnvelope{
+			From: "whatsapp:+628123456789",
+			To:   "whatsapp:+14155550000",
+			Type: models.WhatsAppMessageTypeText,
+			Text: "jual rumah di jogja",
+		},
+	}
+	command := &fakeWhatsAppCommandOrchestrator{
+		resp: &services.WhatsAppCommandResponse{
+			Intent:      services.WhatsAppCommandIntentListingCreate,
+			Message:     "listing created",
+			Listing:     &models.Listing{ListingID: "listing-1", Title: "Rumah Dijual Jogja"},
+			WebDeepLink: "https://propti.id/listings/listing-1",
+		},
+	}
+	policy := &fakeWhatsAppPolicy{}
+	handler := NewWhatsAppHandler(WhatsAppHandlerDependencies{
+		Provider:            provider,
+		UserStore:           &fakeWhatsAppUserStore{user: &models.User{UserID: "user-1"}},
+		CommandOrchestrator: command,
+		Policy:              policy,
+	})
+
+	resp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodPost,
+		Path:       "/whatsapp/webhook/inbound",
+		Headers:    map[string]string{"Content-Type": "application/json"},
+		Body:       `{"entry":[]}`,
+	})
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", resp.StatusCode, resp.Body)
+	}
+	if len(provider.sentMessages) != 1 {
+		t.Fatalf("expected 1 reply to be sent, got %d", len(provider.sentMessages))
+	}
+	sent := provider.sentMessages[0]
+	if sent.To != "whatsapp:+628123456789" {
+		t.Fatalf("expected reply sent to user phone, got %q", sent.To)
+	}
+	if !strings.Contains(sent.Message.Text, "✅") {
+		t.Fatalf("expected success emoji in reply, got %q", sent.Message.Text)
+	}
+	if !strings.Contains(sent.Message.Text, "listing-1") {
+		t.Fatalf("expected listing link in reply, got %q", sent.Message.Text)
+	}
+}
+
+func TestWhatsAppHandlerInboundTextSendsErrorReplyOnFailure(t *testing.T) {
+	t.Parallel()
+
+	provider := &fakeWebhookProvider{
+		inboundEnvelope: &models.WhatsAppMessageEnvelope{
+			From: "whatsapp:+628123456789",
+			To:   "whatsapp:+14155550000",
+			Type: models.WhatsAppMessageTypeText,
+			Text: "jual rumah",
+		},
+	}
+	command := &fakeWhatsAppCommandOrchestrator{
+		err: errors.New("service unavailable"),
+	}
+	policy := &fakeWhatsAppPolicy{}
+	handler := NewWhatsAppHandler(WhatsAppHandlerDependencies{
+		Provider:            provider,
+		UserStore:           &fakeWhatsAppUserStore{user: &models.User{UserID: "user-1"}},
+		CommandOrchestrator: command,
+		Policy:              policy,
+	})
+
+	resp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodPost,
+		Path:       "/whatsapp/webhook/inbound",
+		Headers:    map[string]string{"Content-Type": "application/json"},
+		Body:       `{"entry":[]}`,
+	})
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+	if resp.StatusCode == http.StatusOK {
+		t.Fatal("expected non-200 status for command error")
+	}
+	if len(provider.sentMessages) != 1 {
+		t.Fatalf("expected 1 error reply to be sent, got %d", len(provider.sentMessages))
+	}
+	if !strings.Contains(provider.sentMessages[0].Message.Text, "❌") {
+		t.Fatalf("expected error emoji in reply, got %q", provider.sentMessages[0].Message.Text)
+	}
+}
+
+func TestWhatsAppHandlerReplySkippedWhenPolicyBlocksOutbound(t *testing.T) {
+	t.Parallel()
+
+	provider := &fakeWebhookProvider{
+		inboundEnvelope: &models.WhatsAppMessageEnvelope{
+			From: "whatsapp:+628123456789",
+			To:   "whatsapp:+14155550000",
+			Type: models.WhatsAppMessageTypeText,
+			Text: "listing saya",
+		},
+	}
+	command := &fakeWhatsAppCommandOrchestrator{
+		resp: &services.WhatsAppCommandResponse{
+			Intent: services.WhatsAppCommandIntentListingRead,
+		},
+	}
+	policy := &fakeWhatsAppPolicy{outboundErr: errors.New("outside 24h window")}
+	handler := NewWhatsAppHandler(WhatsAppHandlerDependencies{
+		Provider:            provider,
+		UserStore:           &fakeWhatsAppUserStore{user: &models.User{UserID: "user-1"}},
+		CommandOrchestrator: command,
+		Policy:              policy,
+	})
+
+	resp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodPost,
+		Path:       "/whatsapp/webhook/inbound",
+		Headers:    map[string]string{"Content-Type": "application/json"},
+		Body:       `{"entry":[]}`,
+	})
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 even when policy blocks outbound, got %d", resp.StatusCode)
+	}
+	if len(provider.sentMessages) != 0 {
+		t.Fatalf("expected no reply sent when policy blocks, got %d", len(provider.sentMessages))
+	}
+}
+
+func TestFormatCommandReplyListingCreate(t *testing.T) {
+	t.Parallel()
+
+	resp := &services.WhatsAppCommandResponse{
+		Intent:      services.WhatsAppCommandIntentListingCreate,
+		Listing:     &models.Listing{ListingID: "L1", Title: "Rumah Jogja", Price: 1200000000, PriceUnit: "total", Location: models.Location{City: "Yogyakarta", Province: "DIY"}},
+		WebDeepLink: "https://propti.id/listings/L1",
+	}
+	msg := formatCommandReply(resp, "https://propti.id")
+
+	if !strings.Contains(msg, "✅") {
+		t.Fatalf("expected success indicator, got %q", msg)
+	}
+	if !strings.Contains(msg, "Rumah Jogja") {
+		t.Fatalf("expected listing title, got %q", msg)
+	}
+	if !strings.Contains(msg, "https://propti.id/listings/L1") {
+		t.Fatalf("expected listing link, got %q", msg)
+	}
+	if !strings.Contains(msg, "Aktif") {
+		t.Fatalf("expected active status mention, got %q", msg)
+	}
+	if !strings.Contains(msg, "moderasi") {
+		t.Fatalf("expected moderation mention, got %q", msg)
+	}
+}
+
+func TestFormatCommandReplyListingDelete(t *testing.T) {
+	t.Parallel()
+
+	resp := &services.WhatsAppCommandResponse{
+		Intent:  services.WhatsAppCommandIntentListingDelete,
+		Message: "listing deleted",
+	}
+	msg := formatCommandReply(resp, "https://propti.id")
+
+	if !strings.Contains(msg, "✅") {
+		t.Fatalf("expected success indicator for delete, got %q", msg)
+	}
+	if !strings.Contains(msg, "dihapus") {
+		t.Fatalf("expected delete confirmation in Indonesian, got %q", msg)
+	}
+}
+
+func TestFormatCommandReplySubscription(t *testing.T) {
+	t.Parallel()
+
+	resp := &services.WhatsAppCommandResponse{
+		Intent: services.WhatsAppCommandIntentSubscriptionStatus,
+		Subscription: &services.WhatsAppSubscriptionSummary{
+			Tier:              "basic",
+			Status:            "active",
+			UsedListings:      2,
+			LimitListings:     6,
+			RemainingListings: 4,
+		},
+	}
+	msg := formatCommandReply(resp, "https://propti.id")
+
+	if !strings.Contains(msg, "📊") {
+		t.Fatalf("expected subscription emoji, got %q", msg)
+	}
+	if !strings.Contains(msg, "2/6") {
+		t.Fatalf("expected listing usage count, got %q", msg)
+	}
+}
+
+func TestFormatRupiah(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		amount float64
+	}{
+		{1200000000},
+		{500000000},
+		{350000000},
+		{5000000},
+		{500000},
+		{50000},
+	}
+	for _, c := range cases {
+		got := formatRupiah(c.amount)
+		if !strings.Contains(got, "Rp") {
+			t.Errorf("formatRupiah(%v): expected Rp prefix, got %q", c.amount, got)
+		}
 	}
 }

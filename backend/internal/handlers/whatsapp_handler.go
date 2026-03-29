@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -18,6 +19,7 @@ import (
 )
 
 type whatsAppWebhookProvider interface {
+	Send(ctx context.Context, request models.WhatsAppSendRequest) (models.WhatsAppSendResult, error)
 	ParseInboundWebhook(ctx context.Context, request *http.Request) (*models.WhatsAppMessageEnvelope, error)
 	ParseDeliveryStatusWebhook(ctx context.Context, request *http.Request) ([]models.WhatsAppDeliveryStatusEvent, error)
 	VerifyWebhookRequest(request *http.Request) error
@@ -37,6 +39,7 @@ type whatsAppWebhookVoiceService interface {
 
 type whatsAppWebhookPolicy interface {
 	RecordInboundMessage(ctx context.Context, envelope models.WhatsAppMessageEnvelope) error
+	EnsureOutboundAllowed(ctx context.Context, req models.WhatsAppSendRequest) error
 }
 
 type whatsAppWebhookStatusSink interface {
@@ -51,6 +54,7 @@ type WhatsAppHandlerDependencies struct {
 	Policy              whatsAppWebhookPolicy
 	StatusSink          whatsAppWebhookStatusSink
 	MetaVerifyToken     string
+	WebBaseURL          string
 }
 
 type WhatsAppHandler struct {
@@ -61,9 +65,14 @@ type WhatsAppHandler struct {
 	policy              whatsAppWebhookPolicy
 	statusSink          whatsAppWebhookStatusSink
 	metaVerifyToken     string
+	webBaseURL          string
 }
 
 func NewWhatsAppHandler(deps WhatsAppHandlerDependencies) *WhatsAppHandler {
+	webBase := strings.TrimSpace(deps.WebBaseURL)
+	if webBase == "" {
+		webBase = "https://propti.id"
+	}
 	return &WhatsAppHandler{
 		provider:            deps.Provider,
 		userStore:           deps.UserStore,
@@ -72,6 +81,7 @@ func NewWhatsAppHandler(deps WhatsAppHandlerDependencies) *WhatsAppHandler {
 		policy:              deps.Policy,
 		statusSink:          deps.StatusSink,
 		metaVerifyToken:     strings.TrimSpace(deps.MetaVerifyToken),
+		webBaseURL:          webBase,
 	}
 }
 
@@ -168,7 +178,13 @@ func (h *WhatsAppHandler) processInbound(ctx context.Context, req events.APIGate
 			Envelope: *envelope,
 		})
 		if err != nil {
+			h.sendErrorReply(ctx, envelope.From, envelope.To, err)
 			return appErrorResponse(err), true
+		}
+		if voiceResp.CommandResponse != nil {
+			h.sendCommandReply(ctx, envelope.From, envelope.To, voiceResp.CommandResponse)
+		} else if voiceResp.FallbackMessage != "" {
+			h.sendTextReply(ctx, envelope.From, envelope.To, voiceResp.FallbackMessage)
 		}
 		body, _ := json.Marshal(voiceResp)
 		return jsonResponse(http.StatusOK, string(body)), true
@@ -182,8 +198,10 @@ func (h *WhatsAppHandler) processInbound(ctx context.Context, req events.APIGate
 		Text:   envelope.Text,
 	})
 	if err != nil {
+		h.sendErrorReply(ctx, envelope.From, envelope.To, err)
 		return appErrorResponse(err), true
 	}
+	h.sendCommandReply(ctx, envelope.From, envelope.To, commandResp)
 	body, _ := json.Marshal(commandResp)
 	return jsonResponse(http.StatusOK, string(body)), true
 }
@@ -305,4 +323,282 @@ func headerValue(headers map[string]string, key string) string {
 		}
 	}
 	return ""
+}
+
+// sendCommandReply sends a human-readable WhatsApp reply for a successfully processed command.
+// Failures to send are logged and silently swallowed so the webhook always returns 200.
+func (h *WhatsAppHandler) sendCommandReply(ctx context.Context, to, from string, resp *services.WhatsAppCommandResponse) {
+	if resp == nil {
+		return
+	}
+	msg := formatCommandReply(resp, h.webBaseURL)
+	if msg == "" {
+		return
+	}
+	h.sendTextReply(ctx, to, from, msg)
+}
+
+// sendErrorReply sends a user-friendly WhatsApp error message back to the sender.
+func (h *WhatsAppHandler) sendErrorReply(ctx context.Context, to, from string, err error) {
+	msg := formatErrorReply(err)
+	if msg == "" {
+		return
+	}
+	h.sendTextReply(ctx, to, from, msg)
+}
+
+// sendTextReply sends a plain text WhatsApp message. It checks the outbound policy (24-hour
+// customer-service window) before sending. Errors are logged but never propagated so the
+// webhook handler can always return 200 OK.
+func (h *WhatsAppHandler) sendTextReply(ctx context.Context, to, from, text string) {
+	if h.provider == nil || strings.TrimSpace(to) == "" || strings.TrimSpace(text) == "" {
+		return
+	}
+	sendReq := models.WhatsAppSendRequest{
+		To:   to,
+		From: from,
+		Message: models.WhatsAppOutboundMessage{
+			Type: models.WhatsAppMessageTypeText,
+			Text: text,
+		},
+	}
+	if h.policy != nil {
+		if err := h.policy.EnsureOutboundAllowed(ctx, sendReq); err != nil {
+			utils.LogWarn("whatsapp outbound policy blocked reply", "to", to, "error", err.Error())
+			return
+		}
+	}
+	if _, err := h.provider.Send(ctx, sendReq); err != nil {
+		utils.LogWarn("whatsapp send reply failed", "to", to, "error", err.Error())
+	}
+}
+
+// formatCommandReply converts a WhatsAppCommandResponse into a human-readable Indonesian
+// WhatsApp message. It returns an empty string if there is nothing meaningful to send.
+func formatCommandReply(resp *services.WhatsAppCommandResponse, webBaseURL string) string {
+	if resp == nil {
+		return ""
+	}
+	switch resp.Intent {
+	case services.WhatsAppCommandIntentListingCreate:
+		return formatListingCreateReply(resp.Listing, resp.WebDeepLink)
+	case services.WhatsAppCommandIntentListingEdit:
+		return formatListingEditReply(resp.Listing, resp.WebDeepLink)
+	case services.WhatsAppCommandIntentListingDelete:
+		return "✅ Iklan berhasil dihapus."
+	case services.WhatsAppCommandIntentListingRead:
+		return formatListingReadReply(resp.Listings, webBaseURL)
+	case services.WhatsAppCommandIntentSearch:
+		return formatSearchReply(resp.Listings, resp.WebDeepLink)
+	case services.WhatsAppCommandIntentSubscriptionStatus:
+		return formatSubscriptionReply(resp.Subscription)
+	default:
+		return strings.TrimSpace(resp.Message)
+	}
+}
+
+func formatListingCreateReply(listing *models.Listing, link string) string {
+	if listing == nil {
+		return "✅ Iklan berhasil dibuat!"
+	}
+	var b strings.Builder
+	b.WriteString("✅ Iklan berhasil dibuat!\n\n")
+	if listing.Title != "" {
+		b.WriteString("🏠 " + listing.Title + "\n")
+	}
+	if listing.Price > 0 {
+		b.WriteString("💰 " + formatPrice(listing.Price, listing.PriceUnit) + "\n")
+	}
+	if listing.Location.City != "" || listing.Location.Province != "" {
+		b.WriteString("📍 " + formatLocation(listing.Location) + "\n")
+	}
+	b.WriteString("\n📊 Status: Aktif — sedang menunggu moderasi\n")
+	b.WriteString("Iklan kamu sudah langsung tayang sambil menunggu verifikasi.\n")
+	if link != "" {
+		b.WriteString("\n🔗 Lihat iklan: " + link)
+	}
+	return b.String()
+}
+
+func formatListingEditReply(listing *models.Listing, link string) string {
+	if listing == nil {
+		return "✅ Iklan berhasil diperbarui!"
+	}
+	var b strings.Builder
+	b.WriteString("✅ Iklan berhasil diperbarui!\n\n")
+	if listing.Title != "" {
+		b.WriteString("🏠 " + listing.Title + "\n")
+	}
+	if listing.ModerationStatus == models.ModerationStatusPending {
+		b.WriteString("📊 Sedang menunggu moderasi ulang.\n")
+	}
+	if link != "" {
+		b.WriteString("\n🔗 Lihat iklan: " + link)
+	}
+	return b.String()
+}
+
+func formatListingReadReply(listings []models.Listing, webBaseURL string) string {
+	if len(listings) == 0 {
+		return "📋 Kamu belum memiliki iklan aktif."
+	}
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("📋 Iklan kamu (%d iklan):\n", len(listings)))
+	base := strings.TrimRight(webBaseURL, "/")
+	limit := len(listings)
+	if limit > 5 {
+		limit = 5
+	}
+	for i, l := range listings[:limit] {
+		b.WriteString(fmt.Sprintf("\n%d. %s\n", i+1, l.Title))
+		if l.Price > 0 {
+			b.WriteString("   💰 " + formatPrice(l.Price, l.PriceUnit) + "\n")
+		}
+		b.WriteString("   📊 " + formatListingStatus(l.Status, l.ModerationStatus) + "\n")
+		if l.ListingID != "" && base != "" {
+			b.WriteString("   🔗 " + base + "/listings/" + l.ListingID + "\n")
+		}
+	}
+	if len(listings) > 5 {
+		b.WriteString(fmt.Sprintf("\n...dan %d iklan lainnya.", len(listings)-5))
+	}
+	return b.String()
+}
+
+func formatSearchReply(listings []models.Listing, webDeepLink string) string {
+	var b strings.Builder
+	if len(listings) == 0 {
+		b.WriteString("🔍 Tidak ada iklan yang ditemukan untuk pencarian ini.")
+		if webDeepLink != "" {
+			b.WriteString("\n\n🌐 Coba cari di web: " + webDeepLink)
+		}
+		return b.String()
+	}
+	b.WriteString(fmt.Sprintf("🔍 Ditemukan %d iklan:\n", len(listings)))
+	limit := len(listings)
+	if limit > 5 {
+		limit = 5
+	}
+	for i, l := range listings[:limit] {
+		b.WriteString(fmt.Sprintf("\n%d. %s\n", i+1, l.Title))
+		if l.Price > 0 {
+			b.WriteString("   💰 " + formatPrice(l.Price, l.PriceUnit) + "\n")
+		}
+		if l.Location.City != "" || l.Location.Province != "" {
+			b.WriteString("   📍 " + formatLocation(l.Location) + "\n")
+		}
+	}
+	if webDeepLink != "" {
+		b.WriteString("\n🌐 Lihat semua: " + webDeepLink)
+	}
+	return b.String()
+}
+
+func formatSubscriptionReply(sub *services.WhatsAppSubscriptionSummary) string {
+	if sub == nil {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("📊 Status Paket Propti\n\n")
+	b.WriteString("Paket: " + formatTierName(string(sub.Tier)) + "\n")
+	b.WriteString("Status: " + formatSubscriptionStatus(sub.Status) + "\n")
+	b.WriteString(fmt.Sprintf("Iklan: %d/%d (%d tersisa)\n", sub.UsedListings, sub.LimitListings, sub.RemainingListings))
+	if sub.UpgradeGuidance != "" {
+		b.WriteString("\n" + sub.UpgradeGuidance)
+	}
+	return b.String()
+}
+
+// formatErrorReply converts an error into a user-friendly Indonesian message.
+func formatErrorReply(err error) string {
+	if err == nil {
+		return ""
+	}
+	var appErr *utils.AppError
+	if errors.As(err, &appErr) {
+		switch appErr.Code {
+		case 400:
+			return "❌ Perintah tidak valid. Coba periksa kembali format pesan kamu."
+		case 403:
+			return "❌ " + appErr.Message
+		case 429:
+			return "❌ Terlalu banyak permintaan. Silakan coba lagi beberapa saat."
+		case 404:
+			return "❌ Iklan tidak ditemukan."
+		}
+	}
+	return "❌ Terjadi kesalahan. Silakan coba lagi."
+}
+
+func formatPrice(price float64, unit string) string {
+	formatted := formatRupiah(price)
+	if unit != "" && unit != "total" {
+		return formatted + " " + unit
+	}
+	return formatted
+}
+
+func formatRupiah(amount float64) string {
+	if amount >= 1_000_000_000 {
+		return fmt.Sprintf("Rp %.2fM", amount/1_000_000_000)
+	}
+	if amount >= 1_000_000 {
+		return fmt.Sprintf("Rp %.0f jt", amount/1_000_000)
+	}
+	if amount >= 1_000 {
+		return fmt.Sprintf("Rp %.0f rb", amount/1_000)
+	}
+	return fmt.Sprintf("Rp %.0f", amount)
+}
+
+func formatLocation(loc models.Location) string {
+	parts := []string{}
+	if loc.City != "" {
+		parts = append(parts, loc.City)
+	}
+	if loc.Province != "" && loc.Province != loc.City {
+		parts = append(parts, loc.Province)
+	}
+	return strings.Join(parts, ", ")
+}
+
+func formatListingStatus(status models.ListingStatus, modStatus models.ModerationStatus) string {
+	statusStr := "Aktif"
+	switch status {
+	case models.ListingStatusSold:
+		statusStr = "Terjual"
+	case models.ListingStatusArchived:
+		statusStr = "Diarsipkan"
+	}
+	modStr := ""
+	switch modStatus {
+	case models.ModerationStatusPending:
+		modStr = "sedang diproses moderasi"
+	case models.ModerationStatusRejected:
+		modStr = "ditolak moderasi"
+	}
+	if modStr != "" {
+		return statusStr + " (" + modStr + ")"
+	}
+	return statusStr
+}
+
+func formatSubscriptionStatus(status models.SubscriptionStatus) string {
+	switch status {
+	case models.SubscriptionActive:
+		return "Aktif"
+	case models.SubscriptionExpiringSoon:
+		return "Akan habis masa berlakunya"
+	case models.SubscriptionExpired:
+		return "Kadaluarsa"
+	default:
+		return string(status)
+	}
+}
+
+func formatTierName(tier string) string {
+	if tier == "" {
+		return "Free"
+	}
+	return strings.ToUpper(tier[:1]) + tier[1:]
 }

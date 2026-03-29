@@ -71,6 +71,7 @@ type WhatsAppOrchestratorWriteEligibilityGuard interface {
 type WhatsAppCommandOrchestratorOptions struct {
 	Now          func() time.Time
 	WebSearchURL string
+	WebBaseURL   string
 	MetricsSink  WhatsAppCommandMetricsSink
 }
 
@@ -87,6 +88,7 @@ type WhatsAppCommandOrchestrator struct {
 	writeEligibilityGuard WhatsAppOrchestratorWriteEligibilityGuard
 	now                   func() time.Time
 	webSearchURL          string
+	webBaseURL            string
 	metricsSink           WhatsAppCommandMetricsSink
 }
 
@@ -115,6 +117,10 @@ func NewWhatsAppCommandOrchestrator(
 	if webURL == "" {
 		webURL = "https://propti.id/search"
 	}
+	webBase := strings.TrimSpace(opts.WebBaseURL)
+	if webBase == "" {
+		webBase = "https://propti.id"
+	}
 
 	return &WhatsAppCommandOrchestrator{
 		listingService:        listingService,
@@ -123,6 +129,7 @@ func NewWhatsAppCommandOrchestrator(
 		writeEligibilityGuard: writeEligibilityGuard,
 		now:                   nowFn,
 		webSearchURL:          webURL,
+		webBaseURL:            webBase,
 		metricsSink:           opts.MetricsSink,
 	}, nil
 }
@@ -307,7 +314,12 @@ func (o *WhatsAppCommandOrchestrator) handleCreate(ctx context.Context, userID, 
 		return nil, err
 	}
 
-	return &WhatsAppCommandResponse{Intent: WhatsAppCommandIntentListingCreate, Listing: listing, Message: "listing created"}, nil
+	return &WhatsAppCommandResponse{
+		Intent:      WhatsAppCommandIntentListingCreate,
+		Listing:     listing,
+		Message:     "listing created",
+		WebDeepLink: o.buildListingDeepLink(listing.ListingID),
+	}, nil
 }
 
 func (o *WhatsAppCommandOrchestrator) handleEdit(ctx context.Context, userID, payload string) (*WhatsAppCommandResponse, error) {
@@ -357,7 +369,12 @@ func (o *WhatsAppCommandOrchestrator) handleEdit(ctx context.Context, userID, pa
 	if err != nil {
 		return nil, err
 	}
-	return &WhatsAppCommandResponse{Intent: WhatsAppCommandIntentListingEdit, Listing: listing, Message: "listing updated"}, nil
+	return &WhatsAppCommandResponse{
+		Intent:      WhatsAppCommandIntentListingEdit,
+		Listing:     listing,
+		Message:     "listing updated",
+		WebDeepLink: o.buildListingDeepLink(listing.ListingID),
+	}, nil
 }
 
 func (o *WhatsAppCommandOrchestrator) handleDelete(ctx context.Context, userID, listingID string) (*WhatsAppCommandResponse, error) {
@@ -440,6 +457,13 @@ func (o *WhatsAppCommandOrchestrator) upgradeGuidanceForTier(tier models.Subscri
 func (o *WhatsAppCommandOrchestrator) buildWebSearchDeepLink(query string) string {
 	base := strings.TrimRight(o.webSearchURL, "?")
 	return base + "?q=" + url.QueryEscape(strings.TrimSpace(query))
+}
+
+func (o *WhatsAppCommandOrchestrator) buildListingDeepLink(listingID string) string {
+	if strings.TrimSpace(listingID) == "" {
+		return ""
+	}
+	return strings.TrimRight(o.webBaseURL, "/") + "/listings/" + listingID
 }
 
 func detectWhatsAppIntent(text string) (WhatsAppCommandIntent, string) {
