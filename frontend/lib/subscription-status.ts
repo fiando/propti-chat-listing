@@ -23,16 +23,16 @@ export function getSubscriptionStatus({
     return 'loading';
   }
 
-  if (profile?.subscription?.tier !== 'premium') {
+  if (profile?.subscription?.tier === 'free') {
     return 'free';
   }
 
   // If the API returned a pre-computed status, trust it
-  if (profile.subscriptionStatus && profile.subscriptionStatus !== 'loading') {
+  if (profile?.subscriptionStatus && profile.subscriptionStatus !== 'loading') {
     return profile.subscriptionStatus;
   }
 
-  return getDerivedStatus(profile.subscription.renewDate, now);
+  return getDerivedStatus(profile?.subscription?.renewDate, now);
 }
 
 function getDerivedStatus(renewDateStr: string | undefined, now: number): SubscriptionStatus {
@@ -65,19 +65,19 @@ export function getExpiryMessage(status: SubscriptionStatus, renewDate: string |
   switch (status) {
     case 'active': {
       const days = getDaysUntilExpiry(renewDate);
-      if (days === null) return 'Premium aktif';
+      if (days === null) return 'aktif';
       const date = renewDate ? new Date(renewDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
-      return `Premium aktif sampai ${date}`;
+      return `aktif sampai ${date}`;
     }
     case 'expiring_soon': {
       const days = getDaysUntilExpiry(renewDate);
-      if (days === null || days <= 0) return 'Premium berakhir hari ini';
-      return `Premium berakhir dalam ${days} hari`;
+      if (days === null || days <= 0) return 'berakhir hari ini';
+      return `berakhir dalam ${days} hari`;
     }
     case 'expired':
-      return 'Premium telah berakhir';
+      return 'telah berakhir';
     case 'free':
-      return 'Paket gratis';
+      return 'paket gratis';
     default:
       return '';
   }

@@ -311,8 +311,8 @@ func TestCreateListingFreeTierIgnoresArchivedListingsInQuota(t *testing.T) {
 func TestCreateListingPremiumTierRejectsWhenActiveQuotaIsReached(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now().UTC()
-	activeListings := make(map[string]*models.Listing, 15)
-	for i := 0; i < 15; i++ {
+	activeListings := make(map[string]*models.Listing, 20)
+	for i := 0; i < 20; i++ {
 		listingID := fmt.Sprintf("listing-%d", i+1)
 		expiresAt := now.Add(24 * time.Hour)
 		activeListings[listingID] = &models.Listing{
@@ -355,7 +355,7 @@ func TestCreateListingPremiumTierRejectsWhenActiveQuotaIsReached(t *testing.T) {
 			Address: "Jl. Premium No. 15",
 		},
 	})
-	if err == nil || !strings.Contains(err.Error(), "premium tier allows at most 15 active listing") {
+	if err == nil || !strings.Contains(err.Error(), "premium tier allows at most 20 active listing") {
 		t.Fatalf("expected premium quota error, got %v", err)
 	}
 }
@@ -405,6 +405,58 @@ func TestCreateListingPremiumTierSetsNinetyDayExpiry(t *testing.T) {
 	}
 	if !listing.PremiumFeatures.IsPremium {
 		t.Fatal("expected premium listing flag to be set")
+	}
+}
+
+func TestCreateListingBasicTierRejectsWhenActiveQuotaIsReached(t *testing.T) {
+	ctx := context.Background()
+	now := time.Now().UTC()
+	activeListings := make(map[string]*models.Listing, 6)
+	for i := 0; i < 6; i++ {
+		listingID := fmt.Sprintf("listing-basic-%d", i+1)
+		expiresAt := now.Add(24 * time.Hour)
+		activeListings[listingID] = &models.Listing{
+			ListingID:        listingID,
+			UserID:           "user-basic",
+			Status:           models.ListingStatusActive,
+			ModerationStatus: models.ModerationStatusApproved,
+			ExpiresAt:        &expiresAt,
+		}
+	}
+
+	service := NewListingService(
+		&fakeListingStore{
+			listingsByUser: map[string]map[string]*models.Listing{
+				"user-basic": activeListings,
+			},
+		},
+		&fakeUserStore{
+			user: &models.User{
+				UserID: "user-basic",
+				Subscription: models.Subscription{
+					Tier:      models.SubscriptionBasic,
+					RenewDate: func() *time.Time { t := now.Add(30 * 24 * time.Hour); return &t }(),
+				},
+			},
+		},
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	_, err := service.CreateListing(ctx, "user-basic", &models.CreateListingRequest{
+		Title:       "Rumah basic",
+		Description: "Siap tayang",
+		Price:       900000000,
+		PriceUnit:   "total",
+		ListingType: models.ListingTypeSell,
+		Location: models.Location{
+			Address: "Jl. Basic No. 6",
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "basic tier allows at most 6 active listing") {
+		t.Fatalf("expected basic quota error, got %v", err)
 	}
 }
 
@@ -1744,7 +1796,7 @@ func TestCreateListingBlocksExpiredPremiumUser(t *testing.T) {
 	// Expired premium user is treated as free tier; free tier allows 3 active listings.
 	// With 0 active listings they can still create, but they should be treated as free user
 	// (not premium). We verify that the user is treated as free by checking the limit applies
-	// as the free tier (3 listings) rather than premium (15 listings).
+	// as the free tier (3 listings) rather than premium (20 listings).
 	// With 0 active, creation succeeds but under free-tier limits.
 	// This test creates a second scenario where the free quota is full.
 	_ = err // creation with 0 listings is still allowed under free tier

@@ -28,6 +28,7 @@ export function useAuth() {
   const isSubscriptionLoading = subscriptionStatus === 'loading';
   const isLoading = status === 'loading' || (status === 'authenticated' && isProfileLoading);
   const isPremium = subscriptionStatus === 'active' || subscriptionStatus === 'expiring_soon';
+  const tier = profile?.subscription?.tier ?? 'free';
 
   const login = () => signIn('google', { callbackUrl: '/' });
   const logout = () => signOut({ callbackUrl: '/' });
@@ -43,6 +44,7 @@ export function useAuth() {
     isSubscriptionLoading,
     subscriptionStatus,
     isPremium,
+    tier,
     login,
     logout,
     user: session?.user,

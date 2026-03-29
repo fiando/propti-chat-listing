@@ -14,8 +14,6 @@ import (
 )
 
 const (
-	freeTierMaxListings            = 3
-	premiumTierMaxListings         = 15
 	freeTierListingDurationDays    = 30
 	premiumTierListingDurationDays = 90
 
@@ -56,17 +54,22 @@ type LocationNormalizer interface {
 	NormalizeSuggestion(province, city, district string) models.ParsedLocationSuggestion
 }
 
+type WriteEligibilityGuard interface {
+	RequireWriteEligible(ctx context.Context, userID string) error
+}
+
 type ListingService struct {
-	listingRepo       ListingStore
-	userRepo          UserStore
-	aiService         AIParseService
-	mediaStore        MediaStorage
-	mapsService       *GoogleMapsService
-	locationCatalog   LocationNormalizer
-	moderationQueue   ModerationEnqueuer
-	uploadSessionRepo UploadSessionStore
-	idGenerator       func() string
-	now               func() time.Time
+	listingRepo          ListingStore
+	userRepo             UserStore
+	aiService            AIParseService
+	mediaStore           MediaStorage
+	mapsService          *GoogleMapsService
+	locationCatalog      LocationNormalizer
+	moderationQueue      ModerationEnqueuer
+	uploadSessionRepo    UploadSessionStore
+	writeEligibilityGate WriteEligibilityGuard
+	idGenerator          func() string
+	now                  func() time.Time
 }
 
 func NewListingService(
@@ -99,10 +102,17 @@ func (s *ListingService) SetUploadSessionStore(store UploadSessionStore) {
 	s.uploadSessionRepo = store
 }
 
+func (s *ListingService) SetWriteEligibilityGuard(guard WriteEligibilityGuard) {
+	s.writeEligibilityGate = guard
+}
+
 var _ ListingStore = (*repository.ListingRepo)(nil)
 var _ UserStore = (*repository.UserRepo)(nil)
 
 func (s *ListingService) CreateListing(ctx context.Context, userID string, req *models.CreateListingRequest) (*models.Listing, error) {
+	if err := s.enforceWriteEligibility(ctx, userID); err != nil {
+		return nil, err
+	}
 	if err := utils.ValidateCreateListingRequest(req); err != nil {
 		return nil, utils.WrapError(utils.ErrBadRequest, err)
 	}
@@ -115,17 +125,18 @@ func (s *ListingService) CreateListing(ctx context.Context, userID string, req *
 		return nil, utils.ErrUnauthorized
 	}
 
-	isPremium := IsPremiumEntitled(user, time.Now())
+	effectiveTier := effectiveTierForUser(user, time.Now())
+	entitlements := TierEntitlementFor(effectiveTier)
 	count, err := s.listingRepo.CountActiveByUserID(ctx, userID)
 	if err != nil {
 		utils.LogError("count active listings", err, "userId", userID)
 		return nil, utils.ErrInternal
 	}
-	if count >= listingLimitForTier(isPremium) {
-		return nil, listingLimitExceededError(isPremium)
+	if count >= listingLimitForTier(effectiveTier) {
+		return nil, listingLimitExceededError(effectiveTier)
 	}
 
-	if err := utils.ValidateMediaLimits(isPremium, req.NewImageUploadSessionIDs, req.Videos); err != nil {
+	if err := utils.ValidateMediaLimits(entitlements.PhotoCapPerListing, string(effectiveTier), req.NewImageUploadSessionIDs, req.Videos); err != nil {
 		return nil, utils.WrapError(utils.ErrBadRequest, err)
 	}
 
@@ -136,7 +147,7 @@ func (s *ListingService) CreateListing(ctx context.Context, userID string, req *
 	}
 
 	now := s.now()
-	expiresAt := now.AddDate(0, 0, listingDurationDaysForTier(isPremium))
+	expiresAt := now.AddDate(0, 0, listingDurationDaysForTier(effectiveTier))
 	listing := &models.Listing{
 		PK:               fmt.Sprintf("%s#%s", userID, listingID),
 		SK:               listingID,
@@ -153,7 +164,7 @@ func (s *ListingService) CreateListing(ctx context.Context, userID string, req *
 		Images:           images,
 		Videos:           req.Videos,
 		ImageCount:       len(images),
-		PremiumFeatures:  models.PremiumFeatures{IsPremium: isPremium},
+		PremiumFeatures:  models.PremiumFeatures{IsPremium: IsPaidTier(effectiveTier)},
 		ModerationStatus: models.ModerationStatusPending,
 		CreatedAt:        now,
 		UpdatedAt:        now,
@@ -174,6 +185,9 @@ func (s *ListingService) CreateListing(ctx context.Context, userID string, req *
 }
 
 func (s *ListingService) RelistListing(ctx context.Context, userID, listingID string) (*models.Listing, error) {
+	if err := s.enforceWriteEligibility(ctx, userID); err != nil {
+		return nil, err
+	}
 	listing, err := s.listingRepo.GetByID(ctx, userID, listingID)
 	if err != nil {
 		return nil, utils.ErrInternal
@@ -203,22 +217,22 @@ func (s *ListingService) RelistListing(ctx context.Context, userID, listingID st
 		return nil, utils.ErrUnauthorized
 	}
 
-	isPremium := IsPremiumEntitled(user, now)
+	effectiveTier := effectiveTierForUser(user, now)
 	count, err := s.listingRepo.CountActiveByUserID(ctx, userID)
 	if err != nil {
 		utils.LogError("count active listings for relist", err, "userId", userID, "listingId", listingID)
 		return nil, utils.ErrInternal
 	}
-	if count >= listingLimitForTier(isPremium) {
-		return nil, listingLimitExceededError(isPremium)
+	if count >= listingLimitForTier(effectiveTier) {
+		return nil, listingLimitExceededError(effectiveTier)
 	}
 
-	expiresAt := now.AddDate(0, 0, listingDurationDaysForTier(isPremium))
+	expiresAt := now.AddDate(0, 0, listingDurationDaysForTier(effectiveTier))
 	listing.Status = models.ListingStatusActive
 	listing.CreatedAt = now
 	listing.UpdatedAt = now
 	listing.ExpiresAt = &expiresAt
-	listing.PremiumFeatures.IsPremium = isPremium
+	listing.PremiumFeatures.IsPremium = IsPaidTier(effectiveTier)
 	listing.PremiumFeatures.IsFeatured = false
 	listing.PremiumFeatures.FeaturedUntil = nil
 	listing.PremiumFeatures.PromotionUntil = nil
@@ -232,6 +246,9 @@ func (s *ListingService) RelistListing(ctx context.Context, userID, listingID st
 }
 
 func (s *ListingService) UpdateListing(ctx context.Context, userID, listingID string, req *models.UpdateListingRequest) (*models.Listing, error) {
+	if err := s.enforceWriteEligibility(ctx, userID); err != nil {
+		return nil, err
+	}
 	listing, err := s.listingRepo.GetByID(ctx, userID, listingID)
 	if err != nil {
 		return nil, utils.ErrInternal
@@ -250,7 +267,7 @@ func (s *ListingService) UpdateListing(ctx context.Context, userID, listingID st
 	}
 
 	user, _ := s.userRepo.GetByID(ctx, userID)
-	isPremium := user != nil && IsPremiumEntitled(user, time.Now())
+	effectiveTier := effectiveTierForUser(user, time.Now())
 	now := s.now()
 	expired := listing.ExpiresAt != nil && !listing.ExpiresAt.After(now)
 	listing, err = s.normalizeListingStateIfNeeded(ctx, listing)
@@ -287,7 +304,7 @@ func (s *ListingService) UpdateListing(ctx context.Context, userID, listingID st
 		listing.Videos = req.Videos
 	}
 
-	newImageIDs, err := s.applyImageUpdate(ctx, listing, req, isPremium)
+	newImageIDs, err := s.applyImageUpdate(ctx, listing, req, effectiveTier)
 	if err != nil {
 		return nil, err
 	}
@@ -483,25 +500,33 @@ func (s *ListingService) getCurrentListingByListingID(ctx context.Context, listi
 	return s.normalizeListingStateIfNeeded(ctx, current)
 }
 
-func listingLimitForTier(isPremium bool) int {
-	if isPremium {
-		return premiumTierMaxListings
-	}
-	return freeTierMaxListings
+func listingLimitForTier(tier models.SubscriptionTier) int {
+	return TierEntitlementFor(tier).ActiveListingCap
 }
 
-func listingDurationDaysForTier(isPremium bool) int {
-	if isPremium {
+func listingDurationDaysForTier(tier models.SubscriptionTier) int {
+	if IsPaidTier(tier) {
 		return premiumTierListingDurationDays
 	}
 	return freeTierListingDurationDays
 }
 
-func listingLimitExceededError(isPremium bool) error {
-	if isPremium {
-		return utils.NewAppError(403, fmt.Sprintf("premium tier allows at most %d active listing(s)", premiumTierMaxListings))
+func listingLimitExceededError(tier models.SubscriptionTier) error {
+	entitlements := TierEntitlementFor(tier)
+	return utils.NewAppError(403, fmt.Sprintf("%s tier allows at most %d active listing(s)", tier, entitlements.ActiveListingCap))
+}
+
+func effectiveTierForUser(user *models.User, now time.Time) models.SubscriptionTier {
+	if user == nil {
+		return models.SubscriptionFree
 	}
-	return utils.NewAppError(403, fmt.Sprintf("free tier allows at most %d active listing(s)", freeTierMaxListings))
+	if !IsPaidTier(user.Subscription.Tier) {
+		return models.SubscriptionFree
+	}
+	if IsSubscriptionEntitled(user, now) {
+		return user.Subscription.Tier
+	}
+	return models.SubscriptionFree
 }
 
 func (s *ListingService) normalizeListingStateIfNeeded(ctx context.Context, listing *models.Listing) (*models.Listing, error) {
@@ -669,6 +694,9 @@ func (s *ListingService) ListSavedListings(ctx context.Context, userID string, p
 }
 
 func (s *ListingService) SaveListing(ctx context.Context, userID, listingID string) error {
+	if err := s.enforceWriteEligibility(ctx, userID); err != nil {
+		return err
+	}
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		return utils.ErrInternal
@@ -706,6 +734,9 @@ func (s *ListingService) SaveListing(ctx context.Context, userID, listingID stri
 }
 
 func (s *ListingService) UnsaveListing(ctx context.Context, userID, listingID string) error {
+	if err := s.enforceWriteEligibility(ctx, userID); err != nil {
+		return err
+	}
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		return utils.ErrInternal
@@ -750,6 +781,9 @@ func (s *ListingService) UnsaveListing(ctx context.Context, userID, listingID st
 }
 
 func (s *ListingService) DeleteListing(ctx context.Context, userID, listingID string) error {
+	if err := s.enforceWriteEligibility(ctx, userID); err != nil {
+		return err
+	}
 	listing, err := s.listingRepo.GetByID(ctx, userID, listingID)
 	if err != nil {
 		return utils.ErrInternal
@@ -796,6 +830,13 @@ func (s *ListingService) GetUploadURL(ctx context.Context, userID, listingID, fi
 		return "", "", utils.ErrInternal
 	}
 	return uploadURL, key, nil
+}
+
+func (s *ListingService) enforceWriteEligibility(ctx context.Context, userID string) error {
+	if s.writeEligibilityGate == nil {
+		return nil
+	}
+	return s.writeEligibilityGate.RequireWriteEligible(ctx, userID)
 }
 
 func min(a, b int) int {
@@ -868,10 +909,11 @@ func (s *ListingService) ParseListingText(ctx context.Context, text string) (*mo
 
 // applyImageUpdate applies image changes from the request to the listing and returns the IDs of
 // newly added images. Returns (nil, nil) if no image-related fields were provided.
-func (s *ListingService) applyImageUpdate(ctx context.Context, listing *models.Listing, req *models.UpdateListingRequest, isPremium bool) ([]string, error) {
+func (s *ListingService) applyImageUpdate(ctx context.Context, listing *models.Listing, req *models.UpdateListingRequest, tier models.SubscriptionTier) ([]string, error) {
 	imagesChanged := req.RetainedImageIDs != nil || req.NewImageUploadSessionIDs != nil || req.FeaturedImageID != nil || req.FeaturedUploadSessionID != nil
 	if !imagesChanged {
-		return nil, utils.ValidateMediaLimits(isPremium, make([]string, len(listing.Images)), listing.Videos)
+		entitlements := TierEntitlementFor(tier)
+		return nil, utils.ValidateMediaLimits(entitlements.PhotoCapPerListing, string(tier), make([]string, len(listing.Images)), listing.Videos)
 	}
 
 	currentByID := make(map[string]models.ImageEntry, len(listing.Images))
@@ -912,7 +954,8 @@ func (s *ListingService) applyImageUpdate(ctx context.Context, listing *models.L
 	}
 
 	combined := append(retained, newImages...)
-	if err := utils.ValidateMediaLimits(isPremium, make([]string, len(combined)), listing.Videos); err != nil {
+	entitlements := TierEntitlementFor(tier)
+	if err := utils.ValidateMediaLimits(entitlements.PhotoCapPerListing, string(tier), make([]string, len(combined)), listing.Videos); err != nil {
 		return nil, utils.WrapError(utils.ErrBadRequest, err)
 	}
 

@@ -94,7 +94,7 @@ export interface User {
   preferences?: UserPreferences;
   savedListingIds?: string[];
   subscription: {
-    tier: 'free' | 'premium';
+    tier: 'free' | 'basic' | 'premium' | 'pro';
     monthlyListingsUsed: number;
     activeListingsCount?: number;
     renewDate?: string;
@@ -105,6 +105,67 @@ export interface User {
 }
 
 export type SubscriptionStatus = 'active' | 'expiring_soon' | 'expired' | 'free' | 'loading';
+
+export type SubscriptionTier = User['subscription']['tier'];
+
+export interface SubscriptionPlanEntitlement {
+  tier: SubscriptionTier;
+  priceIdr: number;
+  activeListingCap: number;
+  photoCapPerListing: number;
+  waReadAllowed: boolean;
+  waCreateAllowed: boolean;
+  waEditAllowed: boolean;
+  waDeleteAllowed: boolean;
+  voiceMinutesPerMonth: number;
+}
+
+export const SubscriptionPlans: Record<SubscriptionTier, SubscriptionPlanEntitlement> = {
+  free: {
+    tier: 'free',
+    priceIdr: 0,
+    activeListingCap: 3,
+    photoCapPerListing: 3,
+    waReadAllowed: false,
+    waCreateAllowed: true,
+    waEditAllowed: false,
+    waDeleteAllowed: false,
+    voiceMinutesPerMonth: 0,
+  },
+  basic: {
+    tier: 'basic',
+    priceIdr: 59000,
+    activeListingCap: 6,
+    photoCapPerListing: 8,
+    waReadAllowed: true,
+    waCreateAllowed: true,
+    waEditAllowed: false,
+    waDeleteAllowed: false,
+    voiceMinutesPerMonth: 20,
+  },
+  premium: {
+    tier: 'premium',
+    priceIdr: 129000,
+    activeListingCap: 20,
+    photoCapPerListing: 15,
+    waReadAllowed: true,
+    waCreateAllowed: true,
+    waEditAllowed: true,
+    waDeleteAllowed: true,
+    voiceMinutesPerMonth: 60,
+  },
+  pro: {
+    tier: 'pro',
+    priceIdr: 199000,
+    activeListingCap: 50,
+    photoCapPerListing: 20,
+    waReadAllowed: true,
+    waCreateAllowed: true,
+    waEditAllowed: true,
+    waDeleteAllowed: true,
+    voiceMinutesPerMonth: 120,
+  },
+} as const;
 
 export type ContactRevealChannel = 'whatsapp' | 'phone';
 
@@ -286,8 +347,10 @@ export interface LocationSuggestion {
 // ImageLimits are the canonical per-listing image caps per subscription tier.
 // Must stay in sync with backend/internal/utils validator constants.
 export const ImageLimits = {
-  free: 3,
-  premium: 15,
+  free: SubscriptionPlans.free.photoCapPerListing,
+  basic: SubscriptionPlans.basic.photoCapPerListing,
+  premium: SubscriptionPlans.premium.photoCapPerListing,
+  pro: SubscriptionPlans.pro.photoCapPerListing,
 } as const;
 
 export type ImageLimitTier = keyof typeof ImageLimits;

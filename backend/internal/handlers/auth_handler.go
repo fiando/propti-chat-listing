@@ -24,6 +24,7 @@ type AuthHandler struct {
 	userRepo          *repository.UserRepo
 	listingRepo       *repository.ListingRepo
 	paymentReconciler *services.PaymentReconciler
+	whatsAppIdentity  *WhatsAppIdentityHandler
 }
 
 type activeListingCounter interface {
@@ -49,6 +50,13 @@ func NewAuthHandler(db *repository.DynamoDB) *AuthHandler {
 		userRepo:          userRepo,
 		listingRepo:       listingRepo,
 		paymentReconciler: services.NewPaymentReconciler(userRepo, repository.NewTransactionRepo(db), paymentProvider),
+		whatsAppIdentity: NewWhatsAppIdentityHandler(mustWhatsAppIdentityService(
+			services.NewWhatsAppIdentityService(
+				userRepo,
+				repository.NewOTPRepo(db),
+				services.WhatsAppIdentityOptions{},
+			),
+		)),
 	}
 }
 
@@ -61,9 +69,18 @@ func (h *AuthHandler) Handle(ctx context.Context, req events.APIGatewayProxyRequ
 		return h.getUser(ctx, req)
 	case req.HTTPMethod == http.MethodPut && req.Path == "/auth/user":
 		return h.updateUser(ctx, req)
+	case h.whatsAppIdentity != nil && strings.HasPrefix(req.Path, "/auth/whatsapp/"):
+		return h.whatsAppIdentity.Handle(ctx, req)
 	default:
 		return jsonResponse(http.StatusNotFound, utils.MarshalErrorResponse(utils.ErrNotFound)), nil
 	}
+}
+
+func mustWhatsAppIdentityService(service *services.WhatsAppIdentityService, err error) *services.WhatsAppIdentityService {
+	if err != nil {
+		panic(err)
+	}
+	return service
 }
 
 // googleLogin verifies a Google ID token and upserts the user, returning a JWT.

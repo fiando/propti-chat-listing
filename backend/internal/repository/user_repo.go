@@ -119,3 +119,31 @@ func (r *UserRepo) Update(ctx context.Context, userID string, updates map[string
 	})
 	return err
 }
+
+// GetByWhatsAppPhone looks up a user by linked WhatsApp phone.
+func (r *UserRepo) GetByWhatsAppPhone(ctx context.Context, phone string) (*models.User, error) {
+	if phone == "" {
+		return nil, fmt.Errorf("phone is required")
+	}
+
+	result, err := r.db.Client.Scan(ctx, &dynamodb.ScanInput{
+		TableName:        aws.String(r.db.UsersTable),
+		FilterExpression: aws.String("whatsAppLinkedPhone = :phone"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":phone": &types.AttributeValueMemberS{Value: phone},
+		},
+		Limit: aws.Int32(1),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("scan user by whatsapp phone: %w", err)
+	}
+	if len(result.Items) == 0 {
+		return nil, nil
+	}
+
+	var user models.User
+	if err := attributevalue.UnmarshalMap(result.Items[0], &user); err != nil {
+		return nil, fmt.Errorf("unmarshal user by whatsapp phone: %w", err)
+	}
+	return &user, nil
+}

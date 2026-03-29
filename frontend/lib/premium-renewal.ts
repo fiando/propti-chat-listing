@@ -13,9 +13,9 @@ interface RenewalUXCopy {
 export function getRenewalUXCopy(status: SubscriptionStatus, renewDate: string | undefined): RenewalUXCopy {
   if (status === 'expired') {
     return {
-      heading: 'Premium Berakhir',
-      body: 'Akses premiummu telah berakhir. Perpanjang sekarang untuk melanjutkan fitur premium.',
-      ctaText: 'Perpanjang Premium',
+      heading: 'Paket Berbayar Berakhir',
+      body: 'Akses paket berbayarmu telah berakhir. Perpanjang sekarang untuk melanjutkan semua fitur berbayar.',
+      ctaText: 'Perpanjang Paket',
     };
   }
 
@@ -24,15 +24,15 @@ export function getRenewalUXCopy(status: SubscriptionStatus, renewDate: string |
       ? new Date(renewDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
       : '';
     return {
-      heading: 'Premium Segera Berakhir',
-      body: `Premiummu berakhir pada ${dateStr}. Perpanjang sekarang agar tidak ada hari yang terbuang.`,
-      ctaText: 'Perpanjang Premium',
+      heading: 'Paket Segera Berakhir',
+      body: `Paketmu berakhir pada ${dateStr}. Perpanjang sekarang agar tidak ada hari yang terbuang.`,
+      ctaText: 'Perpanjang Paket',
     };
   }
 
   return {
-    heading: 'Upgrade ke Premium',
-    body: 'Dapatkan akses fitur premium untuk memaksimalkan listing propertimu.',
-    ctaText: 'Upgrade ke Premium',
+    heading: 'Upgrade Paket',
+    body: 'Dapatkan akses fitur berbayar untuk memaksimalkan listing propertimu.',
+    ctaText: 'Upgrade Paket',
   };
 }

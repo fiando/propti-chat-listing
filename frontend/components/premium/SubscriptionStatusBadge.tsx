@@ -6,6 +6,7 @@ import { getExpiryMessage } from '@/lib/subscription-status';
 interface SubscriptionStatusBadgeProps {
   status: SubscriptionStatus;
   renewDate?: string;
+  tier?: 'free' | 'basic' | 'premium' | 'pro';
   className?: string;
 }
 
@@ -17,14 +18,15 @@ const statusStyles: Record<string, string> = {
   loading: 'bg-gray-50 text-gray-400 border-gray-200',
 };
 
-export function SubscriptionStatusBadge({ status, renewDate, className = '' }: SubscriptionStatusBadgeProps) {
+export function SubscriptionStatusBadge({ status, renewDate, tier = 'free', className = '' }: SubscriptionStatusBadgeProps) {
   const message = getExpiryMessage(status, renewDate);
+  const tierLabel = tier === 'free' ? 'Gratis' : tier === 'basic' ? 'Basic' : tier === 'premium' ? 'Premium' : 'Pro';
 
   return (
     <span
       className={`inline-flex items-center rounded-full border px-3 py-1 text-sm font-medium ${statusStyles[status] ?? statusStyles.free} ${className}`}
     >
-      {message}
+      {tierLabel}: {message}
     </span>
   );
 }

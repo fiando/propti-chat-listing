@@ -124,6 +124,26 @@ Notes:
 
 See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the full deployment guide.
 
+## WhatsApp Template Decision Policy
+
+Backend service policy now enforces:
+- In-window: free-form messages only (no templates).
+- Out-of-window: utility templates only for critical transactional flows.
+- Authentication templates: disabled by default and gated behind explicit feature flag.
+- Decision outputs include go/no-go plus cost, conversion, and retention impact hooks for operational review.
+
+## WhatsApp Funnel Metrics & Observability
+
+The backend now emits structured WhatsApp metrics (with subscription tier context: `free`/`basic`/`premium`/`pro`) for retention and USP analysis:
+- `whatsapp_chat_first_completion`
+- `whatsapp_zero_context_switch_completion`
+- `whatsapp_voice_usage`
+- `whatsapp_voice_quota_pressure`
+- `whatsapp_upgrade_intent`
+- `whatsapp_upgrade_conversion_hint`
+
+Current sink logs these events through structured backend logs from the WhatsApp Lambda (`cmd/whatsapp`), so they can be forwarded to centralized observability tooling.
+
 ## Tech Stack
 
 | Layer | Technology |

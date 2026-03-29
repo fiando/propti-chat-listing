@@ -54,10 +54,8 @@ func (s *UploadSessionService) PrepareUpload(ctx context.Context, userID string,
 		return nil, utils.ErrUnauthorized
 	}
 
-	maxImages := utils.MaxFreeMediaItems
-	if user.Subscription.Tier == models.SubscriptionPremium {
-		maxImages = utils.MaxPremiumMediaItems
-	}
+	effectiveTier := effectiveTierForUser(user, s.now())
+	maxImages := TierEntitlementFor(effectiveTier).PhotoCapPerListing
 	if req.FinalImageCount > maxImages {
 		return nil, utils.NewAppError(400, fmt.Sprintf("subscription tier allows at most %d images per listing", maxImages))
 	}

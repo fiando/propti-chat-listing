@@ -16,6 +16,9 @@ Globals:
         DYNAMODB_TRANSACTIONS_TABLE: !Ref TransactionsTable
         DYNAMODB_MODERATIONS_TABLE: !Ref ModerationsTable
         DYNAMODB_UPLOAD_SESSIONS_TABLE: !Ref UploadSessionsTable
+        DYNAMODB_WHATSAPP_SESSIONS_TABLE: !Ref WhatsAppSessionsTable
+        DYNAMODB_WHATSAPP_OTP_TABLE: !Ref WhatsAppOTPTable
+        WHATSAPP_PROVIDER: twilio
         S3_MEDIA_BUCKET: !Ref MediaBucket
         JWT_SECRET: !Ref JWTSecret
         OPENAI_API_KEY: !Ref OpenAIAPIKey
@@ -23,6 +26,15 @@ Globals:
         GOOGLE_MAPS_API_KEY: !Ref GoogleMapsAPIKey
         DOKU_CLIENT_ID: !Ref DOKUClientID
         DOKU_SECRET_KEY: !Ref DOKUSecretKey
+        TWILIO_ACCOUNT_SID: ""
+        TWILIO_AUTH_TOKEN: ""
+        TWILIO_WHATSAPP_FROM: ""
+        META_WHATSAPP_ACCESS_TOKEN: ""
+        META_WHATSAPP_PHONE_NUMBER_ID: ""
+        META_WHATSAPP_VERIFY_TOKEN: ""
+        META_WHATSAPP_APP_SECRET: ""
+        META_WHATSAPP_API_VERSION: "v23.0"
+        META_WHATSAPP_API_BASE_URL: "https://graph.facebook.com"
         DOKU_ENV: !FindInMap [StageToDOKUEnv, !Ref Stage, env]
         PUBLIC_API_BASE_URL: !If
           - HasApiCustomDomain
@@ -131,6 +143,30 @@ Resources:
             RestApiId: !Ref ProptiApi
             Path: /auth/{proxy+}
             Method: OPTIONS
+        WhatsAppLinkStatus:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /auth/whatsapp/link-status
+            Method: GET
+        WhatsAppLinkChallenge:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /auth/whatsapp/link-challenge
+            Method: POST
+        WhatsAppLinkVerify:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /auth/whatsapp/link-verify
+            Method: POST
+        WhatsAppLinkDisconnect:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /auth/whatsapp/link
+            Method: DELETE
 
   ListingsFunction:
     Type: AWS::Serverless::Function
@@ -321,6 +357,42 @@ Resources:
             Path: /premium/{proxy+}
             Method: OPTIONS
 
+  WhatsAppFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+    Properties:
+      FunctionName: !Sub "propti-whatsapp-${Stage}"
+      CodeUri: ./cmd/whatsapp/
+      Handler: bootstrap
+      Description: Handles WhatsApp inbound messages, status callbacks, and provider verification handshakes
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Events:
+        WhatsAppWebhookVerify:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /whatsapp/webhook
+            Method: GET
+        WhatsAppWebhookUnified:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /whatsapp/webhook
+            Method: POST
+        WhatsAppWebhookInbound:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /whatsapp/webhook/inbound
+            Method: POST
+        WhatsAppWebhookStatus:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /whatsapp/webhook/status
+            Method: POST
+
   # ──────────────────────────────────────────────────────────────
   # IAM Role
   # ──────────────────────────────────────────────────────────────
@@ -360,6 +432,8 @@ Resources:
                   - !GetAtt ModerationsTable.Arn
                   - !Sub "${ModerationsTable.Arn}/index/*"
                   - !GetAtt UploadSessionsTable.Arn
+                  - !GetAtt WhatsAppSessionsTable.Arn
+                  - !GetAtt WhatsAppOTPTable.Arn
         - PolicyName: ProptiS3Policy
           PolicyDocument:
             Version: "2012-10-17"
@@ -538,6 +612,40 @@ Resources:
       PointInTimeRecoverySpecification:
         PointInTimeRecoveryEnabled: true
 
+  WhatsAppSessionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "propti-whatsapp-sessions-${Stage}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: sessionId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: sessionId
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  WhatsAppOTPTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "propti-whatsapp-otp-${Stage}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: otpId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: otpId
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
   # ──────────────────────────────────────────────────────────────
   # S3 Bucket for Media
   # ──────────────────────────────────────────────────────────────
@@ -619,6 +727,14 @@ Outputs:
   UploadSessionsTableName:
     Description: DynamoDB upload session table name
     Value: !Ref UploadSessionsTable
+
+  WhatsAppSessionsTableName:
+    Description: DynamoDB WhatsApp session table name
+    Value: !Ref WhatsAppSessionsTable
+
+  WhatsAppOTPTableName:
+    Description: DynamoDB WhatsApp OTP table name
+    Value: !Ref WhatsAppOTPTable
 
   MediaBucketName:
     Description: S3 media bucket name

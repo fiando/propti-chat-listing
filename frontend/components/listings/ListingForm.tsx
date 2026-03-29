@@ -63,6 +63,7 @@ interface ListingFormProps {
   isLoading?: boolean;
   mode?: 'create' | 'edit';
   isPremium?: boolean;
+  maxImages?: number;
 }
 
 function CounterField({
@@ -125,6 +126,7 @@ export function ListingForm({
   isLoading = false,
   mode = 'create',
   isPremium = false,
+  maxImages,
 }: ListingFormProps) {
   const [selectedProvinceId, setSelectedProvinceId] = useState('');
   const [selectedCityId, setSelectedCityId] = useState('');
@@ -660,10 +662,10 @@ export function ListingForm({
               <ImageUpload
                 images={field.value}
                 onChange={field.onChange}
-                maxImages={isPremium ? ImageLimits.premium : ImageLimits.free}
-            />
-          )}
-        />
+                maxImages={maxImages ?? (isPremium ? ImageLimits.premium : ImageLimits.free)}
+             />
+           )}
+         />
       </div>
 
       {/* Submit */}

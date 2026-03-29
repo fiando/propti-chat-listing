@@ -21,6 +21,10 @@ import type {
 } from '@/types';
 import { getBackendAuthHeader, getBackendProfilePath } from '@/lib/backend-auth';
 import { getApiErrorMessage } from '@/lib/api-error';
+import type {
+  WhatsAppLinkChallengeResponse,
+  WhatsAppWriteEligibilityResponse,
+} from '@/lib/whatsapp-linking';
 
 const apiClient = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'https://api.propti.id',
@@ -178,8 +182,8 @@ export async function featureListing(
   return response.data;
 }
 
-export async function upgradePremium(): Promise<PaymentResponse> {
-  const response = await apiClient.post<PaymentResponse>('/premium/upgrade');
+export async function upgradePremium(tier: 'basic' | 'premium' | 'pro' = 'premium'): Promise<PaymentResponse> {
+  const response = await apiClient.post<PaymentResponse>('/premium/upgrade', { tier });
   return response.data;
 }
 
@@ -256,6 +260,34 @@ export async function getDistrictSuggestions(
     params: { cityId, q },
   });
   return response.data.districts;
+}
+
+export async function getWhatsAppLinkStatus(): Promise<WhatsAppWriteEligibilityResponse> {
+  const response = await apiClient.get<WhatsAppWriteEligibilityResponse>('/auth/whatsapp/link-status');
+  return response.data;
+}
+
+export async function createWhatsAppLinkChallenge(phone: string): Promise<WhatsAppLinkChallengeResponse> {
+  const response = await apiClient.post<WhatsAppLinkChallengeResponse>('/auth/whatsapp/link-challenge', {
+    phone,
+  });
+  return response.data;
+}
+
+export async function verifyWhatsAppLink(
+  challengeId: string,
+  otpCode: string
+): Promise<WhatsAppWriteEligibilityResponse> {
+  const response = await apiClient.post<WhatsAppWriteEligibilityResponse>('/auth/whatsapp/link-verify', {
+    challengeId,
+    otpCode,
+  });
+  return response.data;
+}
+
+export async function disconnectWhatsAppLink(): Promise<WhatsAppWriteEligibilityResponse> {
+  const response = await apiClient.delete<WhatsAppWriteEligibilityResponse>('/auth/whatsapp/link');
+  return response.data;
 }
 
 export default apiClient;

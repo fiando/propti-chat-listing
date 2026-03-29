@@ -6,13 +6,82 @@ import (
 	"github.com/fiando/propti/backend/internal/models"
 )
 
-// IsPremiumEntitled returns true only if the user has an active premium subscription
-// that has not yet expired.
-func IsPremiumEntitled(user *models.User, now time.Time) bool {
+type TierEntitlements struct {
+	Tier                  models.SubscriptionTier
+	PriceIDR              int
+	ActiveListingCap      int
+	PhotoCapPerListing    int
+	WhatsAppReadAllowed   bool
+	WhatsAppCreateAllowed bool
+	WhatsAppEditAllowed   bool
+	WhatsAppDeleteAllowed bool
+	VoiceMinutesPerMonth  int
+}
+
+var tierEntitlements = map[models.SubscriptionTier]TierEntitlements{
+	models.SubscriptionFree: {
+		Tier:                  models.SubscriptionFree,
+		PriceIDR:              0,
+		ActiveListingCap:      3,
+		PhotoCapPerListing:    3,
+		WhatsAppReadAllowed:   false,
+		WhatsAppCreateAllowed: true,
+		WhatsAppEditAllowed:   false,
+		WhatsAppDeleteAllowed: false,
+		VoiceMinutesPerMonth:  0,
+	},
+	models.SubscriptionBasic: {
+		Tier:                  models.SubscriptionBasic,
+		PriceIDR:              59000,
+		ActiveListingCap:      6,
+		PhotoCapPerListing:    8,
+		WhatsAppReadAllowed:   true,
+		WhatsAppCreateAllowed: true,
+		WhatsAppEditAllowed:   false,
+		WhatsAppDeleteAllowed: false,
+		VoiceMinutesPerMonth:  20,
+	},
+	models.SubscriptionPremium: {
+		Tier:                  models.SubscriptionPremium,
+		PriceIDR:              129000,
+		ActiveListingCap:      20,
+		PhotoCapPerListing:    15,
+		WhatsAppReadAllowed:   true,
+		WhatsAppCreateAllowed: true,
+		WhatsAppEditAllowed:   true,
+		WhatsAppDeleteAllowed: true,
+		VoiceMinutesPerMonth:  60,
+	},
+	models.SubscriptionPro: {
+		Tier:                  models.SubscriptionPro,
+		PriceIDR:              199000,
+		ActiveListingCap:      50,
+		PhotoCapPerListing:    20,
+		WhatsAppReadAllowed:   true,
+		WhatsAppCreateAllowed: true,
+		WhatsAppEditAllowed:   true,
+		WhatsAppDeleteAllowed: true,
+		VoiceMinutesPerMonth:  120,
+	},
+}
+
+func TierEntitlementFor(tier models.SubscriptionTier) TierEntitlements {
+	entitlement, ok := tierEntitlements[tier]
+	if ok {
+		return entitlement
+	}
+	return tierEntitlements[models.SubscriptionFree]
+}
+
+func IsPaidTier(tier models.SubscriptionTier) bool {
+	return tier != models.SubscriptionFree
+}
+
+func IsSubscriptionEntitled(user *models.User, now time.Time) bool {
 	if user == nil {
 		return false
 	}
-	if user.Subscription.Tier != models.SubscriptionPremium {
+	if !IsPaidTier(user.Subscription.Tier) {
 		return false
 	}
 	if user.Subscription.RenewDate == nil {
@@ -21,10 +90,15 @@ func IsPremiumEntitled(user *models.User, now time.Time) bool {
 	return now.Before(*user.Subscription.RenewDate)
 }
 
+// IsPremiumEntitled is kept for backward compatibility; paid-tier entitlement is now tier-based.
+func IsPremiumEntitled(user *models.User, now time.Time) bool {
+	return IsSubscriptionEntitled(user, now)
+}
+
 // DeriveSubscriptionStatus derives the user-facing subscription status from user data.
-// Returns "active", "expiring_soon", or "expired" for premium users; "" for free users.
+// Returns "active", "expiring_soon", or "expired" for paid users; "" for free users.
 func DeriveSubscriptionStatus(user *models.User, now time.Time) models.SubscriptionStatus {
-	if user == nil || user.Subscription.Tier != models.SubscriptionPremium {
+	if user == nil || !IsPaidTier(user.Subscription.Tier) {
 		return ""
 	}
 
@@ -46,7 +120,7 @@ func DeriveSubscriptionStatus(user *models.User, now time.Time) models.Subscript
 // CanInitiateRenewal returns true when the user is allowed to pay for a renewal.
 // Renewal is open when the subscription is expiring_soon (within 7 days) or expired.
 func CanInitiateRenewal(user *models.User, now time.Time) bool {
-	if user == nil || user.Subscription.Tier != models.SubscriptionPremium {
+	if user == nil || !IsPaidTier(user.Subscription.Tier) {
 		return false
 	}
 	status := DeriveSubscriptionStatus(user, now)

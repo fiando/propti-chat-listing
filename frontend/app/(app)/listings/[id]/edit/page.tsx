@@ -15,13 +15,14 @@ import {
   uploadPendingListingImages,
 } from '@/lib/listing-images';
 import { prepareListingUpload, uploadListingImage } from '@/lib/api';
+import { ImageLimits } from '@/types';
 
 export default function EditListingPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const { data: listing, isLoading } = useOwnerListing(resolvedParams.id);
   const { mutateAsync: updateListing, isPending } = useUpdateListing(resolvedParams.id);
   const router = useRouter();
-  const { isPremium } = useAuth();
+  const { isPremium, tier } = useAuth();
 
   const handleSubmit = async (data: ListingFormValues) => {
     const uploadPayload = await uploadPendingListingImages(
@@ -146,6 +147,7 @@ export default function EditListingPage({ params }: { params: Promise<{ id: stri
         isLoading={isPending}
         mode="edit"
         isPremium={isPremium}
+        maxImages={ImageLimits[tier]}
       />
     </div>
   );

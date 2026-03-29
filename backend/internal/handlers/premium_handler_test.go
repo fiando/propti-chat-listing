@@ -214,8 +214,8 @@ func TestPremiumHandlerUpgradeToPremiumUsesPaymentProvider(t *testing.T) {
 	if body.OrderID != "PROPTI-PREM-001" {
 		t.Fatalf("unexpected order id: %q", body.OrderID)
 	}
-	if body.Amount != 49000 {
-		t.Fatalf("expected amount 49000, got %f", body.Amount)
+	if body.Amount != 129000 {
+		t.Fatalf("expected amount 129000, got %f", body.Amount)
 	}
 
 	if provider.lastInput.NotificationURL != "https://api.propti.test/premium/callback" {
@@ -265,7 +265,7 @@ func TestPremiumHandlerUpgradeToPremiumReusesPendingTransactionWithinPaymentWind
 		TransactionID: "tx-existing",
 		UserID:        "user-1",
 		Type:          models.TransactionTypePremiumTier,
-		Amount:        49000,
+		Amount:        129000,
 		Currency:      "IDR",
 		Status:        models.TransactionStatusPending,
 		Provider:      payments.ProviderDOKU,
@@ -341,7 +341,7 @@ func TestPremiumHandlerUpgradeToPremiumCreatesNewTransactionAfterPendingPaymentE
 		TransactionID: "tx-expired",
 		UserID:        "user-1",
 		Type:          models.TransactionTypePremiumTier,
-		Amount:        49000,
+		Amount:        129000,
 		Currency:      "IDR",
 		Status:        models.TransactionStatusPending,
 		Provider:      payments.ProviderDOKU,
@@ -540,5 +540,55 @@ func TestPremiumHandlerRenewalAllowedWhenExpiringSoon(t *testing.T) {
 	}
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected 200 for renewal within window, got %d body=%s", resp.StatusCode, resp.Body)
+	}
+}
+
+func TestPremiumHandlerUpgradeSupportsBasicTierPricing(t *testing.T) {
+	t.Setenv("PUBLIC_API_BASE_URL", "https://api.propti.test")
+
+	userStore := &fakePremiumUserStore{
+		byID: map[string]*models.User{
+			"user-1": {
+				UserID: "user-1",
+				Name:   "Bobby",
+				Email:  "bob@example.com",
+				Subscription: models.Subscription{
+					Tier: models.SubscriptionFree,
+				},
+			},
+		},
+	}
+	provider := &fakePaymentProvider{
+		createResult: &payments.CreatePaymentResult{
+			Provider:   payments.ProviderDOKU,
+			OrderID:    "PROPTI-PREM-BASIC-001",
+			PaymentID:  "tok-basic",
+			PaymentURL: "https://sandbox.doku.com/checkout-link-v2/tok-basic",
+		},
+	}
+	txStore := &fakePremiumTransactionStore{}
+	handler := NewPremiumHandler(userStore, txStore, &fakePremiumListingService{}, provider)
+
+	resp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodPost,
+		Path:       "/premium/upgrade",
+		Headers:    authHeaderForPremiumTest(t, "user-1"),
+		Body:       `{"tier":"basic"}`,
+	})
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", resp.StatusCode, resp.Body)
+	}
+	var body models.PaymentResponse
+	if err := json.Unmarshal([]byte(resp.Body), &body); err != nil {
+		t.Fatalf("response is not valid json: %v", err)
+	}
+	if body.Amount != 59000 {
+		t.Fatalf("expected amount 59000 for basic, got %f", body.Amount)
+	}
+	if len(txStore.items) != 1 || txStore.items[0].Metadata["tier"] != "basic" {
+		t.Fatalf("expected basic tier metadata in transaction, got %#v", txStore.items)
 	}
 }

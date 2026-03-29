@@ -69,6 +69,7 @@ func TestPaymentReconcilerUpgradesUserWhenPendingPremiumPaymentIsPaid(t *testing
 		Status:        models.TransactionStatusPending,
 		Provider:      payments.ProviderDOKU,
 		PaymentID:     "tok-123",
+		Metadata:      map[string]string{"tier": string(models.SubscriptionBasic)},
 	}}}
 	reconciler := NewPaymentReconciler(userStore, txStore, &fakeReconcileProvider{status: payments.PaymentStatusSucceeded})
 
@@ -76,8 +77,8 @@ func TestPaymentReconcilerUpgradesUserWhenPendingPremiumPaymentIsPaid(t *testing
 		t.Fatalf("ReconcileUser returned error: %v", err)
 	}
 
-	if got := userStore.user.Subscription.Tier; got != models.SubscriptionPremium {
-		t.Fatalf("expected premium tier, got %q", got)
+	if got := userStore.user.Subscription.Tier; got != models.SubscriptionBasic {
+		t.Fatalf("expected basic tier, got %q", got)
 	}
 	if userStore.user.Subscription.RenewDate == nil || !userStore.user.Subscription.RenewDate.After(time.Now().UTC()) {
 		t.Fatal("expected renew date to be set in the future")
@@ -118,78 +119,105 @@ func TestPaymentReconcilerLeavesUserFreeWhenPaymentStillPending(t *testing.T) {
 }
 
 func TestPaymentReconcilerExtendsRenewDateWhenRenewingBeforeExpiry(t *testing.T) {
-t.Parallel()
+	t.Parallel()
 
-existingExpiry := time.Now().UTC().Add(5 * 24 * time.Hour) // 5 days remaining
-userStore := &fakeReconcileUserStore{user: &models.User{
-UserID: "user-1",
-Subscription: models.Subscription{
-Tier:      models.SubscriptionPremium,
-RenewDate: &existingExpiry,
-},
-}}
-txStore := &fakeReconcileTransactionStore{items: []models.Transaction{{
-TransactionID: "tx-renew",
-SK:            "2026-03-16T06:00:00Z",
-UserID:        "user-1",
-Type:          models.TransactionTypePremiumTier,
-Status:        models.TransactionStatusPending,
-Provider:      payments.ProviderDOKU,
-PaymentID:     "tok-456",
-}}}
-reconciler := NewPaymentReconciler(userStore, txStore, &fakeReconcileProvider{status: payments.PaymentStatusSucceeded})
+	existingExpiry := time.Now().UTC().Add(5 * 24 * time.Hour) // 5 days remaining
+	userStore := &fakeReconcileUserStore{user: &models.User{
+		UserID: "user-1",
+		Subscription: models.Subscription{
+			Tier:      models.SubscriptionPremium,
+			RenewDate: &existingExpiry,
+		},
+	}}
+	txStore := &fakeReconcileTransactionStore{items: []models.Transaction{{
+		TransactionID: "tx-renew",
+		SK:            "2026-03-16T06:00:00Z",
+		UserID:        "user-1",
+		Type:          models.TransactionTypePremiumTier,
+		Status:        models.TransactionStatusPending,
+		Provider:      payments.ProviderDOKU,
+		PaymentID:     "tok-456",
+	}}}
+	reconciler := NewPaymentReconciler(userStore, txStore, &fakeReconcileProvider{status: payments.PaymentStatusSucceeded})
 
-if err := reconciler.ReconcileUser(context.Background(), "user-1"); err != nil {
-t.Fatalf("ReconcileUser returned error: %v", err)
-}
+	if err := reconciler.ReconcileUser(context.Background(), "user-1"); err != nil {
+		t.Fatalf("ReconcileUser returned error: %v", err)
+	}
 
-expected := existingExpiry.AddDate(0, 1, 0)
-got := userStore.user.Subscription.RenewDate
-if got == nil {
-t.Fatal("expected renewDate to be set")
-}
-// Allow 1 second tolerance for test timing
-diff := got.Sub(expected)
-if diff < -time.Second || diff > time.Second {
-t.Fatalf("expected renewDate ~%v (extended from existing), got %v", expected, *got)
-}
+	expected := existingExpiry.AddDate(0, 1, 0)
+	got := userStore.user.Subscription.RenewDate
+	if got == nil {
+		t.Fatal("expected renewDate to be set")
+	}
+	// Allow 1 second tolerance for test timing
+	diff := got.Sub(expected)
+	if diff < -time.Second || diff > time.Second {
+		t.Fatalf("expected renewDate ~%v (extended from existing), got %v", expected, *got)
+	}
 }
 
 func TestPaymentReconcilerStartsFreshRenewDateWhenRenewingAfterExpiry(t *testing.T) {
-t.Parallel()
+	t.Parallel()
 
-expiredDate := time.Now().UTC().Add(-24 * time.Hour) // already expired
-userStore := &fakeReconcileUserStore{user: &models.User{
-UserID: "user-1",
-Subscription: models.Subscription{
-Tier:      models.SubscriptionPremium,
-RenewDate: &expiredDate,
-},
-}}
-txStore := &fakeReconcileTransactionStore{items: []models.Transaction{{
-TransactionID: "tx-restart",
-SK:            "2026-03-16T06:00:00Z",
-UserID:        "user-1",
-Type:          models.TransactionTypePremiumTier,
-Status:        models.TransactionStatusPending,
-Provider:      payments.ProviderDOKU,
-PaymentID:     "tok-789",
-}}}
-reconciler := NewPaymentReconciler(userStore, txStore, &fakeReconcileProvider{status: payments.PaymentStatusSucceeded})
+	expiredDate := time.Now().UTC().Add(-24 * time.Hour) // already expired
+	userStore := &fakeReconcileUserStore{user: &models.User{
+		UserID: "user-1",
+		Subscription: models.Subscription{
+			Tier:      models.SubscriptionPremium,
+			RenewDate: &expiredDate,
+		},
+	}}
+	txStore := &fakeReconcileTransactionStore{items: []models.Transaction{{
+		TransactionID: "tx-restart",
+		SK:            "2026-03-16T06:00:00Z",
+		UserID:        "user-1",
+		Type:          models.TransactionTypePremiumTier,
+		Status:        models.TransactionStatusPending,
+		Provider:      payments.ProviderDOKU,
+		PaymentID:     "tok-789",
+	}}}
+	reconciler := NewPaymentReconciler(userStore, txStore, &fakeReconcileProvider{status: payments.PaymentStatusSucceeded})
 
-before := time.Now().UTC()
-if err := reconciler.ReconcileUser(context.Background(), "user-1"); err != nil {
-t.Fatalf("ReconcileUser returned error: %v", err)
-}
-after := time.Now().UTC()
+	before := time.Now().UTC()
+	if err := reconciler.ReconcileUser(context.Background(), "user-1"); err != nil {
+		t.Fatalf("ReconcileUser returned error: %v", err)
+	}
+	after := time.Now().UTC()
 
-got := userStore.user.Subscription.RenewDate
-if got == nil {
-t.Fatal("expected renewDate to be set")
+	got := userStore.user.Subscription.RenewDate
+	if got == nil {
+		t.Fatal("expected renewDate to be set")
+	}
+	expectedMin := before.AddDate(0, 1, 0)
+	expectedMax := after.AddDate(0, 1, 0)
+	if got.Before(expectedMin) || got.After(expectedMax) {
+		t.Fatalf("expected new renewDate ~1 month from now, got %v", *got)
+	}
 }
-expectedMin := before.AddDate(0, 1, 0)
-expectedMax := after.AddDate(0, 1, 0)
-if got.Before(expectedMin) || got.After(expectedMax) {
-t.Fatalf("expected new renewDate ~1 month from now, got %v", *got)
-}
+
+func TestPaymentReconcilerDefaultsToPremiumTierWithoutMetadata(t *testing.T) {
+	t.Parallel()
+
+	userStore := &fakeReconcileUserStore{user: &models.User{
+		UserID:       "user-2",
+		Subscription: models.Subscription{Tier: models.SubscriptionFree},
+	}}
+	txStore := &fakeReconcileTransactionStore{items: []models.Transaction{{
+		TransactionID: "tx-legacy",
+		SK:            "2026-03-16T06:00:00Z",
+		UserID:        "user-2",
+		Type:          models.TransactionTypePremiumTier,
+		Status:        models.TransactionStatusPending,
+		Provider:      payments.ProviderDOKU,
+		PaymentID:     "tok-legacy",
+	}}}
+	reconciler := NewPaymentReconciler(userStore, txStore, &fakeReconcileProvider{status: payments.PaymentStatusSucceeded})
+
+	if err := reconciler.ReconcileUser(context.Background(), "user-2"); err != nil {
+		t.Fatalf("ReconcileUser returned error: %v", err)
+	}
+
+	if got := userStore.user.Subscription.Tier; got != models.SubscriptionPremium {
+		t.Fatalf("expected default premium tier for legacy tx, got %q", got)
+	}
 }

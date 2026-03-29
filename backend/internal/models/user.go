@@ -12,7 +12,9 @@ const (
 	UserRoleBoth   UserRole = "both"
 
 	SubscriptionFree    SubscriptionTier = "free"
+	SubscriptionBasic   SubscriptionTier = "basic"
 	SubscriptionPremium SubscriptionTier = "premium"
+	SubscriptionPro     SubscriptionTier = "pro"
 
 	SubscriptionActive       SubscriptionStatus = "active"
 	SubscriptionExpiringSoon SubscriptionStatus = "expiring_soon"
@@ -28,6 +30,8 @@ type UserPreferences struct {
 type Subscription struct {
 	Tier                SubscriptionTier `json:"tier" dynamodbav:"tier"`
 	MonthlyListingsUsed int              `json:"monthlyListingsUsed" dynamodbav:"monthlyListingsUsed"`
+	VoiceUsageMonth     string           `json:"voiceUsageMonth,omitempty" dynamodbav:"voiceUsageMonth,omitempty"`
+	VoiceSecondsUsed    int              `json:"voiceSecondsUsed" dynamodbav:"voiceSecondsUsed"`
 	ActiveListingsCount int              `json:"activeListingsCount" dynamodbav:"-"`
 	RenewDate           *time.Time       `json:"renewDate,omitempty" dynamodbav:"renewDate,omitempty"`
 	PaymentCustomerID   string           `json:"paymentCustomerId,omitempty" dynamodbav:"paymentCustomerId,omitempty"`
@@ -52,6 +56,9 @@ type User struct {
 	SavedListingIDs       []string              `json:"savedListingIds,omitempty" dynamodbav:"savedListingIds,omitempty"`
 	Subscription          Subscription          `json:"subscription" dynamodbav:"subscription"`
 	ContactRevealThrottle ContactRevealThrottle `json:"contactRevealThrottle,omitempty" dynamodbav:"contactRevealThrottle,omitempty"`
+	WhatsAppLinkedPhone   string                `json:"whatsAppLinkedPhone,omitempty" dynamodbav:"whatsAppLinkedPhone,omitempty"`
+	WhatsAppLinkedAt      *time.Time            `json:"whatsAppLinkedAt,omitempty" dynamodbav:"whatsAppLinkedAt,omitempty"`
+	WhatsAppVerifiedAt    *time.Time            `json:"whatsAppVerifiedAt,omitempty" dynamodbav:"whatsAppVerifiedAt,omitempty"`
 	CreatedAt             time.Time             `json:"createdAt" dynamodbav:"createdAt"`
 	LastLoginAt           time.Time             `json:"lastLoginAt" dynamodbav:"lastLoginAt"`
 }
@@ -70,4 +77,14 @@ type UpdateUserRequest struct {
 	Phone       *string          `json:"phone,omitempty"`
 	Role        *UserRole        `json:"role,omitempty"`
 	Preferences *UserPreferences `json:"preferences,omitempty"`
+}
+
+func (u *User) IsWhatsAppWriteEligible() bool {
+	if u == nil {
+		return false
+	}
+	if u.WhatsAppVerifiedAt == nil {
+		return false
+	}
+	return u.WhatsAppLinkedPhone != ""
 }

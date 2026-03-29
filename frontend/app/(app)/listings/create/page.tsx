@@ -4,10 +4,10 @@ import { getServerAuthProfile } from '@/lib/server-profile';
 
 export default async function CreateListingPage() {
   const { isAuthenticated, profile } = await getServerAuthProfile();
-  const isPremium = profile?.subscriptionStatus === 'active' || profile?.subscriptionStatus === 'expiring_soon';
+  const tier = profile?.subscription?.tier ?? 'free';
   const initialCreateAccessState = getCreateListingAccessState({
     isAuthenticated,
-    isPremium,
+    tier,
     hasFreshAccessResult: true,
     hasListingsError: isAuthenticated && !profile,
     activeListingsCount: profile?.subscription?.activeListingsCount,
@@ -16,7 +16,7 @@ export default async function CreateListingPage() {
   return (
     <CreateListingClient
       initialIsAuthenticated={isAuthenticated}
-      initialIsPremium={Boolean(isPremium)}
+      initialTier={tier}
       initialPhone={profile?.phone ?? ''}
       initialCreateAccessState={initialCreateAccessState}
     />

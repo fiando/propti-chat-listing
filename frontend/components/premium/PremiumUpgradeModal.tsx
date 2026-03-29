@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Crown, X, Check, Loader2, RefreshCw } from 'lucide-react';
 import { upgradePremium } from '@/lib/api';
+import type { SubscriptionTier } from '@/types';
 
 type PremiumModalMode = 'upgrade' | 'renew';
 
@@ -11,21 +12,62 @@ interface PremiumUpgradeModalProps {
   onClose: () => void;
   mode?: PremiumModalMode;
   currentRenewDate?: string;
+  selectedTier?: Exclude<SubscriptionTier, 'free'>;
 }
 
-const PREMIUM_FEATURES = [
-  'Maksimal 15 foto per iklan',
-  'Maksimal 15 listing aktif',
-  'Masa tayang hingga 90 hari',
-];
+const TIER_CONFIG = {
+  basic: {
+    label: 'Basic',
+    price: 'Rp 59.000',
+    blurb: 'Untuk seller yang mulai serius beriklan.',
+    features: [
+      'Basic: maksimal 8 foto per iklan',
+      'Basic: maksimal 6 listing aktif',
+      'WA text read + create (tanpa edit/hapus)',
+      'Voice hingga 20 menit per bulan',
+      'Masa tayang sampai 90 hari',
+    ],
+  },
+  premium: {
+    label: 'Premium',
+    price: 'Rp 129.000',
+    blurb: 'Untuk performa listing yang lebih agresif.',
+    features: [
+      'Premium: maksimal 15 foto per iklan',
+      'Premium: maksimal 20 listing aktif',
+      'WA full read/write',
+      'Voice hingga 60 menit per bulan',
+      'Premium: tayang sampai 90 hari',
+    ],
+  },
+  pro: {
+    label: 'Pro',
+    price: 'Rp 199.000',
+    blurb: 'Untuk tim agen dengan volume listing tinggi.',
+    features: [
+      'Pro: maksimal 20 foto per iklan',
+      'Pro: maksimal 50 listing aktif',
+      'WA full read/write',
+      'Voice hingga 120 menit per bulan',
+      'Masa tayang sampai 90 hari',
+    ],
+  },
+} as const;
 
-export function PremiumUpgradeModal({ isOpen, onClose, mode = 'upgrade', currentRenewDate }: PremiumUpgradeModalProps) {
+export function PremiumUpgradeModal({
+  isOpen,
+  onClose,
+  mode = 'upgrade',
+  currentRenewDate,
+  selectedTier = 'premium',
+}: PremiumUpgradeModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
   const isRenewal = mode === 'renew';
+  const config = TIER_CONFIG[selectedTier];
 
   const expiryDateStr = currentRenewDate
     ? new Date(currentRenewDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -35,7 +77,7 @@ export function PremiumUpgradeModal({ isOpen, onClose, mode = 'upgrade', current
     setLoading(true);
     setError(null);
     try {
-      const result = await upgradePremium();
+      const result = await upgradePremium(selectedTier);
       window.location.href = result.paymentUrl;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal memproses pembayaran.');
@@ -67,15 +109,15 @@ export function PremiumUpgradeModal({ isOpen, onClose, mode = 'upgrade', current
             {isRenewal ? <RefreshCw className="w-8 h-8 text-white" /> : <Crown className="w-8 h-8 text-white" />}
           </div>
           <h2 className="text-2xl font-black">
-            {isRenewal ? 'Perpanjang Premium' : 'Propti Premium'}
+            {isRenewal ? `Perpanjang ${config.label}` : `Propti ${config.label}`}
           </h2>
           {isRenewal && expiryDateStr ? (
             <p className="text-white/80 mt-1 text-sm">Berlaku sampai {expiryDateStr}. Perpanjang untuk +1 bulan.</p>
           ) : (
-            <p className="text-white/80 mt-1 text-sm">Aktifkan hingga 15 listing, unggah 15 foto/listing, tampil selama 90 hari.</p>
+            <p className="text-white/80 mt-1 text-sm">{config.blurb}</p>
           )}
           <div className="mt-4">
-            <span className="text-4xl font-black">Rp 49rb</span>
+            <span className="text-4xl font-black">{config.price}</span>
             <span className="text-white/70 text-sm ml-1">/bulan</span>
           </div>
         </div>
@@ -83,7 +125,7 @@ export function PremiumUpgradeModal({ isOpen, onClose, mode = 'upgrade', current
         {/* Features */}
         <div className="p-6">
           <ul className="space-y-3 mb-6">
-            {PREMIUM_FEATURES.map((feature) => (
+            {config.features.map((feature) => (
               <li key={feature} className="flex items-start gap-3">
                 <div className="w-5 h-5 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
                   <Check className="w-3 h-3 text-green-600" />
@@ -119,12 +161,12 @@ export function PremiumUpgradeModal({ isOpen, onClose, mode = 'upgrade', current
             ) : isRenewal ? (
               <>
                 <RefreshCw className="w-5 h-5" />
-                Perpanjang Premium
+                Perpanjang Paket
               </>
             ) : (
               <>
                 <Crown className="w-5 h-5" />
-                Upgrade Sekarang
+                Upgrade Paket
               </>
             )}
           </button>
@@ -137,4 +179,3 @@ export function PremiumUpgradeModal({ isOpen, onClose, mode = 'upgrade', current
     </div>
   );
 }
-

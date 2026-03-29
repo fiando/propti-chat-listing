@@ -64,7 +64,7 @@ func TestPrepareUploadCreatesSingleUseSessionsAndPresignedSlots(t *testing.T) {
 			user: &models.User{
 				UserID: "user-1",
 				Subscription: models.Subscription{
-					Tier: models.SubscriptionPremium,
+					Tier: models.SubscriptionBasic,
 				},
 			},
 		},

@@ -74,7 +74,15 @@ func (r *PaymentReconciler) ReconcileUser(ctx context.Context, userID string) er
 			// Renewing after expiry (or no prior date): start fresh from now
 			renewDate = now.AddDate(0, 1, 0)
 		}
-		user.Subscription.Tier = models.SubscriptionPremium
+		if tx.Metadata != nil {
+			if tierValue := tx.Metadata["tier"]; tierValue != "" {
+				user.Subscription.Tier = models.SubscriptionTier(tierValue)
+			} else {
+				user.Subscription.Tier = models.SubscriptionPremium
+			}
+		} else {
+			user.Subscription.Tier = models.SubscriptionPremium
+		}
 		user.Subscription.RenewDate = &renewDate
 		return r.userRepo.Put(ctx, user)
 	}

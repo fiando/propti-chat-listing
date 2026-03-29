@@ -27,14 +27,14 @@ test('shouldShowRenewalCTA returns false for loading', () => {
 // getRenewalUXCopy
 test('getRenewalUXCopy for expired returns Perpanjang Premium CTA', () => {
   const copy = getRenewalUXCopy('expired', undefined);
-  assert.equal(copy.ctaText, 'Perpanjang Premium');
+  assert.equal(copy.ctaText, 'Perpanjang Paket');
   assert.ok(copy.heading.length > 0);
 });
 
 test('getRenewalUXCopy for expiring_soon includes expiry date in body', () => {
   const renewDate = '2026-04-10T00:00:00Z';
   const copy = getRenewalUXCopy('expiring_soon', renewDate);
-  assert.equal(copy.ctaText, 'Perpanjang Premium');
+  assert.equal(copy.ctaText, 'Perpanjang Paket');
   assert.ok(copy.body.includes('2026') || copy.body.includes('April'));
 });
 
@@ -42,6 +42,6 @@ test('getRenewalUXCopy for active/free returns upgrade copy', () => {
   const statuses: SubscriptionStatus[] = ['active', 'free', 'loading'];
   for (const status of statuses) {
     const copy = getRenewalUXCopy(status, undefined);
-    assert.equal(copy.ctaText, 'Upgrade ke Premium');
+    assert.equal(copy.ctaText, 'Upgrade Paket');
   }
 });

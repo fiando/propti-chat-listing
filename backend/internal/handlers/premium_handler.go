@@ -46,6 +46,12 @@ type PremiumHandler struct {
 	paymentProvider payments.Provider
 }
 
+var allowedUpgradeTiers = map[models.SubscriptionTier]struct{}{
+	models.SubscriptionBasic:   {},
+	models.SubscriptionPremium: {},
+	models.SubscriptionPro:     {},
+}
+
 // NewPremiumHandler creates a PremiumHandler.
 func NewPremiumHandler(
 	userRepo premiumUserStore,
@@ -95,7 +101,21 @@ func (h *PremiumHandler) upgradeToPremium(ctx context.Context, req events.APIGat
 		return jsonResponse(http.StatusNotFound, utils.MarshalErrorResponse(utils.ErrNotFound)), nil
 	}
 
-	if user.Subscription.Tier == models.SubscriptionPremium {
+	requestedTier := models.SubscriptionPremium
+	if strings.TrimSpace(req.Body) != "" {
+		var upgradeReq models.PremiumUpgradeRequest
+		if err := json.Unmarshal([]byte(req.Body), &upgradeReq); err != nil {
+			return jsonResponse(http.StatusBadRequest, utils.MarshalErrorResponse(utils.ErrBadRequest)), nil
+		}
+		if upgradeReq.Tier != "" {
+			requestedTier = models.SubscriptionTier(strings.ToLower(strings.TrimSpace(upgradeReq.Tier)))
+		}
+	}
+	if _, ok := allowedUpgradeTiers[requestedTier]; !ok {
+		return jsonResponse(http.StatusBadRequest, utils.MarshalErrorResponse(utils.NewAppError(400, "unsupported subscription tier"))), nil
+	}
+
+	if user.Subscription.Tier == requestedTier {
 		if !services.CanInitiateRenewal(user, time.Now()) {
 			return jsonResponse(http.StatusBadRequest, utils.MarshalErrorResponse(utils.NewAppError(400, "Renewal opens 7 days before expiry"))), nil
 		}
@@ -120,7 +140,8 @@ func (h *PremiumHandler) upgradeToPremium(ctx context.Context, req events.APIGat
 		utils.LogError("generate premium order id", err, "userId", userID)
 		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
 	}
-	amount := 49000.0 // Rp 49,000/month
+	entitlements := services.TierEntitlementFor(requestedTier)
+	amount := float64(entitlements.PriceIDR)
 
 	tx := &models.Transaction{
 		PK:            uuid.NewString(),
@@ -133,8 +154,11 @@ func (h *PremiumHandler) upgradeToPremium(ctx context.Context, req events.APIGat
 		Status:        models.TransactionStatusPending,
 		Provider:      h.paymentProvider.Name(),
 		OrderID:       orderID,
-		CreatedAt:     time.Now().UTC(),
-		UpdatedAt:     time.Now().UTC(),
+		Metadata: map[string]string{
+			"tier": string(requestedTier),
+		},
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
 	}
 	tx.PK = tx.TransactionID
 
@@ -144,7 +168,7 @@ func (h *PremiumHandler) upgradeToPremium(ctx context.Context, req events.APIGat
 		OrderID:         orderID,
 		Amount:          amount,
 		Currency:        "IDR",
-		Description:     "Propti Premium",
+		Description:     fmt.Sprintf("Propti %s", strings.Title(string(requestedTier))),
 		NotificationURL: buildPremiumCallbackURL(),
 		CallbackURL:     returnURL,
 		ResultURL:       returnURL,
@@ -349,7 +373,13 @@ func (h *PremiumHandler) handleSuccessfulPayment(ctx context.Context, tx *models
 			return fmt.Errorf("user not found for premium upgrade: %s", tx.UserID)
 		}
 		renewDate := time.Now().UTC().AddDate(0, 1, 0)
-		user.Subscription.Tier = models.SubscriptionPremium
+		tier := models.SubscriptionPremium
+		if tx.Metadata != nil {
+			if tierValue := strings.ToLower(strings.TrimSpace(tx.Metadata["tier"])); tierValue != "" {
+				tier = models.SubscriptionTier(tierValue)
+			}
+		}
+		user.Subscription.Tier = tier
 		user.Subscription.RenewDate = &renewDate
 		return h.userRepo.Put(ctx, user)
 

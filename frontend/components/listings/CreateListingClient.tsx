@@ -17,14 +17,17 @@ import {
 import { useToast } from '@/app/toaster';
 import {
   CREATE_LISTING_ACCESS_ERROR_MESSAGE,
+  BASIC_TIER_LISTING_LIMIT,
   FREE_TIER_LISTING_LIMIT,
   PREMIUM_TIER_LISTING_LIMIT,
+  PRO_TIER_LISTING_LIMIT,
   getCreateListingErrorMessage,
 } from '@/lib/create-listing-errors';
 import { normalizeAmenityIds } from '@/lib/listing-form-utils';
 import { prepareListingUpload, updateProfile, uploadListingImage } from '@/lib/api';
 import { getPhoneModalSubmitLabel, shouldRequirePhone } from '@/lib/create-listing-phone';
 import { uploadPendingListingImages } from '@/lib/listing-images';
+import { ImageLimits } from '@/types';
 
 type Step = 'choose' | 'parse' | 'form';
 
@@ -36,14 +39,14 @@ type CreateAccessState = {
 
 type CreateListingClientProps = {
   initialIsAuthenticated: boolean;
-  initialIsPremium: boolean;
+  initialTier: 'free' | 'basic' | 'premium' | 'pro';
   initialPhone?: string | null;
   initialCreateAccessState: CreateAccessState;
 };
 
 export function CreateListingClient({
   initialIsAuthenticated,
-  initialIsPremium,
+  initialTier,
   initialPhone,
   initialCreateAccessState,
 }: CreateListingClientProps) {
@@ -64,10 +67,17 @@ export function CreateListingClient({
   const { toast } = useToast();
 
   const isAuthenticated = initialIsAuthenticated;
-  const isPremium = initialIsPremium;
+  const isPremium = initialTier !== 'free';
   const createAccessState = initialCreateAccessState;
   const activeListingsCount = createAccessState.activeListingsCount;
-  const listingLimit = isPremium ? PREMIUM_TIER_LISTING_LIMIT : FREE_TIER_LISTING_LIMIT;
+  const listingLimit =
+    initialTier === 'free'
+      ? FREE_TIER_LISTING_LIMIT
+      : initialTier === 'basic'
+      ? BASIC_TIER_LISTING_LIMIT
+      : initialTier === 'premium'
+      ? PREMIUM_TIER_LISTING_LIMIT
+      : PRO_TIER_LISTING_LIMIT;
   const hasCreateAccessError = createAccessState.status === 'error';
   const isCreateBlocked = createAccessState.status === 'blocked';
   const visibleStep: Step = hasCreateAccessError || isCreateBlocked ? 'choose' : step;
@@ -378,7 +388,7 @@ export function CreateListingClient({
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-amber-700">
-                    Batas {listingLimit} listing {isPremium ? 'Premium' : 'gratis'} sudah terpakai
+                    Batas {listingLimit} listing paket {initialTier === 'free' ? 'gratis' : initialTier} sudah terpakai
                   </p>
                   <h2 className="mt-1 text-xl font-bold text-gray-900">
                     {isPremium
@@ -389,7 +399,7 @@ export function CreateListingClient({
                      {createAccessState.message}
                   </p>
                   <p className="mt-2 text-sm text-gray-500">
-                    Saat ini kamu sudah punya {activeListingsCount} listing aktif di akun {isPremium ? 'Premium' : 'gratis'}.
+                    Saat ini kamu sudah punya {activeListingsCount} listing aktif di akun {initialTier === 'free' ? 'gratis' : initialTier}.
                   </p>
 
                   <div className="mt-4 flex flex-col gap-3 sm:flex-row">
@@ -510,6 +520,7 @@ export function CreateListingClient({
           isLoading={isPending}
           mode="create"
           isPremium={isPremium}
+          maxImages={ImageLimits[initialTier]}
         />
       )}
 

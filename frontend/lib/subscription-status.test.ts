@@ -76,6 +76,14 @@ test('returns free for free accounts', () => {
   );
 });
 
+test('returns active for paid non-premium tiers when renew date is valid', () => {
+  const profile = createUser({ tier: 'basic', renewDate: '2026-03-20T00:00:00Z' });
+  assert.equal(
+    getSubscriptionStatus({ authStatus: 'authenticated', profile, now: Date.parse('2026-03-12T00:00:00Z') }),
+    'active'
+  );
+});
+
 test('trusts API-provided subscriptionStatus if present', () => {
   const profile = createUser(
     { tier: 'premium', renewDate: '2026-03-20T00:00:00Z' },
@@ -100,9 +108,9 @@ test('getDaysUntilExpiry returns positive days for future date', () => {
 
 // getExpiryMessage
 test('getExpiryMessage returns expired message for expired status', () => {
-  assert.equal(getExpiryMessage('expired', undefined), 'Premium telah berakhir');
+  assert.equal(getExpiryMessage('expired', undefined), 'telah berakhir');
 });
 
 test('getExpiryMessage returns free message for free status', () => {
-  assert.equal(getExpiryMessage('free', undefined), 'Paket gratis');
+  assert.equal(getExpiryMessage('free', undefined), 'paket gratis');
 });

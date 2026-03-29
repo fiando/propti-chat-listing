@@ -73,25 +73,25 @@ test('counts only active listings toward the free-tier create limit', () => {
   ];
 
   assert.equal(getActiveListingCount(listings), 2);
-  assert.equal(isCreateListingLimitReached({ isPremium: false, listings }), false);
+  assert.equal(isCreateListingLimitReached({ tier: 'free', listings }), false);
   assert.equal(
     isCreateListingLimitReached({
-      isPremium: false,
+      tier: 'free',
       listings: [{ status: 'active' }, { status: 'active' }, { status: 'active' }, { status: 'archived' }],
     }),
     true
   );
   assert.equal(
     isCreateListingLimitReached({
-      isPremium: true,
-      listings: Array.from({ length: 14 }, () => ({ status: 'active' })),
+      tier: 'premium',
+      listings: Array.from({ length: 19 }, () => ({ status: 'active' })),
     }),
     false
   );
   assert.equal(
     isCreateListingLimitReached({
-      isPremium: true,
-      listings: Array.from({ length: 15 }, () => ({ status: 'active' })),
+      tier: 'premium',
+      listings: Array.from({ length: 20 }, () => ({ status: 'active' })),
     }),
     true
   );

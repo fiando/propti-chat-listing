@@ -1,10 +1,16 @@
 export const FREE_TIER_LISTING_LIMIT = 3;
-export const PREMIUM_TIER_LISTING_LIMIT = 15;
+export const BASIC_TIER_LISTING_LIMIT = 6;
+export const PREMIUM_TIER_LISTING_LIMIT = 20;
+export const PRO_TIER_LISTING_LIMIT = 50;
 export const LISTING_ACCESS_CHECK_PAGE_SIZE = 100;
 export const FREE_TIER_LISTING_LIMIT_MESSAGE =
-  `Paket gratis hanya bisa memiliki ${FREE_TIER_LISTING_LIMIT} listing aktif. Upgrade ke Premium untuk memasang iklan baru.`;
+  `Paket gratis hanya bisa memiliki ${FREE_TIER_LISTING_LIMIT} listing aktif. Upgrade paket untuk memasang iklan baru.`;
+export const BASIC_TIER_LISTING_LIMIT_MESSAGE =
+  `Paket Basic maksimal ${BASIC_TIER_LISTING_LIMIT} listing aktif. Arsipkan salah satu listing untuk memasang iklan baru.`;
 export const PREMIUM_TIER_LISTING_LIMIT_MESSAGE =
   `Paket Premium maksimal ${PREMIUM_TIER_LISTING_LIMIT} listing aktif. Arsipkan salah satu listing untuk memasang iklan baru.`;
+export const PRO_TIER_LISTING_LIMIT_MESSAGE =
+  `Paket Pro maksimal ${PRO_TIER_LISTING_LIMIT} listing aktif. Arsipkan salah satu listing untuk memasang iklan baru.`;
 export const CREATE_LISTING_ACCESS_ERROR_MESSAGE =
   'Kami belum bisa memastikan slot listing aktifmu. Coba lagi sebentar lagi.';
 
@@ -22,18 +28,18 @@ export function getActiveListingCount(
 }
 
 export function isCreateListingLimitReached(input: {
-  isPremium?: boolean;
+  tier?: 'free' | 'basic' | 'premium' | 'pro';
   activeListingsCount?: number;
   listings?: Array<ListingLimitEntry> | null;
   limit?: number;
 }): boolean {
   const activeListingsCount = input.activeListingsCount ?? getActiveListingCount(input.listings);
-  return activeListingsCount >= (input.limit ?? getListingLimit(input.isPremium));
+  return activeListingsCount >= (input.limit ?? getListingLimit(input.tier));
 }
 
 export function getCreateListingAccessState(input: {
   isAuthenticated?: boolean;
-  isPremium?: boolean;
+  tier?: 'free' | 'basic' | 'premium' | 'pro';
   isAuthLoading?: boolean;
   isListingsLoading?: boolean;
   isListingsFetching?: boolean;
@@ -84,7 +90,7 @@ export function getCreateListingAccessState(input: {
     return {
       status: 'blocked',
       activeListingsCount,
-      message: getListingLimitMessage(input.isPremium),
+      message: getListingLimitMessage(input.tier),
     };
   }
 
@@ -103,19 +109,51 @@ export function getCreateListingErrorMessage(error: unknown): string {
   }
 
   if (
-    normalizedMessage.includes('premium tier allows at most 15 listing') ||
-    normalizedMessage.includes('premium tier allows at most 15 active listing')
+    normalizedMessage.includes('basic tier allows at most 6 listing') ||
+    normalizedMessage.includes('basic tier allows at most 6 active listing')
+  ) {
+    return BASIC_TIER_LISTING_LIMIT_MESSAGE;
+  }
+
+  if (
+    normalizedMessage.includes('premium tier allows at most 20 listing') ||
+    normalizedMessage.includes('premium tier allows at most 20 active listing')
   ) {
     return PREMIUM_TIER_LISTING_LIMIT_MESSAGE;
+  }
+
+  if (
+    normalizedMessage.includes('pro tier allows at most 50 listing') ||
+    normalizedMessage.includes('pro tier allows at most 50 active listing')
+  ) {
+    return PRO_TIER_LISTING_LIMIT_MESSAGE;
   }
 
   return message || 'Terjadi kesalahan saat memasang iklan. Silakan coba lagi.';
 }
 
-function getListingLimit(isPremium?: boolean) {
-  return isPremium ? PREMIUM_TIER_LISTING_LIMIT : FREE_TIER_LISTING_LIMIT;
+function getListingLimit(tier: 'free' | 'basic' | 'premium' | 'pro' = 'free') {
+  switch (tier) {
+    case 'basic':
+      return BASIC_TIER_LISTING_LIMIT;
+    case 'premium':
+      return PREMIUM_TIER_LISTING_LIMIT;
+    case 'pro':
+      return PRO_TIER_LISTING_LIMIT;
+    default:
+      return FREE_TIER_LISTING_LIMIT;
+  }
 }
 
-function getListingLimitMessage(isPremium?: boolean) {
-  return isPremium ? PREMIUM_TIER_LISTING_LIMIT_MESSAGE : FREE_TIER_LISTING_LIMIT_MESSAGE;
+function getListingLimitMessage(tier: 'free' | 'basic' | 'premium' | 'pro' = 'free') {
+  switch (tier) {
+    case 'basic':
+      return BASIC_TIER_LISTING_LIMIT_MESSAGE;
+    case 'premium':
+      return PREMIUM_TIER_LISTING_LIMIT_MESSAGE;
+    case 'pro':
+      return PRO_TIER_LISTING_LIMIT_MESSAGE;
+    default:
+      return FREE_TIER_LISTING_LIMIT_MESSAGE;
+  }
 }

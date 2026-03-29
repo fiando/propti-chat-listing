@@ -3,6 +3,7 @@ package utils
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/fiando/propti/backend/internal/models"
@@ -76,24 +77,61 @@ func ValidatePagination(page, pageSize int) (int, int) {
 	return page, pageSize
 }
 
-// MediaLimits are the canonical per-listing media caps for each subscription tier.
-const (
-	MaxFreeMediaItems    = 3
-	MaxPremiumMediaItems = 15
-)
-
 // ValidateMediaLimits checks media caps per subscription tier.
-// Free tier: 3 items total; premium tier: 15 items total.
-func ValidateMediaLimits(isPremium bool, images, videos []string) error {
+func ValidateMediaLimits(maxMediaItems int, tierLabel string, images, videos []string) error {
 	total := len(images) + len(videos)
-	if isPremium {
-		if total > MaxPremiumMediaItems {
-			return fmt.Errorf("premium tier allows at most %d media items per listing (got %d)", MaxPremiumMediaItems, total)
-		}
-		return nil
+	if total > maxMediaItems {
+		return fmt.Errorf("%s tier allows at most %d media items per listing (got %d)", tierLabel, maxMediaItems, total)
 	}
-	if total > MaxFreeMediaItems {
-		return fmt.Errorf("free tier allows at most %d media items per listing (got %d)", MaxFreeMediaItems, total)
+	return nil
+}
+
+var digitsOnlyRegex = regexp.MustCompile(`^[0-9]+$`)
+
+func NormalizeWhatsAppPhone(phone string) (string, error) {
+	trimmed := strings.TrimSpace(phone)
+	trimmed = strings.ReplaceAll(trimmed, " ", "")
+	trimmed = strings.ReplaceAll(trimmed, "-", "")
+	if strings.HasPrefix(trimmed, "0") {
+		trimmed = "+62" + strings.TrimPrefix(trimmed, "0")
+	}
+	if !strings.HasPrefix(trimmed, "+") {
+		return "", errors.New("phone must use international format")
+	}
+	digits := strings.TrimPrefix(trimmed, "+")
+	if !digitsOnlyRegex.MatchString(digits) {
+		return "", errors.New("phone must contain digits only")
+	}
+	if len(digits) < 10 || len(digits) > 15 {
+		return "", errors.New("phone must be 10 to 15 digits")
+	}
+	return "+" + digits, nil
+}
+
+func ValidateWhatsAppLinkIdentity(userID, phone string) error {
+	if strings.TrimSpace(userID) == "" {
+		return errors.New("user id is required")
+	}
+	if strings.TrimSpace(phone) == "" {
+		return errors.New("phone is required")
+	}
+	return nil
+}
+
+func ValidateOTPCode(code string) error {
+	trimmed := strings.TrimSpace(code)
+	if len(trimmed) != 6 {
+		return errors.New("otp must be 6 digits")
+	}
+	if !digitsOnlyRegex.MatchString(trimmed) {
+		return errors.New("otp must contain digits only")
+	}
+	return nil
+}
+
+func ValidateOTPChallengeID(challengeID string) error {
+	if strings.TrimSpace(challengeID) == "" {
+		return errors.New("challenge id is required")
 	}
 	return nil
 }
