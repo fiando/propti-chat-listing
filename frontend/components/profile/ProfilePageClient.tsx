@@ -49,6 +49,7 @@ type ProfilePageClientProps = {
 
 export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientProps) {
   const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const [selectedUpgradeTier, setSelectedUpgradeTier] = useState<'basic' | 'premium' | 'pro'>('premium');
   const [waPhoneInput, setWaPhoneInput] = useState(profile.phone ?? '');
   const [otpCode, setOtpCode] = useState('');
   const [challengeId, setChallengeId] = useState('');
@@ -248,14 +249,40 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
                 ))}
               </ul>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowPremiumModal(true)}
-              className="w-full btn-gold flex items-center justify-center gap-2"
-            >
-              <Crown className="w-4 h-4" />
-              Upgrade ke Basic/Premium/Pro
-            </button>
+
+            <p className="text-sm font-semibold text-gray-700 mb-3">Pilih paket upgrade:</p>
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              {(
+                [
+                  { key: 'basic', label: 'Basic', price: 'Rp 59rb/bln', highlight: false },
+                  { key: 'premium', label: 'Premium', price: 'Rp 129rb/bln', highlight: true },
+                  { key: 'pro', label: 'Pro', price: 'Rp 199rb/bln', highlight: false },
+                ] as const
+              ).map((plan) => (
+                <button
+                  key={plan.key}
+                  type="button"
+                  onClick={() => {
+                    setSelectedUpgradeTier(plan.key);
+                    setShowPremiumModal(true);
+                  }}
+                  className={`flex flex-col items-center p-3 rounded-2xl border-2 transition-all text-center ${
+                    plan.highlight
+                      ? 'border-brand-gold bg-amber-50 text-amber-700'
+                      : 'border-gray-200 bg-white text-gray-700 hover:border-brand-gold hover:bg-amber-50'
+                  }`}
+                >
+                  <Crown className={`w-5 h-5 mb-1 ${plan.highlight ? 'text-brand-gold' : 'text-gray-400'}`} />
+                  <span className="text-xs font-bold">{plan.label}</span>
+                  <span className="text-xs text-gray-500 mt-0.5">{plan.price}</span>
+                  {plan.highlight && (
+                    <span className="mt-1 text-[10px] font-semibold bg-brand-gold text-white px-1.5 py-0.5 rounded-full">
+                      Populer
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -381,7 +408,7 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
         onClose={() => setShowPremiumModal(false)}
         mode={showRenewalCTA ? 'renew' : 'upgrade'}
         currentRenewDate={profile.subscription.renewDate}
-        selectedTier={tier === 'free' ? 'basic' : tier}
+        selectedTier={showRenewalCTA ? (tier === 'free' ? 'basic' : tier) : selectedUpgradeTier}
       />
     </div>
   );

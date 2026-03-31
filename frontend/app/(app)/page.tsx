@@ -10,6 +10,8 @@ import {
   Home,
   TrendingUp,
   ChevronRight,
+  Crown,
+  Check,
 } from 'lucide-react';
 import { ShieldIcon } from '@/components/icons/ShieldIcon';
 import { ListingCard } from '@/components/listings/ListingCard';
@@ -90,6 +92,76 @@ const PRODUCT_PROOF = [
     tag: 'Siap dibagikan',
   },
 ];
+
+const PRICING_PLANS = [
+  {
+    key: 'free',
+    label: 'Gratis',
+    price: 'Rp 0',
+    period: '',
+    blurb: 'Mulai tanpa biaya.',
+    highlight: false,
+    features: [
+      'Maksimal 3 foto per iklan',
+      'Maksimal 3 listing aktif',
+      'Iklan tayang 30 hari',
+      'Buat listing via WhatsApp',
+    ],
+    cta: 'Mulai Gratis',
+    href: '/listings/create',
+  },
+  {
+    key: 'basic',
+    label: 'Basic',
+    price: 'Rp 59.000',
+    period: '/bulan',
+    blurb: 'Untuk seller yang mulai serius beriklan.',
+    highlight: false,
+    features: [
+      'Maksimal 8 foto per iklan',
+      'Maksimal 6 listing aktif',
+      'WA baca + buat listing',
+      'Voice note 20 menit/bulan',
+      'Iklan tayang hingga 90 hari',
+    ],
+    cta: 'Pilih Basic',
+    href: '/upgrade?tier=basic',
+  },
+  {
+    key: 'premium',
+    label: 'Premium',
+    price: 'Rp 129.000',
+    period: '/bulan',
+    blurb: 'Untuk performa listing yang lebih agresif.',
+    highlight: true,
+    features: [
+      'Maksimal 15 foto per iklan',
+      'Maksimal 20 listing aktif',
+      'WA baca, buat, edit & hapus listing',
+      'Voice note 60 menit/bulan',
+      'Iklan tayang hingga 90 hari',
+    ],
+    cta: 'Pilih Premium',
+    href: '/upgrade?tier=premium',
+  },
+  {
+    key: 'pro',
+    label: 'Pro',
+    price: 'Rp 199.000',
+    period: '/bulan',
+    blurb: 'Untuk tim agen dengan volume listing tinggi.',
+    highlight: false,
+    features: [
+      'Maksimal 20 foto per iklan',
+      'Maksimal 50 listing aktif',
+      'WA baca, buat, edit & hapus listing',
+      'Voice note 120 menit/bulan',
+      'Iklan tayang hingga 90 hari',
+    ],
+    cta: 'Pilih Pro',
+    href: '/upgrade?tier=pro',
+  },
+] as const;
 
 export default async function HomePage() {
   const { isAuthenticated, profile } = await getServerAuthProfile();
@@ -323,6 +395,76 @@ export default async function HomePage() {
               </div>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Pricing section */}
+      <section className="bg-white py-16 md:py-24">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="text-center mb-12">
+            <span className="inline-block bg-amber-50 text-amber-700 text-sm font-semibold px-4 py-1.5 rounded-full mb-4 border border-amber-200">
+              Harga Paket
+            </span>
+            <h2 className="section-title">Pilih Paket yang Sesuai</h2>
+            <p className="section-subtitle max-w-2xl mx-auto">
+              Mulai gratis, upgrade kapan saja sesuai kebutuhan. Semua paket berbayar mendukung
+              integrasi WhatsApp dan voice note.
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {PRICING_PLANS.map((plan) => (
+              <div
+                key={plan.key}
+                className={`card p-6 flex flex-col relative ${
+                  plan.highlight ? 'border-2 border-brand-gold shadow-xl' : ''
+                }`}
+              >
+                {plan.highlight && (
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
+                    <span className="bg-brand-gold text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap flex items-center gap-1">
+                      <Crown className="w-3 h-3" />
+                      Paling Populer
+                    </span>
+                  </div>
+                )}
+                <div className="mb-5">
+                  <div className="flex items-center gap-2 mb-2">
+                    {plan.key !== 'free' && (
+                      <Crown className={`w-4 h-4 ${plan.highlight ? 'text-brand-gold' : 'text-gray-400'}`} />
+                    )}
+                    <span className="font-bold text-gray-900">{plan.label}</span>
+                  </div>
+                  <div>
+                    <span className="text-2xl font-black text-gray-900">{plan.price}</span>
+                    {plan.period && <span className="text-gray-400 text-sm ml-1">{plan.period}</span>}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">{plan.blurb}</p>
+                </div>
+                <ul className="space-y-2.5 flex-1 mb-6">
+                  {plan.features.map((f) => (
+                    <li key={f} className="flex items-start gap-2 text-sm text-gray-600">
+                      <Check className="w-3.5 h-3.5 text-green-500 flex-shrink-0 mt-0.5" />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  href={plan.href}
+                  className={`w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
+                    plan.highlight
+                      ? 'bg-brand-gold text-white hover:opacity-90 shadow-lg'
+                      : plan.key === 'free'
+                        ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        : 'border-2 border-brand-gold text-amber-700 hover:bg-amber-50'
+                  }`}
+                >
+                  {plan.key !== 'free' && <Crown className="w-4 h-4" />}
+                  {plan.cta}
+                </Link>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 

@@ -71,6 +71,7 @@ type WhatsAppOrchestratorWriteEligibilityGuard interface {
 type WhatsAppCommandOrchestratorOptions struct {
 	Now          func() time.Time
 	WebSearchURL string
+	WebBaseURL   string
 	MetricsSink  WhatsAppCommandMetricsSink
 }
 
@@ -87,6 +88,7 @@ type WhatsAppCommandOrchestrator struct {
 	writeEligibilityGuard WhatsAppOrchestratorWriteEligibilityGuard
 	now                   func() time.Time
 	webSearchURL          string
+	webBaseURL            string
 	metricsSink           WhatsAppCommandMetricsSink
 }
 
@@ -115,6 +117,10 @@ func NewWhatsAppCommandOrchestrator(
 	if webURL == "" {
 		webURL = "https://propti.id/search"
 	}
+	webBase := strings.TrimRight(strings.TrimSpace(opts.WebBaseURL), "/")
+	if webBase == "" {
+		webBase = "https://propti.id"
+	}
 
 	return &WhatsAppCommandOrchestrator{
 		listingService:        listingService,
@@ -123,6 +129,7 @@ func NewWhatsAppCommandOrchestrator(
 		writeEligibilityGuard: writeEligibilityGuard,
 		now:                   nowFn,
 		webSearchURL:          webURL,
+		webBaseURL:            webBase,
 		metricsSink:           opts.MetricsSink,
 	}, nil
 }
@@ -307,7 +314,9 @@ func (o *WhatsAppCommandOrchestrator) handleCreate(ctx context.Context, userID, 
 		return nil, err
 	}
 
-	return &WhatsAppCommandResponse{Intent: WhatsAppCommandIntentListingCreate, Listing: listing, Message: "listing created"}, nil
+	link := o.buildListingLink(listing.ListingID)
+	msg := fmt.Sprintf("Listing berhasil dibuat. Tinjau dan lengkapi iklan Anda di: %s", link)
+	return &WhatsAppCommandResponse{Intent: WhatsAppCommandIntentListingCreate, Listing: listing, Message: msg}, nil
 }
 
 func (o *WhatsAppCommandOrchestrator) handleEdit(ctx context.Context, userID, payload string) (*WhatsAppCommandResponse, error) {
@@ -357,7 +366,9 @@ func (o *WhatsAppCommandOrchestrator) handleEdit(ctx context.Context, userID, pa
 	if err != nil {
 		return nil, err
 	}
-	return &WhatsAppCommandResponse{Intent: WhatsAppCommandIntentListingEdit, Listing: listing, Message: "listing updated"}, nil
+	link := o.buildListingLink(listing.ListingID)
+	msg := fmt.Sprintf("Listing berhasil diperbarui. Lihat hasilnya di: %s", link)
+	return &WhatsAppCommandResponse{Intent: WhatsAppCommandIntentListingEdit, Listing: listing, Message: msg}, nil
 }
 
 func (o *WhatsAppCommandOrchestrator) handleDelete(ctx context.Context, userID, listingID string) (*WhatsAppCommandResponse, error) {
@@ -368,7 +379,9 @@ func (o *WhatsAppCommandOrchestrator) handleDelete(ctx context.Context, userID, 
 	if err := o.listingService.DeleteListing(ctx, userID, listingID); err != nil {
 		return nil, err
 	}
-	return &WhatsAppCommandResponse{Intent: WhatsAppCommandIntentListingDelete, Message: "listing deleted"}, nil
+	listingsLink := o.webBaseURL + "/listings"
+	msg := fmt.Sprintf("Listing berhasil dihapus. Kelola iklan Anda di: %s", listingsLink)
+	return &WhatsAppCommandResponse{Intent: WhatsAppCommandIntentListingDelete, Message: msg}, nil
 }
 
 func (o *WhatsAppCommandOrchestrator) handleList(ctx context.Context, userID string) (*WhatsAppCommandResponse, error) {
@@ -376,7 +389,9 @@ func (o *WhatsAppCommandOrchestrator) handleList(ctx context.Context, userID str
 	if err != nil {
 		return nil, err
 	}
-	return &WhatsAppCommandResponse{Intent: WhatsAppCommandIntentListingRead, Listings: listings}, nil
+	listingsLink := o.webBaseURL + "/listings"
+	msg := fmt.Sprintf("Kelola semua iklan Anda di: %s", listingsLink)
+	return &WhatsAppCommandResponse{Intent: WhatsAppCommandIntentListingRead, Listings: listings, Message: msg}, nil
 }
 
 func (o *WhatsAppCommandOrchestrator) handleSearch(ctx context.Context, query string) (*WhatsAppCommandResponse, error) {
@@ -427,14 +442,18 @@ func (o *WhatsAppCommandOrchestrator) handleSubscription(ctx context.Context, us
 func (o *WhatsAppCommandOrchestrator) upgradeGuidanceForTier(tier models.SubscriptionTier) string {
 	switch tier {
 	case models.SubscriptionFree:
-		return "Upgrade to Basic or above to unlock read/search via WhatsApp."
+		return "Upgrade ke Basic atau lebih untuk membaca dan mencari listing via WhatsApp."
 	case models.SubscriptionBasic:
-		return "Upgrade to Premium or Pro to unlock edit/delete via WhatsApp."
+		return "Upgrade ke Premium atau Pro untuk mengedit dan menghapus listing via WhatsApp."
 	case models.SubscriptionPremium:
-		return "Upgrade to Pro for higher listing limits and more voice minutes."
+		return "Upgrade ke Pro untuk batas listing lebih tinggi dan kuota voice lebih banyak."
 	default:
-		return "Your plan already has full WhatsApp command access."
+		return "Paket Anda sudah mendukung semua fitur perintah WhatsApp."
 	}
+}
+
+func (o *WhatsAppCommandOrchestrator) buildListingLink(listingID string) string {
+	return o.webBaseURL + "/listings/" + listingID
 }
 
 func (o *WhatsAppCommandOrchestrator) buildWebSearchDeepLink(query string) string {
@@ -447,16 +466,24 @@ func detectWhatsAppIntent(text string) (WhatsAppCommandIntent, string) {
 	lower := strings.ToLower(trimmed)
 
 	switch {
-	case strings.HasPrefix(lower, "status subscription"), strings.HasPrefix(lower, "subscription status"), strings.HasPrefix(lower, "status paket"):
+	case strings.HasPrefix(lower, "status paket"), strings.HasPrefix(lower, "cek paket"), strings.HasPrefix(lower, "info paket"),
+		strings.HasPrefix(lower, "status subscription"), strings.HasPrefix(lower, "subscription status"):
 		return WhatsAppCommandIntentSubscriptionStatus, ""
-	case strings.HasPrefix(lower, "listing saya"), strings.HasPrefix(lower, "list listing"), strings.HasPrefix(lower, "my listings"):
+	case strings.HasPrefix(lower, "listing saya"), strings.HasPrefix(lower, "iklan saya"), strings.HasPrefix(lower, "daftar iklan"),
+		strings.HasPrefix(lower, "list listing"), strings.HasPrefix(lower, "my listings"):
 		return WhatsAppCommandIntentListingRead, ""
 	case strings.HasPrefix(lower, "cari "), strings.HasPrefix(lower, "search "), strings.HasPrefix(lower, "find "):
 		return WhatsAppCommandIntentSearch, trimmed
-	case strings.HasPrefix(lower, "edit "), strings.HasPrefix(lower, "ubah "):
-		return WhatsAppCommandIntentListingEdit, strings.TrimSpace(trimmed[5:])
-	case strings.HasPrefix(lower, "delete "), strings.HasPrefix(lower, "hapus "):
-		return WhatsAppCommandIntentListingDelete, strings.TrimSpace(trimmed[6:])
+	case strings.HasPrefix(lower, "ubah "), strings.HasPrefix(lower, "edit "), strings.HasPrefix(lower, "perbarui "), strings.HasPrefix(lower, "update "):
+		if idx := strings.IndexByte(trimmed, ' '); idx >= 0 {
+			return WhatsAppCommandIntentListingEdit, strings.TrimSpace(trimmed[idx+1:])
+		}
+		return WhatsAppCommandIntentListingEdit, ""
+	case strings.HasPrefix(lower, "hapus "), strings.HasPrefix(lower, "delete "):
+		if idx := strings.IndexByte(trimmed, ' '); idx >= 0 {
+			return WhatsAppCommandIntentListingDelete, strings.TrimSpace(trimmed[idx+1:])
+		}
+		return WhatsAppCommandIntentListingDelete, ""
 	default:
 		return WhatsAppCommandIntentListingCreate, trimmed
 	}
