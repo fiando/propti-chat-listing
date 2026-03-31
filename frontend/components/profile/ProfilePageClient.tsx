@@ -26,7 +26,9 @@ import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
 import { getSubscriptionStatus } from '@/lib/subscription-status';
 import { shouldShowRenewalCTA } from '@/lib/premium-renewal';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
+  updateProfile,
   createWhatsAppLinkChallenge,
   disconnectWhatsAppLink,
   getWhatsAppLinkStatus,
@@ -36,7 +38,8 @@ import {
   getWhatsAppWriteEligibilityCopy,
   normalizeWhatsAppLinkPhone,
 } from '@/lib/whatsapp-linking';
-import type { User as UserProfile } from '@/types';
+import { buildProfileUpdatePayload } from '@/lib/profile-update-payload';
+import type { UpdateProfileRequest, User as UserProfile, UserPreferences } from '@/types';
 
 type ProfilePageClientProps = {
   profile: UserProfile;
@@ -48,12 +51,23 @@ type ProfilePageClientProps = {
 };
 
 export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [selectedUpgradeTier, setSelectedUpgradeTier] = useState<'basic' | 'premium' | 'pro'>('premium');
+  const [role, setRole] = useState<'buyer' | 'seller' | 'both' | ''>(profile.role ?? '');
+  const [notifications, setNotifications] = useState(profile.preferences?.notifications ?? true);
+  const [saved, setSaved] = useState(false);
   const [waPhoneInput, setWaPhoneInput] = useState(profile.phone ?? '');
   const [otpCode, setOtpCode] = useState('');
   const [challengeId, setChallengeId] = useState('');
   const [waSuccessMessage, setWaSuccessMessage] = useState<string | null>(null);
+  const returnTo = searchParams.get('returnTo');
+  const DEFAULT_PREFERENCES: UserPreferences = {
+    favoriteLocations: [],
+    searchHistory: [],
+    notifications: true,
+  };
 
   const subscriptionStatus = getSubscriptionStatus({ authStatus: 'authenticated', profile });
   const tier = profile.subscription.tier;
@@ -103,6 +117,16 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: (payload: UpdateProfileRequest) => updateProfile(payload),
+    onSuccess: () => {
+      setSaved(true);
+      if (returnTo) {
+        router.push(returnTo);
+      }
+    },
+  });
+
   const waStatus = waStatusQuery.data ?? {
     eligible: false,
     isLinked: false,
@@ -131,6 +155,17 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
   const handleDisconnect = async () => {
     setWaSuccessMessage(null);
     await disconnectLinkMutation.mutateAsync();
+  };
+
+  const handleSubmitSettings = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSaved(false);
+    const payload: UpdateProfileRequest = buildProfileUpdatePayload({
+      role,
+      notifications,
+      preferences: profile.preferences ?? DEFAULT_PREFERENCES,
+    });
+    await updateMutation.mutateAsync(payload);
   };
 
   return (
@@ -291,7 +326,6 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
         {[
           { icon: Home, label: 'Iklan Saya', href: '/listings' },
           { icon: Star, label: 'Properti Tersimpan', href: '/saved' },
-          { icon: Settings, label: 'Pengaturan', href: '/settings' },
         ].map((item) => (
           <Link
             key={item.href}
@@ -307,6 +341,87 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
             <Edit2 className="w-4 h-4 text-gray-300 group-hover:text-gray-400" />
           </Link>
         ))}
+      </div>
+
+      <div className="card p-6 mb-4">
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-2">
+            <Settings className="w-5 h-5 text-brand-primary" />
+            <h2 className="font-bold text-gray-900">Pengaturan Akun</h2>
+          </div>
+          <p className="text-gray-500 text-sm">Kelola data profil dan preferensi akun Propti kamu.</p>
+        </div>
+
+        {returnTo && (
+          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            Hubungkan WhatsApp dulu supaya kamu bisa pasang iklan. Setelah tersambung dan terverifikasi,
+            kamu akan dikembalikan ke proses pasang iklan.
+          </div>
+        )}
+
+        <form onSubmit={handleSubmitSettings} className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700">Nama</span>
+              <input value={displayName} disabled className="input-field mt-1 bg-gray-50 text-gray-500" />
+            </label>
+
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700">Email</span>
+              <input value={displayEmail} disabled className="input-field mt-1 bg-gray-50 text-gray-500" />
+            </label>
+
+            <label className="block md:col-span-2">
+              <span className="text-sm font-medium text-gray-700">Peran Akun</span>
+              <select
+                value={role}
+                onChange={(event) => setRole(event.target.value as 'buyer' | 'seller' | 'both' | '')}
+                className="input-field mt-1"
+              >
+                {role === '' && <option value="">Pilih peran akun (opsional)</option>}
+                <option value="buyer">Pencari Properti</option>
+                <option value="seller">Penjual / Agen</option>
+                <option value="both">Keduanya</option>
+              </select>
+            </label>
+          </div>
+
+          <label className="flex items-start gap-3 rounded-2xl border border-gray-100 p-4">
+            <input
+              type="checkbox"
+              checked={notifications}
+              onChange={(event) => setNotifications(event.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-gray-300 text-brand-primary focus:ring-brand-primary"
+            />
+            <span>
+              <span className="block font-semibold text-gray-900">Aktifkan notifikasi</span>
+              <span className="text-sm text-gray-500">
+                Dapatkan pembaruan penting untuk aktivitas akun dan listing.
+              </span>
+            </span>
+          </label>
+
+          {updateMutation.isError && (
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+              {(updateMutation.error as Error).message || 'Gagal menyimpan pengaturan.'}
+            </div>
+          )}
+
+          {saved && !updateMutation.isPending && (
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+              Pengaturan berhasil diperbarui.
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={updateMutation.isPending}
+            className="btn-primary w-full inline-flex items-center justify-center gap-2 disabled:opacity-60"
+          >
+            {updateMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+            Simpan Pengaturan
+          </button>
+        </form>
       </div>
 
       <div className="card p-6 mb-4">

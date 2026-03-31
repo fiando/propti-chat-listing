@@ -5,7 +5,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: '*',
       allow: ['/listings/', '/'],
-      disallow: ['/api/', '/login', '/callback', '/settings', '/profile'],
+      disallow: ['/api/', '/login', '/callback', '/profile'],
     },
     sitemap: 'https://propti.id/sitemap.xml',
   };

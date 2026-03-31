@@ -42,10 +42,6 @@ const savedPage = readFileSync(
   new URL('../app/(app)/saved/page.tsx', import.meta.url),
   'utf8'
 );
-const settingsPage = readFileSync(
-  new URL('../app/(app)/settings/page.tsx', import.meta.url),
-  'utf8'
-);
 const typesFile = readFileSync(
   new URL('../types/index.ts', import.meta.url),
   'utf8'
@@ -172,6 +168,8 @@ test('search CTA copy is consistent and parser CTA points to create listing', ()
   assert.match(homePage, /Paste listing saya/);
 });
 
-test('settings save button is full-width block', () => {
-  assert.match(settingsPage, /className="btn-primary w-full inline-flex items-center justify-center gap-2 disabled:opacity-60"/);
+test('profile includes account settings form with full-width save button', () => {
+  assert.match(profileClient, /Kelola data profil dan preferensi akun Propti kamu\./);
+  assert.match(profileClient, /Simpan Pengaturan/);
+  assert.match(profileClient, /className="btn-primary w-full inline-flex items-center justify-center gap-2 disabled:opacity-60"/);
 });

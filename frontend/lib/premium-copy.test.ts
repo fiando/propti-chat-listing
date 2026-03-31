@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 
 const profilePage = readFileSync(new URL('../components/profile/ProfilePageClient.tsx', import.meta.url), 'utf8');
 const premiumModal = readFileSync(new URL('../components/premium/PremiumUpgradeModal.tsx', import.meta.url), 'utf8');
+const upgradePage = readFileSync(new URL('../components/upgrade/UpgradePageClient.tsx', import.meta.url), 'utf8');
 const imageUpload = readFileSync(new URL('../components/listings/ImageUpload.tsx', import.meta.url), 'utf8');
 const homePage = readFileSync(new URL('../app/(app)/page.tsx', import.meta.url), 'utf8');
 
@@ -14,13 +15,13 @@ test('free package copy says first 3 listings are free, not 1 per month', () => 
 });
 
 test('premium modal copy reflects tiered caps and durations', () => {
-  assert.match(premiumModal, /Premium: maksimal 15 foto/i);
-  assert.match(premiumModal, /Premium: maksimal 20 listing aktif/i);
-  assert.match(premiumModal, /Basic: maksimal 8 foto/i);
-  assert.match(premiumModal, /Basic: maksimal 6 listing aktif/i);
-  assert.match(premiumModal, /Pro: maksimal 20 foto/i);
-  assert.match(premiumModal, /Pro: maksimal 50 listing aktif/i);
-  assert.match(premiumModal, /Premium: tayang sampai 90 hari/i);
+  assert.match(premiumModal, /Maksimal 15 foto per iklan/i);
+  assert.match(premiumModal, /Maksimal 20 listing aktif/i);
+  assert.match(premiumModal, /Maksimal 8 foto per iklan/i);
+  assert.match(premiumModal, /Maksimal 6 listing aktif/i);
+  assert.match(premiumModal, /Maksimal 20 foto per iklan/i);
+  assert.match(premiumModal, /Maksimal 50 listing aktif/i);
+  assert.match(premiumModal, /Iklan tayang hingga 90 hari/i);
   assert.match(premiumModal, /Paket gratis: maksimal 3 foto/i);
   assert.match(premiumModal, /3 listing aktif/i);
   assert.match(premiumModal, /tayang 30 hari/i);
@@ -32,7 +33,7 @@ test('premium modal copy reflects tiered caps and durations', () => {
 });
 
 test('profile package copy shows tiered package pricing instead of legacy 49rb', () => {
-  assert.match(profilePage, /Upgrade ke Basic\/Premium\/Pro/i);
+  assert.match(profilePage, /Pilih paket upgrade:/i);
   assert.doesNotMatch(profilePage, /Rp 49rb/i);
 });
 
@@ -42,8 +43,8 @@ test('image upload upsell copy also reflects the 15-photo premium cap', () => {
 });
 
 test('premium and homepage copy avoid statistics or insight claims', () => {
-  assert.match(premiumModal, /WA full read\/write/i);
-  assert.match(premiumModal, /Voice hingga 60 menit/i);
+  assert.match(premiumModal, /WA baca, buat, edit & hapus listing/i);
+  assert.match(premiumModal, /Voice note hingga 60 menit/i);
   assert.doesNotMatch(premiumModal, /statistik|insight/i);
   assert.doesNotMatch(homePage, /statistik|insight/i);
   assert.doesNotMatch(premiumModal, /statistik detail/i);
@@ -75,4 +76,15 @@ test('premium modal clearly differentiates upgrade and downgrade actions', () =>
   assert.match(premiumModal, /Downgrade ke/);
   assert.match(premiumModal, /Upgrade ke/);
   assert.match(premiumModal, /Perpanjang Paket/);
+});
+
+test('upgrade page uses wider desktop layout to reduce wrapped plan text', () => {
+  assert.match(upgradePage, /max-w-7xl/);
+});
+
+test('upgrade page computes per-plan upgrade\/downgrade labels from current tier', () => {
+  assert.match(upgradePage, /const TIER_ORDER: Record<SubscriptionTier, number>/);
+  assert.match(upgradePage, /const isDowngrade = selectedTierRank < currentTierRank/);
+  assert.match(upgradePage, /Downgrade ke/);
+  assert.match(upgradePage, /Upgrade ke/);
 });

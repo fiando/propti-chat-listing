@@ -77,6 +77,12 @@ const FREE_FEATURES = [
 ];
 
 const PAID_TIERS: PaidTier[] = ['basic', 'premium', 'pro'];
+const TIER_ORDER: Record<SubscriptionTier, number> = {
+  free: 0,
+  basic: 1,
+  premium: 2,
+  pro: 3,
+};
 
 export function UpgradePageClient({ currentTier, initialTier }: UpgradePageClientProps) {
   const [activeTier, setActiveTier] = useState<PaidTier>(initialTier);
@@ -85,6 +91,14 @@ export function UpgradePageClient({ currentTier, initialTier }: UpgradePageClien
 
   const config = TIER_CONFIG[activeTier];
   const isCurrentPlan = currentTier === activeTier;
+  const currentTierRank = TIER_ORDER[currentTier];
+  const selectedTierRank = TIER_ORDER[activeTier];
+  const isDowngrade = selectedTierRank < currentTierRank;
+  const selectedActionLabel = isCurrentPlan
+    ? `Perpanjang ${config.label}`
+    : isDowngrade
+      ? `Downgrade ke ${config.label}`
+      : `Upgrade ke ${config.label}`;
 
   const handleUpgrade = async () => {
     setLoading(true);
@@ -99,7 +113,7 @@ export function UpgradePageClient({ currentTier, initialTier }: UpgradePageClien
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="mb-6">
         <Link href="/profile#premium" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
           <ArrowLeft className="w-4 h-4" />
@@ -119,7 +133,7 @@ export function UpgradePageClient({ currentTier, initialTier }: UpgradePageClien
       </div>
 
       {/* Plan comparison grid */}
-      <div className="grid md:grid-cols-4 gap-4 mb-8">
+      <div className="grid lg:grid-cols-4 gap-4 mb-8">
         {/* Free plan */}
         <div className="card p-5 border-2 border-gray-100">
           <div className="mb-4">
@@ -150,6 +164,12 @@ export function UpgradePageClient({ currentTier, initialTier }: UpgradePageClien
           const plan = TIER_CONFIG[tier];
           const isActive = activeTier === tier;
           const isCurrent = currentTier === tier;
+          const isPlanDowngrade = TIER_ORDER[tier] < currentTierRank;
+          const planActionLabel = isCurrent
+            ? `Paket aktif`
+            : isPlanDowngrade
+              ? `Downgrade ke ${plan.label}`
+              : `Upgrade ke ${plan.label}`;
           return (
             <button
               key={tier}
@@ -199,7 +219,7 @@ export function UpgradePageClient({ currentTier, initialTier }: UpgradePageClien
                       : 'bg-gray-100 text-gray-500'
                   }`}
                 >
-                  {isActive ? 'Dipilih' : 'Pilih'}
+                  {planActionLabel}
                 </div>
               )}
             </button>
@@ -210,7 +230,7 @@ export function UpgradePageClient({ currentTier, initialTier }: UpgradePageClien
       {/* CTA section */}
       <div className="card p-6 text-center max-w-md mx-auto">
         <h2 className="font-bold text-gray-900 mb-1">
-          {isCurrentPlan ? 'Ini paket aktif Anda' : `Upgrade ke Propti ${config.label}`}
+          {isCurrentPlan ? 'Ini paket aktif Anda' : selectedActionLabel}
         </h2>
         <p className="text-sm text-gray-500 mb-4">
           {isCurrentPlan
@@ -238,7 +258,7 @@ export function UpgradePageClient({ currentTier, initialTier }: UpgradePageClien
           ) : (
             <>
               <Crown className="w-5 h-5" />
-              {isCurrentPlan ? `Perpanjang ${config.label}` : `Upgrade ke ${config.label} — ${config.price}`}
+              {isCurrentPlan ? `Perpanjang ${config.label}` : `${selectedActionLabel} — ${config.price}`}
             </>
           )}
         </button>
