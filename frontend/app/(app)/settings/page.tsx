@@ -215,6 +215,8 @@ export default function SettingsPage() {
         onClose={() => setShowPremiumModal(false)}
         mode={showRenewalCTA ? 'renew' : 'upgrade'}
         currentRenewDate={profile?.subscription?.renewDate}
+        currentTier={profile?.subscription?.tier ?? 'free'}
+        selectedTier={profile?.subscription?.tier === 'free' ? 'basic' : profile?.subscription?.tier ?? 'premium'}
       />
     </div>
   );

@@ -408,6 +408,7 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
         onClose={() => setShowPremiumModal(false)}
         mode={showRenewalCTA ? 'renew' : 'upgrade'}
         currentRenewDate={profile.subscription.renewDate}
+        currentTier={tier}
         selectedTier={showRenewalCTA ? (tier === 'free' ? 'basic' : tier) : selectedUpgradeTier}
       />
     </div>

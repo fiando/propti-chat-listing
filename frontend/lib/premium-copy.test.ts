@@ -63,5 +63,16 @@ test('premium modal upgrades without requiring profile phone', () => {
   assert.doesNotMatch(premiumModal, /Lengkapi nomor telepon/i);
   assert.doesNotMatch(premiumModal, /returnTo=\/profile#premium/);
   assert.doesNotMatch(premiumModal, /if \(!profilePhone\?\.trim\(\)\)/);
-  assert.match(premiumModal, /const result = await upgradePremium\(selectedTier\)/);
+  assert.match(premiumModal, /const result = await upgradePremium\(activeTier\)/);
+});
+
+test('premium modal provides wider desktop layout and plan selector', () => {
+  assert.match(premiumModal, /max-w-4xl/);
+  assert.match(premiumModal, /grid gap-3 md:grid-cols-3/);
+});
+
+test('premium modal clearly differentiates upgrade and downgrade actions', () => {
+  assert.match(premiumModal, /Downgrade ke/);
+  assert.match(premiumModal, /Upgrade ke/);
+  assert.match(premiumModal, /Perpanjang Paket/);
 });

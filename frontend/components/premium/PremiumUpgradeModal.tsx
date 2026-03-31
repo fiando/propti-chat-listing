@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Crown, X, Check, Loader2, RefreshCw } from 'lucide-react';
 import { upgradePremium } from '@/lib/api';
 import type { SubscriptionTier } from '@/types';
@@ -12,6 +12,7 @@ interface PremiumUpgradeModalProps {
   onClose: () => void;
   mode?: PremiumModalMode;
   currentRenewDate?: string;
+  currentTier?: SubscriptionTier;
   selectedTier?: Exclude<SubscriptionTier, 'free'>;
 }
 
@@ -54,23 +55,46 @@ const TIER_CONFIG = {
   },
 } as const;
 
-const PAID_TIERS: Exclude<SubscriptionTier, 'free'>[] = ['basic', 'premium', 'pro'];
+const TIER_ORDER: Record<SubscriptionTier, number> = {
+  free: 0,
+  basic: 1,
+  premium: 2,
+  pro: 3,
+};
 
 export function PremiumUpgradeModal({
   isOpen,
   onClose,
   mode = 'upgrade',
   currentRenewDate,
+  currentTier = 'free',
   selectedTier = 'premium',
 }: PremiumUpgradeModalProps) {
-  const [activeTier, setActiveTier] = useState<Exclude<SubscriptionTier, 'free'>>(selectedTier);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeTier, setActiveTier] = useState<Exclude<SubscriptionTier, 'free'>>(selectedTier);
+
+  useEffect(() => {
+    setActiveTier(selectedTier);
+  }, [selectedTier, isOpen]);
 
   if (!isOpen) return null;
 
   const isRenewal = mode === 'renew';
   const config = TIER_CONFIG[activeTier];
+
+  const selectedTierRank = TIER_ORDER[activeTier];
+  const currentTierRank = TIER_ORDER[currentTier];
+  const isDowngrade = !isRenewal && currentTierRank > 0 && selectedTierRank < currentTierRank;
+  const isSameTier = !isRenewal && currentTierRank > 0 && selectedTierRank === currentTierRank;
+
+  const actionLabel = isRenewal
+    ? 'Perpanjang Paket'
+    : isDowngrade
+      ? `Downgrade ke ${config.label}`
+      : isSameTier
+        ? `Lanjutkan ${config.label}`
+        : `Upgrade ke ${config.label}`;
 
   const expiryDateStr = currentRenewDate
     ? new Date(currentRenewDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -98,7 +122,7 @@ export function PremiumUpgradeModal({
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-r from-brand-gold to-amber-500 p-6 text-white text-center">
           <button
@@ -125,28 +149,41 @@ export function PremiumUpgradeModal({
           </div>
         </div>
 
-        {/* Tier selector (only for upgrade mode) */}
-        {!isRenewal && (
-          <div className="flex border-b border-gray-100">
-            {PAID_TIERS.map((tier) => (
-              <button
-                key={tier}
-                type="button"
-                onClick={() => setActiveTier(tier)}
-                className={`flex-1 py-3 text-sm font-semibold transition-colors ${
-                  activeTier === tier
-                    ? 'text-brand-primary border-b-2 border-brand-primary bg-brand-light/30'
-                    : 'text-gray-400 hover:text-gray-600'
-                }`}
-              >
-                {TIER_CONFIG[tier].label}
-              </button>
-            ))}
-          </div>
-        )}
-
         {/* Features */}
         <div className="p-6">
+          {!isRenewal && (
+            <div className="mb-6">
+              <p className="text-sm font-semibold text-gray-900 mb-3">Pilih paket</p>
+              <div className="grid gap-3 md:grid-cols-3">
+                {(Object.keys(TIER_CONFIG) as Array<Exclude<SubscriptionTier, 'free'>>).map((tierKey) => {
+                  const tierConfig = TIER_CONFIG[tierKey];
+                  const isActive = activeTier === tierKey;
+                  const tierAction =
+                    TIER_ORDER[tierKey] < currentTierRank && currentTierRank > 0
+                      ? `Downgrade ke ${tierConfig.label}`
+                      : `Upgrade ke ${tierConfig.label}`;
+
+                  return (
+                    <button
+                      key={tierKey}
+                      type="button"
+                      onClick={() => setActiveTier(tierKey)}
+                      className={`rounded-2xl border p-3 text-left transition ${
+                        isActive
+                          ? 'border-brand-primary bg-brand-light/30 shadow-sm'
+                          : 'border-gray-200 hover:border-brand-primary/40'
+                      }`}
+                    >
+                      <p className="font-bold text-gray-900">{tierConfig.label}</p>
+                      <p className="text-sm text-gray-600">{tierConfig.price}/bulan</p>
+                      <p className="mt-2 text-xs font-medium text-gray-500">{tierAction}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <ul className="space-y-3 mb-6">
             {config.features.map((feature) => (
               <li key={feature} className="flex items-start gap-3">
@@ -184,12 +221,12 @@ export function PremiumUpgradeModal({
             ) : isRenewal ? (
               <>
                 <RefreshCw className="w-5 h-5" />
-                Perpanjang Paket
+                {actionLabel}
               </>
             ) : (
               <>
                 <Crown className="w-5 h-5" />
-                Upgrade ke {config.label}
+                {actionLabel}
               </>
             )}
           </button>
