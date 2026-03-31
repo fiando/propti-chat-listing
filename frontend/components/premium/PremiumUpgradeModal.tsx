@@ -21,11 +21,11 @@ const TIER_CONFIG = {
     price: 'Rp 59.000',
     blurb: 'Untuk seller yang mulai serius beriklan.',
     features: [
-      'Basic: maksimal 8 foto per iklan',
-      'Basic: maksimal 6 listing aktif',
-      'WA text read + create (tanpa edit/hapus)',
-      'Voice hingga 20 menit per bulan',
-      'Masa tayang sampai 90 hari',
+      'Maksimal 8 foto per iklan',
+      'Maksimal 6 listing aktif',
+      'WA baca + buat listing (tanpa edit/hapus)',
+      'Voice note hingga 20 menit per bulan',
+      'Iklan tayang hingga 90 hari',
     ],
   },
   premium: {
@@ -33,11 +33,11 @@ const TIER_CONFIG = {
     price: 'Rp 129.000',
     blurb: 'Untuk performa listing yang lebih agresif.',
     features: [
-      'Premium: maksimal 15 foto per iklan',
-      'Premium: maksimal 20 listing aktif',
-      'WA full read/write',
-      'Voice hingga 60 menit per bulan',
-      'Premium: tayang sampai 90 hari',
+      'Maksimal 15 foto per iklan',
+      'Maksimal 20 listing aktif',
+      'WA baca, buat, edit & hapus listing',
+      'Voice note hingga 60 menit per bulan',
+      'Iklan tayang hingga 90 hari',
     ],
   },
   pro: {
@@ -45,14 +45,16 @@ const TIER_CONFIG = {
     price: 'Rp 199.000',
     blurb: 'Untuk tim agen dengan volume listing tinggi.',
     features: [
-      'Pro: maksimal 20 foto per iklan',
-      'Pro: maksimal 50 listing aktif',
-      'WA full read/write',
-      'Voice hingga 120 menit per bulan',
-      'Masa tayang sampai 90 hari',
+      'Maksimal 20 foto per iklan',
+      'Maksimal 50 listing aktif',
+      'WA baca, buat, edit & hapus listing',
+      'Voice note hingga 120 menit per bulan',
+      'Iklan tayang hingga 90 hari',
     ],
   },
 } as const;
+
+const PAID_TIERS: Exclude<SubscriptionTier, 'free'>[] = ['basic', 'premium', 'pro'];
 
 export function PremiumUpgradeModal({
   isOpen,
@@ -61,13 +63,14 @@ export function PremiumUpgradeModal({
   currentRenewDate,
   selectedTier = 'premium',
 }: PremiumUpgradeModalProps) {
+  const [activeTier, setActiveTier] = useState<Exclude<SubscriptionTier, 'free'>>(selectedTier);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
   const isRenewal = mode === 'renew';
-  const config = TIER_CONFIG[selectedTier];
+  const config = TIER_CONFIG[activeTier];
 
   const expiryDateStr = currentRenewDate
     ? new Date(currentRenewDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -77,7 +80,7 @@ export function PremiumUpgradeModal({
     setLoading(true);
     setError(null);
     try {
-      const result = await upgradePremium(selectedTier);
+      const result = await upgradePremium(activeTier);
       window.location.href = result.paymentUrl;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal memproses pembayaran.');
@@ -121,6 +124,26 @@ export function PremiumUpgradeModal({
             <span className="text-white/70 text-sm ml-1">/bulan</span>
           </div>
         </div>
+
+        {/* Tier selector (only for upgrade mode) */}
+        {!isRenewal && (
+          <div className="flex border-b border-gray-100">
+            {PAID_TIERS.map((tier) => (
+              <button
+                key={tier}
+                type="button"
+                onClick={() => setActiveTier(tier)}
+                className={`flex-1 py-3 text-sm font-semibold transition-colors ${
+                  activeTier === tier
+                    ? 'text-brand-primary border-b-2 border-brand-primary bg-brand-light/30'
+                    : 'text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                {TIER_CONFIG[tier].label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Features */}
         <div className="p-6">
@@ -166,7 +189,7 @@ export function PremiumUpgradeModal({
             ) : (
               <>
                 <Crown className="w-5 h-5" />
-                Upgrade Paket
+                Upgrade ke {config.label}
               </>
             )}
           </button>
