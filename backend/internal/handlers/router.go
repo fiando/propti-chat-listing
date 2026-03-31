@@ -11,7 +11,7 @@ import (
 
 // CombinedListingHandler dispatches an APIGatewayProxyRequest to either the listing
 // handler or the search handler based on the path prefix.
-func CombinedListingHandler(ctx context.Context, rawReq interface{}, listingHandler *ListingHandler, searchHandler *SearchHandler) (events.APIGatewayProxyResponse, error) {
+func CombinedListingHandler(ctx context.Context, rawReq interface{}, listingHandler *ListingHandler, searchHandler *SearchHandler, leadHandler *LeadHandler) (events.APIGatewayProxyResponse, error) {
 	// Re-encode and decode to get a typed request (Lambda passes map[string]interface{} when invoked via Start(func)).
 	b, err := json.Marshal(rawReq)
 	if err != nil {
@@ -24,6 +24,9 @@ func CombinedListingHandler(ctx context.Context, rawReq interface{}, listingHand
 	}
 
 	path := req.Path
+	if strings.HasPrefix(path, "/leads") {
+		return leadHandler.Handle(ctx, req)
+	}
 	if strings.HasPrefix(path, "/search/") || strings.HasPrefix(path, "/locations/") {
 		return searchHandler.Handle(ctx, req)
 	}

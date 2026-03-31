@@ -15,6 +15,7 @@ Globals:
         DYNAMODB_USERS_TABLE: !Ref UsersTable
         DYNAMODB_TRANSACTIONS_TABLE: !Ref TransactionsTable
         DYNAMODB_MODERATIONS_TABLE: !Ref ModerationsTable
+        DYNAMODB_LEADS_TABLE: !Ref LeadsTable
         DYNAMODB_UPLOAD_SESSIONS_TABLE: !Ref UploadSessionsTable
         DYNAMODB_WHATSAPP_SESSIONS_TABLE: !Ref WhatsAppSessionsTable
         DYNAMODB_WHATSAPP_OTP_TABLE: !Ref WhatsAppOTPTable
@@ -251,6 +252,48 @@ Resources:
             RestApiId: !Ref ProptiApi
             Path: /listings/parse-text
             Method: POST
+        CreateLead:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /leads
+            Method: POST
+        ListLeads:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /leads
+            Method: GET
+        GetLead:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /leads/{id}
+            Method: GET
+        UpdateLeadStage:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /leads/{id}/stage
+            Method: POST
+        AddLeadNote:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /leads/{id}/notes
+            Method: POST
+        CompleteLeadFollowUp:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /leads/{id}/followups/{taskId}/complete
+            Method: POST
+        LeadAnalytics:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /leads/analytics
+            Method: GET
         UploadURL:
           Type: Api
           Properties:
@@ -446,6 +489,8 @@ Resources:
                   - !Sub "${TransactionsTable.Arn}/index/*"
                   - !GetAtt ModerationsTable.Arn
                   - !Sub "${ModerationsTable.Arn}/index/*"
+                  - !GetAtt LeadsTable.Arn
+                  - !Sub "${LeadsTable.Arn}/index/*"
                   - !GetAtt UploadSessionsTable.Arn
                   - !GetAtt WhatsAppSessionsTable.Arn
                   - !GetAtt WhatsAppOTPTable.Arn
@@ -613,6 +658,37 @@ Resources:
       PointInTimeRecoverySpecification:
         PointInTimeRecoveryEnabled: true
 
+  LeadsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "propti-leads-${Stage}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: ownerUserId
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: ownerUserId-createdAt-index
+          KeySchema:
+            - AttributeName: ownerUserId
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
   UploadSessionsTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -738,6 +814,10 @@ Outputs:
   ModerationsTableName:
     Description: DynamoDB moderations table name
     Value: !Ref ModerationsTable
+
+  LeadsTableName:
+    Description: DynamoDB leads table name
+    Value: !Ref LeadsTable
 
   UploadSessionsTableName:
     Description: DynamoDB upload session table name

@@ -24,6 +24,7 @@ func main() {
 	}
 
 	listingRepo := repository.NewListingRepo(db)
+	leadRepo := repository.NewLeadRepo(db)
 	userRepo := repository.NewUserRepo(db)
 	moderationRepo := repository.NewModerationRepo(db)
 	uploadSessionRepo := repository.NewUploadSessionRepo(db)
@@ -49,6 +50,7 @@ func main() {
 		panic(err)
 	}
 	listingSvc := services.NewListingService(listingRepo, userRepo, aiSvc, s3Svc, mapsSvc, locationCatalog)
+	leadSvc := services.NewLeadService(leadRepo)
 	identitySvc, err := services.NewWhatsAppIdentityService(userRepo, otpRepo, services.WhatsAppIdentityOptions{})
 	if err != nil {
 		utils.LogError("init whatsapp identity service", err)
@@ -81,6 +83,7 @@ func main() {
 
 	listingHandler := handlers.NewListingHandler(listingSvc, uploadSessionSvc, services.NewListingMediaPresenter(s3Svc))
 	searchHandler := handlers.NewSearchHandler(listingRepo, mapsSvc, locationCatalog, searchIntentSvc)
+	leadHandler := handlers.NewLeadHandler(leadSvc)
 
 	// Route /search/* and /locations/* to searchHandler; all others to listingHandler.
 	lambda.Start(func(ctx context.Context, rawReq json.RawMessage) (interface{}, error) {
@@ -112,6 +115,6 @@ func main() {
 			return nil, err
 		}
 
-		return handlers.CombinedListingHandler(ctx, req, listingHandler, searchHandler)
+		return handlers.CombinedListingHandler(ctx, req, listingHandler, searchHandler, leadHandler)
 	})
 }

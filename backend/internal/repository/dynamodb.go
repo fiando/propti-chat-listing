@@ -15,6 +15,7 @@ type DynamoDB struct {
 	UsersTable            string
 	TransactionsTable     string
 	ModerationsTable      string
+	LeadsTable            string
 	UploadSessionsTable   string
 	WhatsAppSessionsTable string
 	OTPChallengesTable    string
@@ -33,6 +34,7 @@ func NewDynamoDB(ctx context.Context) (*DynamoDB, error) {
 		UsersTable:            getEnv("DYNAMODB_USERS_TABLE", "propti-users"),
 		TransactionsTable:     getEnv("DYNAMODB_TRANSACTIONS_TABLE", "propti-transactions"),
 		ModerationsTable:      getEnv("DYNAMODB_MODERATIONS_TABLE", "propti-moderations"),
+		LeadsTable:            getEnv("DYNAMODB_LEADS_TABLE", "propti-leads"),
 		UploadSessionsTable:   getEnv("DYNAMODB_UPLOAD_SESSIONS_TABLE", "propti-upload-sessions"),
 		WhatsAppSessionsTable: getEnv("DYNAMODB_WHATSAPP_SESSIONS_TABLE", "propti-whatsapp-sessions"),
 		OTPChallengesTable:    resolveOTPChallengesTableEnv(),

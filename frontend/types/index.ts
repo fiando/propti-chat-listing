@@ -324,6 +324,81 @@ export interface UploadPrepareResponse {
   slots: UploadSlot[];
 }
 
+export type LeadStage = 'new' | 'interested' | 'viewing' | 'negotiation' | 'deal' | 'lost';
+export type FollowUpTaskStatus = 'pending' | 'completed' | 'skipped';
+
+export interface LeadActivity {
+  at: string;
+  type: string;
+  message: string;
+}
+
+export interface FollowUpTask {
+  taskId: string;
+  leadId: string;
+  offsetDays: number;
+  dueAt: string;
+  status: FollowUpTaskStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Lead {
+  leadId: string;
+  ownerUserId: string;
+  listingId?: string;
+  name: string;
+  phone?: string;
+  source?: string;
+  stage: LeadStage;
+  notes?: string[];
+  activities?: LeadActivity[];
+  followUpTasks?: FollowUpTask[];
+  lastContactAt?: string;
+  firstResponseAt?: string;
+  viewedAt?: string;
+  closedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LeadListResponse {
+  leads: Lead[];
+  total: number;
+}
+
+export interface CreateLeadRequest {
+  listingId?: string;
+  name: string;
+  phone?: string;
+  source?: string;
+  note?: string;
+}
+
+export interface UpdateLeadStageRequest {
+  stage: LeadStage;
+  reason?: string;
+}
+
+export interface AddLeadNoteRequest {
+  note: string;
+}
+
+export interface CompleteFollowUpTaskRequest {
+  status: FollowUpTaskStatus;
+  note?: string;
+}
+
+export interface AgentAnalytics {
+  leadCount: number;
+  medianResponseMinutes: number;
+  leadToViewingRate: number;
+  viewingToDealRate: number;
+  overdueFollowUpRate: number;
+  pendingFollowUpCount: number;
+  overdueFollowUpCount: number;
+}
+
 export interface FeatureListingRequest {
   listingId: string;
   durationDays: number;
