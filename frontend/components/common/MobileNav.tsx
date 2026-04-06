@@ -27,8 +27,9 @@ export function MobileNav() {
   };
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-100 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
-      <div className="relative flex items-center justify-around px-2 h-16">
+    <>
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-100 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
+        <div className="flex items-center justify-around px-2 h-16">
         {NAV_ITEMS.map((item) => {
           const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
 
@@ -48,15 +49,15 @@ export function MobileNav() {
             </Link>
           );
         })}
-
-        <Link
-          href={getHref('/listings/create')}
-          className="absolute -top-7 right-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-hero shadow-lg shadow-brand-primary/30 transition-transform active:scale-95"
-          aria-label="Pasang iklan"
-        >
-          <Plus className="h-7 w-7 text-white" />
-        </Link>
-      </div>
-    </nav>
+        </div>
+      </nav>
+      <Link
+        href={getHref('/listings/create')}
+        className="md:hidden fixed bottom-20 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-hero shadow-lg shadow-brand-primary/30 transition-transform active:scale-95"
+        aria-label="Pasang iklan"
+      >
+        <Plus className="h-7 w-7 text-white" />
+      </Link>
+    </>
   );
 }

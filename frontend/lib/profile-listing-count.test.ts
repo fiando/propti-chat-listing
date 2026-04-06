@@ -161,7 +161,7 @@ test('guest users still see saved/profile in mobile nav and are redirected to lo
 
 test('mobile nav exposes pasang as a right floating action button above the menubar', () => {
   assert.doesNotMatch(mobileNav, /isPrimary:\s*true/);
-  assert.match(mobileNav, /absolute -top-7 right-4/);
+  assert.match(mobileNav, /fixed bottom-20 right-4 z-50/);
   assert.match(mobileNav, /href=\{getHref\('\/listings\/create'\)\}/);
 });
 
