@@ -66,6 +66,7 @@ test('saveCreateListingDraft and loadCreateListingDraft preserve parsed data and
     formValues: {
       title: 'Rumah Depok 3KT',
       description: 'Rumah siap huni dekat tol',
+      phone: '081234567890',
       price: 850000000,
       priceUnit: 'total',
       listingType: 'sell',
