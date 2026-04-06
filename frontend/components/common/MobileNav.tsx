@@ -10,7 +10,6 @@ const NAV_ITEMS = [
   { href: '/', icon: Home, label: 'Beranda' },
   { href: '/search', icon: Search, label: 'Cari' },
   { href: '/agent', icon: BriefcaseBusiness, label: 'Agent', requiresAuth: true },
-  { href: '/listings/create', icon: Plus, label: 'Pasang', isPrimary: true },
   { href: '/saved', icon: Heart, label: 'Simpan', requiresAuth: true },
   { href: '/profile', icon: User, label: 'Profil', requiresAuth: true },
 ];
@@ -29,24 +28,9 @@ export function MobileNav() {
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-100 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
-      <div className="flex items-center justify-around px-2 h-16">
+      <div className="relative flex items-center justify-around px-2 h-16">
         {NAV_ITEMS.map((item) => {
           const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
-
-          if (item.isPrimary) {
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="flex flex-col items-center gap-1 -mt-6"
-              >
-                <div className="w-14 h-14 bg-gradient-hero rounded-2xl flex items-center justify-center shadow-lg shadow-brand-primary/30">
-                  <item.icon className="w-7 h-7 text-white" />
-                </div>
-                <span className="text-xs font-semibold text-brand-primary">{item.label}</span>
-              </Link>
-            );
-          }
 
           return (
             <Link
@@ -64,6 +48,14 @@ export function MobileNav() {
             </Link>
           );
         })}
+
+        <Link
+          href={getHref('/listings/create')}
+          className="absolute -top-7 right-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-hero shadow-lg shadow-brand-primary/30 transition-transform active:scale-95"
+          aria-label="Pasang iklan"
+        >
+          <Plus className="h-7 w-7 text-white" />
+        </Link>
       </div>
     </nav>
   );

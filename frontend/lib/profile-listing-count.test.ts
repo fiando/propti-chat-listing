@@ -159,6 +159,12 @@ test('guest users still see saved/profile in mobile nav and are redirected to lo
   assert.match(mobileNav, /encodeURIComponent\(href\)/);
 });
 
+test('mobile nav exposes pasang as a right floating action button above the menubar', () => {
+  assert.doesNotMatch(mobileNav, /isPrimary:\s*true/);
+  assert.match(mobileNav, /absolute -top-7 right-4/);
+  assert.match(mobileNav, /href=\{getHref\('\/listings\/create'\)\}/);
+});
+
 test('search CTA copy is consistent and parser CTA points to create listing', () => {
   assert.match(homePage, /Cari Properti/);
   assert.doesNotMatch(homePage, /Jelajahi Properti/);
