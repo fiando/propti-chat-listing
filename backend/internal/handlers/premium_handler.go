@@ -121,7 +121,10 @@ func (h *PremiumHandler) upgradeToPremium(ctx context.Context, req events.APIGat
 		}
 	}
 
-	if existingTx, err := h.findReusablePendingPremiumTransaction(ctx, userID); err != nil {
+	entitlements := services.TierEntitlementFor(requestedTier)
+	amount := float64(entitlements.PriceIDR)
+
+	if existingTx, err := h.findReusablePendingPremiumTransaction(ctx, userID, requestedTier, amount); err != nil {
 		utils.LogError("find reusable premium transaction", err, "userId", userID)
 		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
 	} else if existingTx != nil {
@@ -140,8 +143,6 @@ func (h *PremiumHandler) upgradeToPremium(ctx context.Context, req events.APIGat
 		utils.LogError("generate premium order id", err, "userId", userID)
 		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
 	}
-	entitlements := services.TierEntitlementFor(requestedTier)
-	amount := float64(entitlements.PriceIDR)
 
 	tx := &models.Transaction{
 		PK:            uuid.NewString(),
@@ -204,7 +205,12 @@ func (h *PremiumHandler) upgradeToPremium(ctx context.Context, req events.APIGat
 	return jsonResponse(http.StatusOK, string(body)), nil
 }
 
-func (h *PremiumHandler) findReusablePendingPremiumTransaction(ctx context.Context, userID string) (*models.Transaction, error) {
+func (h *PremiumHandler) findReusablePendingPremiumTransaction(
+	ctx context.Context,
+	userID string,
+	requestedTier models.SubscriptionTier,
+	requestedAmount float64,
+) (*models.Transaction, error) {
 	txs, err := h.transactionRepo.ListByUserID(ctx, userID, 10)
 	if err != nil {
 		return nil, err
@@ -221,6 +227,11 @@ func (h *PremiumHandler) findReusablePendingPremiumTransaction(ctx context.Conte
 			continue
 		}
 		if tx.CreatedAt.IsZero() || !tx.CreatedAt.Add(paymentWindow).After(now) {
+			continue
+		}
+		txTier := strings.ToLower(strings.TrimSpace(tx.Metadata["tier"]))
+		if (txTier != "" && txTier != string(requestedTier)) || tx.Amount != requestedAmount {
+			_ = h.transactionRepo.UpdateStatus(ctx, tx.TransactionID, tx.SK, models.TransactionStatusFailed)
 			continue
 		}
 

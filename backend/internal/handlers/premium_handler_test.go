@@ -317,6 +317,89 @@ func TestPremiumHandlerUpgradeToPremiumReusesPendingTransactionWithinPaymentWind
 	}
 }
 
+
+func TestPremiumHandlerUpgradeToPremiumCancelsMismatchedPendingTierAndCreatesNewOrder(t *testing.T) {
+	t.Setenv("PUBLIC_API_BASE_URL", "https://api.propti.test")
+
+	userStore := &fakePremiumUserStore{
+		byID: map[string]*models.User{
+			"user-1": {
+				UserID: "user-1",
+				Name:   "Bobby",
+				Email:  "bob@example.com",
+				Phone:  "6281234567890",
+				Subscription: models.Subscription{
+					Tier: models.SubscriptionFree,
+				},
+			},
+		},
+	}
+
+	createdAt := time.Now().UTC().Add(-10 * time.Minute)
+	existingTx := &models.Transaction{
+		PK:            "tx-existing-pro",
+		SK:            createdAt.Format(time.RFC3339),
+		TransactionID: "tx-existing-pro",
+		UserID:        "user-1",
+		Type:          models.TransactionTypePremiumTier,
+		Amount:        199000,
+		Currency:      "IDR",
+		Status:        models.TransactionStatusPending,
+		Provider:      payments.ProviderDOKU,
+		PaymentID:     "tok-existing-pro",
+		OrderID:       "PROPTI-PREM-EXISTING-PRO",
+		PaymentURL:    "https://sandbox.doku.com/checkout-link-v2/tok-existing-pro",
+		Metadata: map[string]string{
+			"tier": "pro",
+		},
+		CreatedAt: createdAt,
+		UpdatedAt: createdAt,
+	}
+	 txStore := &fakePremiumTransactionStore{
+		items: []*models.Transaction{existingTx},
+		byID: map[string]*models.Transaction{
+			"PROPTI-PREM-EXISTING-PRO": existingTx,
+		},
+	}
+	provider := &fakePaymentProvider{
+		createResult: &payments.CreatePaymentResult{
+			Provider:   payments.ProviderDOKU,
+			OrderID:    "PROPTI-PREM-NEW-BASIC",
+			PaymentID:  "tok-new-basic",
+			PaymentURL: "https://sandbox.doku.com/checkout-link-v2/tok-new-basic",
+		},
+	}
+
+	handler := NewPremiumHandler(userStore, txStore, &fakePremiumListingService{}, provider)
+
+	resp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodPost,
+		Path:       "/premium/upgrade",
+		Headers:    authHeaderForPremiumTest(t, "user-1"),
+		Body:       `{"tier":"basic"}`,
+	})
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", resp.StatusCode, resp.Body)
+	}
+
+	var body models.PaymentResponse
+	if err := json.Unmarshal([]byte(resp.Body), &body); err != nil {
+		t.Fatalf("response is not valid json: %v", err)
+	}
+	if body.OrderID != "PROPTI-PREM-NEW-BASIC" {
+		t.Fatalf("expected a new order id for changed tier, got %q", body.OrderID)
+	}
+	if len(txStore.items) != 2 {
+		t.Fatalf("expected a new transaction to be stored, got %d items", len(txStore.items))
+	}
+	if got := txStore.byID["PROPTI-PREM-EXISTING-PRO"].Status; got == models.TransactionStatusPending {
+		t.Fatalf("expected previous mismatched-tier transaction to be canceled/invalidated, still pending")
+	}
+}
+
 func TestPremiumHandlerUpgradeToPremiumCreatesNewTransactionAfterPendingPaymentExpires(t *testing.T) {
 	t.Setenv("PUBLIC_API_BASE_URL", "https://api.propti.test")
 
