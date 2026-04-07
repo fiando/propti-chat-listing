@@ -120,7 +120,7 @@ const PRICING_PLANS = [
     features: [
       'Maksimal 8 foto per iklan',
       'Maksimal 6 listing aktif',
-      'WA baca + buat listing',
+      'Buat & cari listing via WhatsApp',
       'Voice note 20 menit/bulan',
       'Iklan tayang hingga 90 hari',
     ],
@@ -137,7 +137,7 @@ const PRICING_PLANS = [
     features: [
       'Maksimal 15 foto per iklan',
       'Maksimal 20 listing aktif',
-      'WA baca, buat, edit & hapus listing',
+      'Buat & cari listing via WhatsApp',
       'Voice note 60 menit/bulan',
       'Iklan tayang hingga 90 hari',
     ],
@@ -154,7 +154,7 @@ const PRICING_PLANS = [
     features: [
       'Maksimal 20 foto per iklan',
       'Maksimal 50 listing aktif',
-      'WA baca, buat, edit & hapus listing',
+      'Buat & cari listing via WhatsApp',
       'Voice note 120 menit/bulan',
       'Iklan tayang hingga 90 hari',
     ],

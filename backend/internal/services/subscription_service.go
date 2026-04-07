@@ -13,8 +13,6 @@ type TierEntitlements struct {
 	PhotoCapPerListing    int
 	WhatsAppReadAllowed   bool
 	WhatsAppCreateAllowed bool
-	WhatsAppEditAllowed   bool
-	WhatsAppDeleteAllowed bool
 	VoiceMinutesPerMonth  int
 }
 
@@ -26,8 +24,6 @@ var tierEntitlements = map[models.SubscriptionTier]TierEntitlements{
 		PhotoCapPerListing:    3,
 		WhatsAppReadAllowed:   false,
 		WhatsAppCreateAllowed: true,
-		WhatsAppEditAllowed:   false,
-		WhatsAppDeleteAllowed: false,
 		VoiceMinutesPerMonth:  0,
 	},
 	models.SubscriptionBasic: {
@@ -37,8 +33,6 @@ var tierEntitlements = map[models.SubscriptionTier]TierEntitlements{
 		PhotoCapPerListing:    8,
 		WhatsAppReadAllowed:   true,
 		WhatsAppCreateAllowed: true,
-		WhatsAppEditAllowed:   false,
-		WhatsAppDeleteAllowed: false,
 		VoiceMinutesPerMonth:  20,
 	},
 	models.SubscriptionPremium: {
@@ -48,8 +42,6 @@ var tierEntitlements = map[models.SubscriptionTier]TierEntitlements{
 		PhotoCapPerListing:    15,
 		WhatsAppReadAllowed:   true,
 		WhatsAppCreateAllowed: true,
-		WhatsAppEditAllowed:   true,
-		WhatsAppDeleteAllowed: true,
 		VoiceMinutesPerMonth:  60,
 	},
 	models.SubscriptionPro: {
@@ -59,8 +51,6 @@ var tierEntitlements = map[models.SubscriptionTier]TierEntitlements{
 		PhotoCapPerListing:    20,
 		WhatsAppReadAllowed:   true,
 		WhatsAppCreateAllowed: true,
-		WhatsAppEditAllowed:   true,
-		WhatsAppDeleteAllowed: true,
 		VoiceMinutesPerMonth:  120,
 	},
 }
