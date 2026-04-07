@@ -23,7 +23,6 @@ Globals:
         S3_MEDIA_BUCKET: !Ref MediaBucket
         JWT_SECRET: !Ref JWTSecret
         OPENAI_API_KEY: !Ref OpenAIAPIKey
-        IMAGE_MODERATION_PROVIDER: !Ref ImageModerationProvider
         GOOGLE_MAPS_API_KEY: !Ref GoogleMapsAPIKey
         DOKU_CLIENT_ID: !Ref DOKUClientID
         DOKU_SECRET_KEY: !Ref DOKUSecretKey
@@ -76,10 +75,6 @@ Parameters:
   OpenAIAPIKey:
     Type: String
     NoEcho: true
-  ImageModerationProvider:
-    Type: String
-    Default: openai
-    AllowedValues: [openai, rekognition]
   GoogleMapsAPIKey:
     Type: String
     NoEcho: true
@@ -524,11 +519,6 @@ Resources:
                   - lambda:InvokeFunction
                 Resource:
                   - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:propti-listings-${Stage}"
-              - Effect: Allow
-                Action:
-                  - rekognition:DetectLabels
-                  - rekognition:DetectModerationLabels
-                Resource: "*"
   # ──────────────────────────────────────────────────────────────
   # DynamoDB Tables
   # ──────────────────────────────────────────────────────────────

@@ -10,7 +10,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue v1.20.35
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.56.2
 	github.com/aws/aws-sdk-go-v2/service/lambda v1.88.3
-	github.com/aws/aws-sdk-go-v2/service/rekognition v1.51.19
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.97.1
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0

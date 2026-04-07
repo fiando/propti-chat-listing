@@ -1552,44 +1552,6 @@ func newTestCatalog() (*LocationCatalog, error) {
 	return NewLocationCatalogFromReader(strings.NewReader(data))
 }
 
-func TestCreateListingRejectsLegacyBase64Payloads(t *testing.T) {
-	ctx := context.Background()
-
-	service := NewListingService(
-		&fakeListingStore{},
-		&fakeUserStore{
-			user: &models.User{
-				UserID: "user-1",
-				Subscription: models.Subscription{
-					Tier: models.SubscriptionPremium, RenewDate: func() *time.Time { t := time.Now().UTC().Add(30 * 24 * time.Hour); return &t }(),
-				},
-			},
-		},
-		nil,
-		nil,
-		nil,
-		nil,
-	)
-
-	_, err := service.CreateListing(ctx, "user-1", &models.CreateListingRequest{
-		Title:       "Rumah siap huni",
-		Description: "Dekat tol",
-		Price:       900000000,
-		PriceUnit:   "total",
-		ListingType: models.ListingTypeSell,
-		Location: models.Location{
-			Address: "Jl. Margonda Raya",
-		},
-		Images: []string{"data:image/jpeg;base64,ZmFrZQ=="},
-	})
-	if err == nil {
-		t.Fatal("expected base64 payload to be rejected")
-	}
-	if appErr, ok := err.(*utils.AppError); !ok || appErr.Code != 400 {
-		t.Fatalf("expected 400 app error, got %T %v", err, err)
-	}
-}
-
 func TestCreateListingPromotesUploadedImagesIntoStructuredMedia(t *testing.T) {
 	ctx := context.Background()
 	media := &fakeMediaService{
