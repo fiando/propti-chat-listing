@@ -128,7 +128,7 @@ func (r *UserRepo) GetByWhatsAppPhone(ctx context.Context, phone string) (*model
 
 	result, err := r.db.Client.Scan(ctx, &dynamodb.ScanInput{
 		TableName:        aws.String(r.db.UsersTable),
-		FilterExpression: aws.String("whatsAppLinkedPhone = :phone"),
+		FilterExpression: aws.String("whatsAppLinkedPhone = :phone AND attribute_exists(whatsAppVerifiedAt)"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":phone": &types.AttributeValueMemberS{Value: phone},
 		},

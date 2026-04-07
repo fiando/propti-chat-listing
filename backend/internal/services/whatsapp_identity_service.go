@@ -137,18 +137,6 @@ func (s *WhatsAppIdentityService) StartLink(ctx context.Context, userID, phone s
 	}
 
 	currentTime := s.now()
-	previousLinkedPhone := strings.TrimSpace(user.WhatsAppLinkedPhone)
-	user.WhatsAppLinkedPhone = normalizedPhone
-	if previousLinkedPhone == "" || previousLinkedPhone != normalizedPhone || user.WhatsAppLinkedAt == nil {
-		user.WhatsAppLinkedAt = &currentTime
-	}
-	if previousLinkedPhone != normalizedPhone {
-		user.WhatsAppVerifiedAt = nil
-	}
-	if err := s.userStore.Put(ctx, user); err != nil {
-		return nil, utils.ErrInternal
-	}
-
 	retryCount := 1
 	latest, err := s.otpStore.GetLatestByUser(ctx, userID)
 	if err != nil {
@@ -254,8 +242,9 @@ func (s *WhatsAppIdentityService) VerifyLink(ctx context.Context, userID, challe
 		return nil, err
 	}
 
+	previousLinkedPhone := strings.TrimSpace(user.WhatsAppLinkedPhone)
 	user.WhatsAppLinkedPhone = challenge.Phone
-	if user.WhatsAppLinkedAt == nil {
+	if previousLinkedPhone == "" || previousLinkedPhone != challenge.Phone || user.WhatsAppLinkedAt == nil {
 		user.WhatsAppLinkedAt = &currentTime
 	}
 	user.WhatsAppVerifiedAt = &currentTime
@@ -371,8 +360,9 @@ func (s *WhatsAppIdentityService) VerifyLinkFromInbound(ctx context.Context, fro
 		return false, err
 	}
 
+	previousLinkedPhone := strings.TrimSpace(user.WhatsAppLinkedPhone)
 	user.WhatsAppLinkedPhone = normalizedPhone
-	if user.WhatsAppLinkedAt == nil {
+	if previousLinkedPhone == "" || previousLinkedPhone != normalizedPhone || user.WhatsAppLinkedAt == nil {
 		user.WhatsAppLinkedAt = &currentTime
 	}
 	user.WhatsAppVerifiedAt = &currentTime
