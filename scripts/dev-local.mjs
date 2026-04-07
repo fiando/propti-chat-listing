@@ -8,7 +8,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 const DEFAULT_STAGE = 'dev';
-const DEFAULT_LOCAL_DYNAMODB_ENDPOINT = 'http://127.0.0.1:8000';
+const DEFAULT_LOCAL_DYNAMODB_ENDPOINT = 'http://localhost:8000';
 const DEFAULT_LOCAL_AWS_REGION = 'ap-southeast-1';
 const DEFAULT_LOCAL_AWS_ACCESS_KEY_ID = 'local';
 const DEFAULT_LOCAL_AWS_SECRET_ACCESS_KEY = 'local';
@@ -45,14 +45,14 @@ export function buildDevLocalPlan(rootDir = process.cwd(), options = {}) {
       },
       startCommand: {
         command: 'sam',
-        args: ['local', 'start-api', '--host', '127.0.0.1', '--port', '3001', '--env-vars', backendEnvFile],
+        args: ['local', 'start-api', '--host', 'localhost', '--port', '3001', '--env-vars', backendEnvFile],
       },
     },
     frontend: {
       cwd: path.join(projectRoot, 'frontend'),
       startCommand: {
         command: 'npm',
-        args: ['run', 'dev', '--', '--hostname', '127.0.0.1', '--port', '3000'],
+        args: ['run', 'dev', '--', '--hostname', 'localhost', '--port', '3000'],
       },
     },
   };
@@ -408,14 +408,14 @@ async function main() {
     args: [...plan.backend.startCommand.args.slice(0, -1), samEnvOverrides.tempFile],
   };
 
-  console.log('Starting backend on http://127.0.0.1:3001');
+  console.log('Starting backend on http://localhost:3001');
   const backend = startLongRunningCommand(
     plan.backend.cwd,
     backendStartCommand.command,
     backendStartCommand.args,
   );
 
-  console.log('Starting frontend on http://127.0.0.1:3000');
+  console.log('Starting frontend on http://localhost:3000');
   const frontend = startLongRunningCommand(
     plan.frontend.cwd,
     plan.frontend.startCommand.command,

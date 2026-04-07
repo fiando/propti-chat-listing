@@ -30,7 +30,7 @@ Required local defaults:
 JWT_SECRET=your-jwt-secret-min-32-chars
 OPENAI_API_KEY=sk-...
 AWS_REGION=ap-southeast-1
-DYNAMODB_ENDPOINT_URL=http://127.0.0.1:8000
+DYNAMODB_ENDPOINT_URL=http://localhost:8000
 GOOGLE_MAPS_API_KEY=AIza...
 PUBLIC_API_BASE_URL=http://localhost:3001
 ```
@@ -84,6 +84,8 @@ export DOCKER_HOST=tcp://127.0.0.1:2375
 ```
 
 The frontend will be available at `http://localhost:3000` and the API will be available at `http://localhost:3001`.
+
+For Google sign-in, use `localhost` consistently in the browser and env files. Do not mix `localhost` and `127.0.0.1`, or NextAuth's state cookie validation will fail on the callback.
 
 The script:
 - validates `frontend/.env.local` and `backend/.env.local`

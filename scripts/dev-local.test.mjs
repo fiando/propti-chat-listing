@@ -28,13 +28,13 @@ test('buildDevLocalPlan uses app-level .env.local files and localhost ports', ()
   });
   assert.deepEqual(plan.backend.startCommand, {
     command: 'sam',
-    args: ['local', 'start-api', '--host', '127.0.0.1', '--port', '3001', '--env-vars', path.join(rootDir, 'backend/.env.local')],
+    args: ['local', 'start-api', '--host', 'localhost', '--port', '3001', '--env-vars', path.join(rootDir, 'backend/.env.local')],
   });
 
   assert.equal(plan.frontend.cwd, path.join(rootDir, 'frontend'));
   assert.deepEqual(plan.frontend.startCommand, {
     command: 'npm',
-    args: ['run', 'dev', '--', '--hostname', '127.0.0.1', '--port', '3000'],
+    args: ['run', 'dev', '--', '--hostname', 'localhost', '--port', '3000'],
   });
 });
 
@@ -53,7 +53,7 @@ test('buildDevLocalPlan can use a custom backend env file', () => {
     'local',
     'start-api',
     '--host',
-    '127.0.0.1',
+    'localhost',
     '--port',
     '3001',
     '--env-vars',
@@ -96,20 +96,20 @@ test('parseDotenv reads comments, quoted values, and blank values', () => {
     parseDotenv(`
 # comment
 AWS_REGION=ap-southeast-1
-DYNAMODB_ENDPOINT_URL="http://127.0.0.1:8000"
+DYNAMODB_ENDPOINT_URL="http://localhost:8000"
 EMPTY_VALUE=
 `),
     {
       AWS_REGION: 'ap-southeast-1',
-      DYNAMODB_ENDPOINT_URL: 'http://127.0.0.1:8000',
+      DYNAMODB_ENDPOINT_URL: 'http://localhost:8000',
       EMPTY_VALUE: '',
     },
   );
 });
 
 test('shouldBootstrapLocalDynamoDB only enables bootstrap for localhost endpoints', () => {
-  assert.equal(shouldBootstrapLocalDynamoDB('http://127.0.0.1:8000'), true);
   assert.equal(shouldBootstrapLocalDynamoDB('http://localhost:8000'), true);
+  assert.equal(shouldBootstrapLocalDynamoDB('http://127.0.0.1:8000'), true);
   assert.equal(shouldBootstrapLocalDynamoDB('https://dynamodb.ap-southeast-1.amazonaws.com'), false);
   assert.equal(shouldBootstrapLocalDynamoDB(undefined), false);
 });
