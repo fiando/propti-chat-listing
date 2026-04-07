@@ -235,6 +235,35 @@ func TestWhatsAppIdentityVerifyLinkFromInboundSetsVerifiedIdentity(t *testing.T)
 	}
 }
 
+func TestWhatsAppIdentityVerifyLinkFromInboundAcceptsNormalizedChallengeMessage(t *testing.T) {
+	now := time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)
+	users := &fakeWhatsAppIdentityUserStore{usersByID: map[string]*models.User{"user-1": {UserID: "user-1"}}}
+	otpStore := &fakeWhatsAppOTPStore{
+		challenges: map[string]*repository.OTPChallenge{
+			"challenge-1": {
+				ChallengeID: "challenge-1",
+				UserID:      "user-1",
+				Phone:       "+628123456789",
+				OTPCode:     "123456",
+				ExpiresAt:   now.Add(5 * time.Minute),
+				CreatedAt:   now,
+			},
+		},
+	}
+	svc, err := NewWhatsAppIdentityService(users, otpStore, WhatsAppIdentityOptions{Now: func() time.Time { return now }})
+	if err != nil {
+		t.Fatalf("NewWhatsAppIdentityService returned error: %v", err)
+	}
+
+	verified, err := svc.VerifyLinkFromInbound(context.Background(), "+628123456789", "  propti   link 123456 \n")
+	if err != nil {
+		t.Fatalf("VerifyLinkFromInbound returned error: %v", err)
+	}
+	if !verified {
+		t.Fatal("expected normalized inbound verification to succeed")
+	}
+}
+
 func TestWhatsAppIdentityStartLinkRejectsAlreadyVerifiedPhoneByAnotherUser(t *testing.T) {
 	now := time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)
 	verifiedAt := now.Add(-time.Hour)

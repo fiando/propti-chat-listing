@@ -343,8 +343,7 @@ func (s *WhatsAppIdentityService) VerifyLinkFromInbound(ctx context.Context, fro
 		return false, nil
 	}
 
-	expectedMessage := buildWhatsAppLinkMessage(challenge.OTPCode)
-	if strings.TrimSpace(text) != expectedMessage {
+	if !matchesWhatsAppLinkMessage(text, challenge.OTPCode) {
 		return false, nil
 	}
 
@@ -401,6 +400,20 @@ func generateOTPCode() (string, error) {
 
 func buildWhatsAppLinkMessage(code string) string {
 	return fmt.Sprintf("PROPTI LINK %s", strings.TrimSpace(code))
+}
+
+func matchesWhatsAppLinkMessage(text, code string) bool {
+	expectedFields := strings.Fields(buildWhatsAppLinkMessage(code))
+	actualFields := strings.Fields(strings.ToUpper(strings.TrimSpace(text)))
+	if len(actualFields) != len(expectedFields) {
+		return false
+	}
+	for i := range expectedFields {
+		if actualFields[i] != expectedFields[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func buildWhatsAppMessageLink(target, text string) string {
