@@ -22,3 +22,12 @@ test('listing form keeps phone in create-only schema and create-only UI gating',
     /\{mode === 'create' && \(\s*<div>\s*<label className="label">Nomor Telepon \*<\/label>/s
   );
 });
+
+test('create listing flow prefills and saves phone from profile', () => {
+  const createPageFile = readFileSync(new URL('../app/(app)/listings/create/page.tsx', import.meta.url), 'utf8');
+  const createClientFile = readFileSync(new URL('../components/listings/CreateListingClient.tsx', import.meta.url), 'utf8');
+
+  assert.match(createPageFile, /initialProfilePhone=\{profile\?\.phone \?\? ''\}/);
+  assert.match(createClientFile, /await updateProfile\(\{ phone: data\.phone\.trim\(\) \}\)/);
+  assert.match(createClientFile, /initialFormValues=\{formDraft \|\| undefined\}/);
+});
