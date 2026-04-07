@@ -135,7 +135,7 @@ func TestListingMediaPresenterIncludesListingExpiryInResponses(t *testing.T) {
 	}
 }
 
-func TestListingMediaPresenterKeepsLegacyImagesReadable(t *testing.T) {
+func TestListingMediaPresenterSkipsLegacyImages(t *testing.T) {
 	presenter := NewListingMediaPresenter(&fakeMediaService{})
 
 	resp, err := presenter.PresentPublicDetail(context.Background(), &models.Listing{
@@ -149,11 +149,11 @@ func TestListingMediaPresenterKeepsLegacyImagesReadable(t *testing.T) {
 		t.Fatalf("PresentPublicDetail returned error: %v", err)
 	}
 
-	legacyImages, ok := resp.Images.([]string)
+	imageViews, ok := resp.Images.([]models.ListingImageView)
 	if !ok {
-		t.Fatalf("expected legacy image list, got %#v", resp.Images)
+		t.Fatalf("expected image view list, got %#v", resp.Images)
 	}
-	if len(legacyImages) != 2 {
-		t.Fatalf("expected legacy values to be preserved, got %#v", legacyImages)
+	if len(imageViews) != 0 {
+		t.Fatalf("expected legacy images to be skipped, got %#v", imageViews)
 	}
 }

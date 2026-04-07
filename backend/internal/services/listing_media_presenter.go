@@ -52,6 +52,10 @@ func (p *ListingMediaPresenter) presentDetail(ctx context.Context, listing *mode
 
 	views := make([]models.ListingImageView, 0, len(listing.Images))
 	for _, image := range listing.Images {
+		if image.IsLegacy() {
+			continue
+		}
+
 		url := ""
 		if p.mediaStore != nil && image.S3Key != "" {
 			signedURL, err := p.mediaStore.GetSignedDownloadURL(ctx, image.S3Key)
@@ -118,12 +122,20 @@ func baseListingResponse(listing *models.Listing) *models.ListingResponse {
 
 func featuredImage(images models.ImageEntries) *models.ImageEntry {
 	for i := range images {
+		if images[i].IsLegacy() {
+			continue
+		}
 		if images[i].IsFeatured {
 			return &images[i]
 		}
 	}
-	if len(images) == 0 {
-		return nil
+	for i := range images {
+		if images[i].IsLegacy() {
+			continue
+		}
+		if images[i].S3Key != "" {
+			return &images[i]
+		}
 	}
-	return &images[0]
+	return nil
 }
