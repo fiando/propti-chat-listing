@@ -264,6 +264,39 @@ func TestWhatsAppIdentityVerifyLinkFromInboundAcceptsNormalizedChallengeMessage(
 	}
 }
 
+func TestWhatsAppIdentityVerifyLinkFromInboundStripsWhatsAppPrefix(t *testing.T) {
+	now := time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)
+	users := &fakeWhatsAppIdentityUserStore{usersByID: map[string]*models.User{"user-1": {UserID: "user-1"}}}
+	otpStore := &fakeWhatsAppOTPStore{
+		challenges: map[string]*repository.OTPChallenge{
+			"challenge-1": {
+				ChallengeID: "challenge-1",
+				UserID:      "user-1",
+				Phone:       "+628123456789",
+				OTPCode:     "182542",
+				ExpiresAt:   now.Add(5 * time.Minute),
+				CreatedAt:   now,
+			},
+		},
+	}
+	svc, err := NewWhatsAppIdentityService(users, otpStore, WhatsAppIdentityOptions{Now: func() time.Time { return now }})
+	if err != nil {
+		t.Fatalf("NewWhatsAppIdentityService returned error: %v", err)
+	}
+
+	verified, err := svc.VerifyLinkFromInbound(context.Background(), "whatsapp:+628123456789", "PROPTI LINK 182542")
+	if err != nil {
+		t.Fatalf("VerifyLinkFromInbound returned error: %v", err)
+	}
+	if !verified {
+		t.Fatal("expected inbound verification with whatsapp: prefix to succeed")
+	}
+	user := users.usersByID["user-1"]
+	if user.WhatsAppLinkedPhone != "+628123456789" || user.WhatsAppVerifiedAt == nil {
+		t.Fatalf("expected user whatsapp identity to be linked+verified, got %#v", user)
+	}
+}
+
 func TestWhatsAppIdentityStartLinkRejectsAlreadyVerifiedPhoneByAnotherUser(t *testing.T) {
 	now := time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)
 	verifiedAt := now.Add(-time.Hour)

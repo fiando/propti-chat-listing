@@ -304,6 +304,58 @@ func TestWhatsAppHandlerInboundRejectsInvalidSignature(t *testing.T) {
 	}
 }
 
+type fakeIdentityVerifier struct {
+	verified bool
+	err      error
+	lastFrom string
+	lastText string
+}
+
+func (f *fakeIdentityVerifier) VerifyLinkFromInbound(_ context.Context, fromPhone, text string) (bool, error) {
+	f.lastFrom = fromPhone
+	f.lastText = text
+	return f.verified, f.err
+}
+
+func TestWhatsAppHandlerInboundLinkVerificationReturnsVerifiedBeforeUserLookup(t *testing.T) {
+	provider := &fakeWebhookProvider{
+		inboundEnvelope: &models.WhatsAppMessageEnvelope{
+			Provider:          models.WhatsAppProviderTwilio,
+			ProviderMessageID: "SM999",
+			From:              "whatsapp:+628123456789",
+			To:                "whatsapp:+14155550000",
+			Type:              models.WhatsAppMessageTypeText,
+			Text:              "PROPTI LINK 182542",
+			ReceivedAt:        time.Now().UTC(),
+		},
+	}
+	verifier := &fakeIdentityVerifier{verified: true}
+	handler := NewWhatsAppHandler(WhatsAppHandlerDependencies{
+		Provider:         provider,
+		UserStore:        &fakeWhatsAppUserStore{}, // no linked user
+		IdentityVerifier: verifier,
+	})
+
+	resp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodPost,
+		Path:       "/whatsapp/webhook/inbound",
+		Headers:    map[string]string{"Content-Type": "application/json"},
+		Body:       `{"entry":[]}`,
+	})
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", resp.StatusCode, resp.Body)
+	}
+	if !strings.Contains(resp.Body, "whatsapp_link_verified") {
+		t.Fatalf("expected whatsapp_link_verified response, got %s", resp.Body)
+	}
+	if verifier.lastFrom != "whatsapp:+628123456789" {
+		t.Fatalf("expected verifier to receive raw from phone, got %q", verifier.lastFrom)
+	}
+}
+
 func TestWhatsAppHandlerTemplateWiresWebhookLambdaRoutes(t *testing.T) {
 	template, err := os.ReadFile("../../template.yaml")
 	if err != nil {
