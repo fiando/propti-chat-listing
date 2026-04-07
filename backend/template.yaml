@@ -30,6 +30,8 @@ Globals:
         TWILIO_ACCOUNT_SID: !Ref TwilioAccountSID
         TWILIO_AUTH_TOKEN: !Ref TwilioAuthToken
         TWILIO_WHATSAPP_FROM: !Ref TwilioWhatsAppFrom
+        WHATSAPP_MESSAGE_TARGET: !Ref WhatsAppMessageTarget
+        TWILIO_VERIFY_SERVICE_SID: !Ref TwilioVerifyServiceSID
         META_WHATSAPP_ACCESS_TOKEN: ""
         META_WHATSAPP_PHONE_NUMBER_ID: ""
         META_WHATSAPP_VERIFY_TOKEN: ""
@@ -100,6 +102,12 @@ Parameters:
     Default: ""
     NoEcho: true
   TwilioWhatsAppFrom:
+    Type: String
+    Default: ""
+  WhatsAppMessageTarget:
+    Type: String
+    Default: ""
+  TwilioVerifyServiceSID:
     Type: String
     Default: ""
 

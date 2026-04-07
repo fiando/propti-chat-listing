@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
+	"net/url"
 	"strings"
 	"time"
 
@@ -35,6 +36,7 @@ type WhatsAppIdentityOptions struct {
 	OTPExpiry               time.Duration
 	MaxChallengeRetries     int
 	MaxVerificationAttempts int
+	WhatsAppMessageTarget   string
 }
 
 type WhatsAppLinkChallenge struct {
@@ -42,6 +44,8 @@ type WhatsAppLinkChallenge struct {
 	Phone       string    `json:"phone"`
 	ExpiresAt   time.Time `json:"expiresAt"`
 	RetryCount  int       `json:"retryCount"`
+	MessageText string    `json:"messageText,omitempty"`
+	MessageLink string    `json:"messageLink,omitempty"`
 }
 
 type WhatsAppWriteEligibility struct {
@@ -61,6 +65,7 @@ type WhatsAppIdentityService struct {
 	otpExpiry               time.Duration
 	maxChallengeRetries     int
 	maxVerificationAttempts int
+	whatsAppMessageTarget   string
 }
 
 func NewWhatsAppIdentityService(userStore WhatsAppIdentityUserStore, otpStore repository.OTPStore, opts WhatsAppIdentityOptions) (*WhatsAppIdentityService, error) {
@@ -106,6 +111,7 @@ func NewWhatsAppIdentityService(userStore WhatsAppIdentityUserStore, otpStore re
 		otpExpiry:               expiry,
 		maxChallengeRetries:     maxRetries,
 		maxVerificationAttempts: maxAttempts,
+		whatsAppMessageTarget:   strings.TrimSpace(opts.WhatsAppMessageTarget),
 	}, nil
 }
 
@@ -131,6 +137,18 @@ func (s *WhatsAppIdentityService) StartLink(ctx context.Context, userID, phone s
 	}
 
 	currentTime := s.now()
+	previousLinkedPhone := strings.TrimSpace(user.WhatsAppLinkedPhone)
+	user.WhatsAppLinkedPhone = normalizedPhone
+	if previousLinkedPhone == "" || previousLinkedPhone != normalizedPhone || user.WhatsAppLinkedAt == nil {
+		user.WhatsAppLinkedAt = &currentTime
+	}
+	if previousLinkedPhone != normalizedPhone {
+		user.WhatsAppVerifiedAt = nil
+	}
+	if err := s.userStore.Put(ctx, user); err != nil {
+		return nil, utils.ErrInternal
+	}
+
 	retryCount := 1
 	latest, err := s.otpStore.GetLatestByUser(ctx, userID)
 	if err != nil {
@@ -164,18 +182,16 @@ func (s *WhatsAppIdentityService) StartLink(ctx context.Context, userID, phone s
 	if err := s.otpStore.Put(ctx, challenge); err != nil {
 		return nil, utils.ErrInternal
 	}
-	if s.sendOTP != nil {
-		if err := s.sendOTP(ctx, challenge.Phone, challenge.OTPCode); err != nil {
-			utils.LogError("send whatsapp otp", err, "userId", userID, "phone", challenge.Phone)
-			return nil, utils.NewAppError(502, "failed to send otp message")
-		}
-	}
+	messageText := buildWhatsAppLinkMessage(challenge.OTPCode)
+	messageLink := buildWhatsAppMessageLink(s.whatsAppMessageTarget, messageText)
 
 	return &WhatsAppLinkChallenge{
 		ChallengeID: challenge.ChallengeID,
 		Phone:       challenge.Phone,
 		ExpiresAt:   challenge.ExpiresAt,
 		RetryCount:  challenge.RetryCount,
+		MessageText: messageText,
+		MessageLink: messageLink,
 	}, nil
 }
 
@@ -319,6 +335,60 @@ func (s *WhatsAppIdentityService) DisconnectLink(ctx context.Context, userID str
 	return s.GetWriteEligibility(ctx, userID)
 }
 
+func (s *WhatsAppIdentityService) VerifyLinkFromInbound(ctx context.Context, fromPhone, text string) (bool, error) {
+	normalizedPhone, err := utils.NormalizeWhatsAppPhone(fromPhone)
+	if err != nil {
+		return false, nil
+	}
+
+	challenge, err := s.otpStore.GetLatestByPhone(ctx, normalizedPhone)
+	if err != nil {
+		return false, utils.ErrInternal
+	}
+	if challenge == nil || challenge.VerifiedAt != nil {
+		return false, nil
+	}
+
+	currentTime := s.now()
+	if !challenge.ExpiresAt.After(currentTime) {
+		return false, nil
+	}
+
+	expectedMessage := buildWhatsAppLinkMessage(challenge.OTPCode)
+	if strings.TrimSpace(text) != expectedMessage {
+		return false, nil
+	}
+
+	user, err := s.userStore.GetByID(ctx, challenge.UserID)
+	if err != nil {
+		return false, utils.ErrInternal
+	}
+	if user == nil {
+		return false, utils.ErrUnauthorized
+	}
+
+	if err := s.ensureUniquePhone(ctx, user.UserID, normalizedPhone); err != nil {
+		return false, err
+	}
+
+	user.WhatsAppLinkedPhone = normalizedPhone
+	if user.WhatsAppLinkedAt == nil {
+		user.WhatsAppLinkedAt = &currentTime
+	}
+	user.WhatsAppVerifiedAt = &currentTime
+	if err := s.userStore.Put(ctx, user); err != nil {
+		return false, utils.ErrInternal
+	}
+
+	challenge.VerifiedAt = &currentTime
+	challenge.UpdatedAt = currentTime
+	if err := s.otpStore.Put(ctx, challenge); err != nil {
+		return false, utils.ErrInternal
+	}
+
+	return true, nil
+}
+
 func (s *WhatsAppIdentityService) ensureUniquePhone(ctx context.Context, userID, phone string) error {
 	existing, err := s.userStore.GetByWhatsAppPhone(ctx, phone)
 	if err != nil {
@@ -337,4 +407,17 @@ func generateOTPCode() (string, error) {
 		return "", err
 	}
 	return fmt.Sprintf("%06d", n.Int64()), nil
+}
+
+func buildWhatsAppLinkMessage(code string) string {
+	return fmt.Sprintf("PROPTI LINK %s", strings.TrimSpace(code))
+}
+
+func buildWhatsAppMessageLink(target, text string) string {
+	target = strings.TrimSpace(strings.TrimPrefix(strings.ToLower(strings.TrimSpace(target)), "whatsapp:"))
+	target = strings.TrimPrefix(target, "+")
+	if target == "" || strings.TrimSpace(text) == "" {
+		return ""
+	}
+	return fmt.Sprintf("https://wa.me/%s?text=%s", target, url.QueryEscape(text))
 }

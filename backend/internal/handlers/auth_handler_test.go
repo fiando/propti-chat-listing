@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/fiando/propti/backend/internal/models"
 )
@@ -51,5 +52,39 @@ func TestPopulateActiveListingCountReturnsCounterError(t *testing.T) {
 	err := populateActiveListingCount(context.Background(), &fakeActiveListingCounter{err: expectedErr}, user)
 	if !errors.Is(err, expectedErr) {
 		t.Fatalf("expected error %v, got %v", expectedErr, err)
+	}
+}
+
+func TestApplyUserProfileUpdateKeepsWhatsAppIdentityWhenSavingPhone(t *testing.T) {
+	linkedAt := time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)
+	verifiedAt := linkedAt.Add(5 * time.Minute)
+	user := &models.User{
+		UserID:              "user-1",
+		Phone:               "081111111111",
+		Role:                models.UserRoleBuyer,
+		WhatsAppLinkedPhone: "+628123456789",
+		WhatsAppLinkedAt:    &linkedAt,
+		WhatsAppVerifiedAt:  &verifiedAt,
+		Preferences: models.UserPreferences{
+			FavoriteLocations: []string{"sleman"},
+			SearchHistory:     []string{"rumah"},
+			Notifications:     true,
+		},
+	}
+	newPhone := "082222222222"
+
+	applyUserProfileUpdate(user, models.UpdateUserRequest{Phone: &newPhone})
+
+	if user.Phone != newPhone {
+		t.Fatalf("expected phone to update to %q, got %q", newPhone, user.Phone)
+	}
+	if user.WhatsAppLinkedPhone != "+628123456789" {
+		t.Fatalf("expected linked whatsapp phone to stay unchanged, got %q", user.WhatsAppLinkedPhone)
+	}
+	if user.WhatsAppLinkedAt != &linkedAt {
+		t.Fatalf("expected linked timestamp pointer to stay unchanged")
+	}
+	if user.WhatsAppVerifiedAt != &verifiedAt {
+		t.Fatalf("expected verified timestamp pointer to stay unchanged")
 	}
 }

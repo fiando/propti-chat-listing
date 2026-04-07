@@ -75,6 +75,7 @@ jobs:
               DOKUClientID=${{ secrets.DOKU_CLIENT_ID }} \
               DOKUSecretKey=${{ secrets.DOKU_SECRET_KEY }} \
               WhatsAppProvider=${{ secrets.WHATSAPP_PROVIDER }} \
+              WhatsAppMessageTarget=${{ secrets.WHATSAPP_MESSAGE_TARGET }} \
               TwilioAccountSID=${{ secrets.TWILIO_ACCOUNT_SID }} \
               TwilioAuthToken=${{ secrets.TWILIO_AUTH_TOKEN }} \
               TwilioWhatsAppFrom=${{ secrets.TWILIO_WHATSAPP_FROM }}

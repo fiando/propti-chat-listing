@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-lambda-go/lambda"
 
@@ -108,7 +109,10 @@ func main() {
 	sessionRepo := repository.NewWhatsAppSessionRepo(db)
 	otpRepo := repository.NewOTPRepo(db)
 
-	identitySvc, err := services.NewWhatsAppIdentityService(userRepo, otpRepo, services.WhatsAppIdentityOptions{})
+	identitySvc, err := services.NewWhatsAppIdentityService(userRepo, otpRepo, services.WhatsAppIdentityOptions{
+		OTPExpiry:             10 * time.Minute,
+		WhatsAppMessageTarget: resolveWhatsAppMessageTarget(),
+	})
 	if err != nil {
 		utils.LogError("init whatsapp identity service", err)
 		panic(err)
@@ -196,6 +200,7 @@ func main() {
 		CommandOrchestrator: commandOrchestrator,
 		VoiceService:        voiceSvc,
 		Policy:              policy,
+		IdentityVerifier:    identitySvc,
 		StatusSink:          &whatsAppDeliveryStatusLogger{},
 		MetaVerifyToken:     metaVerifyToken,
 	})
@@ -226,4 +231,14 @@ func buildWhatsAppProvider() (services.WhatsAppProvider, string, error) {
 	default:
 		return nil, "", fmt.Errorf("unsupported WHATSAPP_PROVIDER value %q", rawProvider)
 	}
+}
+
+func resolveWhatsAppMessageTarget() string {
+	if target := strings.TrimSpace(os.Getenv("WHATSAPP_MESSAGE_TARGET")); target != "" {
+		return target
+	}
+	if target := strings.TrimSpace(os.Getenv("TWILIO_WHATSAPP_NUMBER")); target != "" {
+		return target
+	}
+	return strings.TrimSpace(os.Getenv("TWILIO_WHATSAPP_FROM"))
 }

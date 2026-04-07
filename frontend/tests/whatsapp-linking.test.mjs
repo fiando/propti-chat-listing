@@ -6,19 +6,19 @@ import {
   normalizeWhatsAppLinkPhone,
 } from '../lib/whatsapp-linking.ts';
 
-test('normalizeWhatsAppLinkPhone normalizes Indonesian phone inputs for OTP challenge', () => {
+test('normalizeWhatsAppLinkPhone normalizes Indonesian phone inputs for whatsapp challenge', () => {
   assert.equal(normalizeWhatsAppLinkPhone('0812 3456 7890'), '6281234567890');
   assert.equal(normalizeWhatsAppLinkPhone('+62 812-3456-7890'), '6281234567890');
   assert.equal(normalizeWhatsAppLinkPhone('6281234567890'), '6281234567890');
 });
 
-test('getWhatsAppWriteEligibilityCopy gives actionable connect/verify/write messaging', () => {
+test('getWhatsAppWriteEligibilityCopy gives actionable connect/challenge/write messaging', () => {
   assert.deepEqual(
     getWhatsAppWriteEligibilityCopy({ eligible: false, isLinked: false, reason: 'whatsapp phone is not linked' }),
     {
       tone: 'warning',
       title: 'WhatsApp belum terhubung',
-      description: 'Hubungkan nomor WhatsApp kamu dulu, lalu minta OTP untuk verifikasi.',
+      description: 'Hubungkan nomor WhatsApp kamu lalu kirim pesan challenge untuk verifikasi.',
     }
   );
 
@@ -31,8 +31,8 @@ test('getWhatsAppWriteEligibilityCopy gives actionable connect/verify/write mess
     }),
     {
       tone: 'warning',
-      title: 'Nomor sudah terhubung, tinggal verifikasi OTP',
-      description: 'Masukkan kode OTP agar akun kamu bisa pakai fitur WhatsApp write.',
+      title: 'Nomor sudah terhubung, tinggal kirim pesan verifikasi WhatsApp',
+      description: 'Kirim pesan challenge dari WhatsApp yang sama agar akun kamu bisa pakai fitur WhatsApp write.',
     }
   );
 
@@ -59,12 +59,21 @@ test('api helpers target whatsapp identity endpoints', () => {
   assert.match(apiFile, /\/auth\/whatsapp\/link/);
 });
 
-test('profile page exposes connect, otp verify, disconnect, and eligibility copy', () => {
+test('profile page exposes connect, whatsapp challenge verify, disconnect, and eligibility copy', () => {
   const profilePageFile = readFileSync(new URL('../components/profile/ProfilePageClient.tsx', import.meta.url), 'utf8');
 
   assert.match(profilePageFile, /Hubungkan WhatsApp/);
-  assert.match(profilePageFile, /Minta OTP/);
-  assert.match(profilePageFile, /Verifikasi OTP/);
+  assert.match(profilePageFile, /Aktifkan WhatsApp Listing/);
+  assert.match(profilePageFile, /Kirim Pesan di WhatsApp/);
+  assert.match(profilePageFile, /Cek Status Verifikasi/);
   assert.match(profilePageFile, /Putuskan WhatsApp/);
   assert.match(profilePageFile, /Status WA Write/);
+});
+
+test('create listing page does not gate website flow with whatsapp otp modal', () => {
+  const createListingFile = readFileSync(new URL('../components/listings/CreateListingClient.tsx', import.meta.url), 'utf8');
+
+  assert.doesNotMatch(createListingFile, /Minta OTP WhatsApp/);
+  assert.doesNotMatch(createListingFile, /Verifikasi & Pasang Iklan/);
+  assert.doesNotMatch(createListingFile, /Hubungkan WhatsApp/);
 });

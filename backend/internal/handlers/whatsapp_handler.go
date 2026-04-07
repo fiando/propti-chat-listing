@@ -39,6 +39,10 @@ type whatsAppWebhookPolicy interface {
 	RecordInboundMessage(ctx context.Context, envelope models.WhatsAppMessageEnvelope) error
 }
 
+type whatsAppInboundIdentityVerifier interface {
+	VerifyLinkFromInbound(ctx context.Context, fromPhone, text string) (bool, error)
+}
+
 type whatsAppWebhookStatusSink interface {
 	HandleDeliveryStatus(ctx context.Context, event models.WhatsAppDeliveryStatusEvent) error
 }
@@ -49,6 +53,7 @@ type WhatsAppHandlerDependencies struct {
 	CommandOrchestrator whatsAppWebhookCommandOrchestrator
 	VoiceService        whatsAppWebhookVoiceService
 	Policy              whatsAppWebhookPolicy
+	IdentityVerifier    whatsAppInboundIdentityVerifier
 	StatusSink          whatsAppWebhookStatusSink
 	MetaVerifyToken     string
 }
@@ -59,6 +64,7 @@ type WhatsAppHandler struct {
 	commandOrchestrator whatsAppWebhookCommandOrchestrator
 	voiceService        whatsAppWebhookVoiceService
 	policy              whatsAppWebhookPolicy
+	identityVerifier    whatsAppInboundIdentityVerifier
 	statusSink          whatsAppWebhookStatusSink
 	metaVerifyToken     string
 }
@@ -70,6 +76,7 @@ func NewWhatsAppHandler(deps WhatsAppHandlerDependencies) *WhatsAppHandler {
 		commandOrchestrator: deps.CommandOrchestrator,
 		voiceService:        deps.VoiceService,
 		policy:              deps.Policy,
+		identityVerifier:    deps.IdentityVerifier,
 		statusSink:          deps.StatusSink,
 		metaVerifyToken:     strings.TrimSpace(deps.MetaVerifyToken),
 	}
@@ -150,6 +157,15 @@ func (h *WhatsAppHandler) processInbound(ctx context.Context, req events.APIGate
 	if h.policy != nil {
 		if err := h.policy.RecordInboundMessage(ctx, *envelope); err != nil {
 			utils.LogWarn("record whatsapp inbound session", "error", err.Error())
+		}
+	}
+	if h.identityVerifier != nil {
+		verified, err := h.identityVerifier.VerifyLinkFromInbound(ctx, envelope.From, envelope.Text)
+		if err != nil {
+			return appErrorResponse(err), true
+		}
+		if verified {
+			return jsonResponse(http.StatusOK, `{"status":"ok","reason":"whatsapp_link_verified"}`), true
 		}
 	}
 

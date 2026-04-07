@@ -32,7 +32,6 @@ import {
   createWhatsAppLinkChallenge,
   disconnectWhatsAppLink,
   getWhatsAppLinkStatus,
-  verifyWhatsAppLink,
 } from '@/lib/api';
 import {
   getWhatsAppWriteEligibilityCopy,
@@ -59,8 +58,10 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
   const [notifications, setNotifications] = useState(profile.preferences?.notifications ?? true);
   const [saved, setSaved] = useState(false);
   const [waPhoneInput, setWaPhoneInput] = useState(profile.phone ?? '');
-  const [otpCode, setOtpCode] = useState('');
   const [challengeId, setChallengeId] = useState('');
+  const [waChallengeMessage, setWaChallengeMessage] = useState('');
+  const [waChallengeLink, setWaChallengeLink] = useState('');
+  const [isAutoCheckingVerification, setIsAutoCheckingVerification] = useState(false);
   const [waSuccessMessage, setWaSuccessMessage] = useState<string | null>(null);
   const returnTo = searchParams.get('returnTo');
   const DEFAULT_PREFERENCES: UserPreferences = {
@@ -88,22 +89,56 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
     queryFn: () => getWhatsAppLinkStatus(),
   });
 
+  const runAutoVerificationCheck = async () => {
+    setIsAutoCheckingVerification(true);
+    for (let attempt = 0; attempt < 30; attempt++) {
+      try {
+        const status = await getWhatsAppLinkStatus();
+        if (status.eligible) {
+          await waStatusQuery.refetch();
+          setChallengeId('');
+          setWaChallengeMessage('');
+          setWaChallengeLink('');
+          setWaSuccessMessage('WhatsApp listing berhasil aktif.');
+          setIsAutoCheckingVerification(false);
+          return;
+        }
+      } catch {
+        // keep polling; manual check remains available.
+      }
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+    setIsAutoCheckingVerification(false);
+    setWaSuccessMessage('Belum terverifikasi otomatis. Kirim pesan challenge persis seperti yang ditampilkan, lalu tekan cek status.');
+  };
+
   const linkChallengeMutation = useMutation({
     mutationFn: (phone: string) => createWhatsAppLinkChallenge(phone),
     onSuccess: (result) => {
       setChallengeId(result.challengeId);
       setWaPhoneInput(result.phone);
-      setWaSuccessMessage(`OTP dikirim. Berlaku sampai ${new Date(result.expiresAt).toLocaleTimeString('id-ID')}.`);
+      setWaChallengeMessage(result.messageText ?? '');
+      setWaChallengeLink(result.messageLink ?? '');
+      setWaSuccessMessage(`Challenge siap dikirim. Berlaku sampai ${new Date(result.expiresAt).toLocaleTimeString('id-ID')}.`);
+      if (result.messageLink) {
+        window.open(result.messageLink, '_blank', 'noopener,noreferrer');
+      }
+      void runAutoVerificationCheck();
     },
   });
 
-  const verifyLinkMutation = useMutation({
-    mutationFn: () => verifyWhatsAppLink(challengeId, otpCode),
+  const refreshWaStatusMutation = useMutation({
+    mutationFn: () => getWhatsAppLinkStatus(),
     onSuccess: async () => {
-      setOtpCode('');
-      setChallengeId('');
-      setWaSuccessMessage('WhatsApp berhasil terverifikasi.');
-      await waStatusQuery.refetch();
+      const latest = await waStatusQuery.refetch();
+      if (latest.data?.eligible) {
+        setChallengeId('');
+        setWaChallengeMessage('');
+        setWaChallengeLink('');
+        setWaSuccessMessage('WhatsApp listing berhasil aktif.');
+      } else {
+        setWaSuccessMessage('Belum terverifikasi. Kirim pesan challenge persis seperti yang ditampilkan, lalu cek status lagi.');
+      }
     },
   });
 
@@ -111,7 +146,8 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
     mutationFn: () => disconnectWhatsAppLink(),
     onSuccess: async () => {
       setChallengeId('');
-      setOtpCode('');
+      setWaChallengeMessage('');
+      setWaChallengeLink('');
       setWaSuccessMessage('Koneksi WhatsApp berhasil diputus.');
       await waStatusQuery.refetch();
     },
@@ -121,11 +157,11 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
     mutationFn: (payload: UpdateProfileRequest) => updateProfile(payload),
     onSuccess: () => {
       setSaved(true);
-      if (returnTo) {
-        router.push(returnTo);
-      }
-    },
-  });
+    if (returnTo) {
+      router.push(returnTo);
+    }
+  },
+});
 
   const waStatus = waStatusQuery.data ?? {
     eligible: false,
@@ -137,19 +173,19 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
   const isWaBusy =
     waStatusQuery.isLoading ||
     linkChallengeMutation.isPending ||
-    verifyLinkMutation.isPending ||
-    disconnectLinkMutation.isPending;
-  const canVerify = challengeId.trim() !== '' && otpCode.trim().length === 6;
+    refreshWaStatusMutation.isPending ||
+    disconnectLinkMutation.isPending ||
+    isAutoCheckingVerification;
 
-  const handleRequestOtp = async () => {
+  const handleActivateWhatsAppListing = async () => {
     setWaSuccessMessage(null);
     const normalizedPhone = normalizeWhatsAppLinkPhone(waPhoneInput);
     await linkChallengeMutation.mutateAsync(normalizedPhone);
   };
 
-  const handleVerifyOtp = async () => {
+  const handleRefreshVerification = async () => {
     setWaSuccessMessage(null);
-    await verifyLinkMutation.mutateAsync();
+    await refreshWaStatusMutation.mutateAsync();
   };
 
   const handleDisconnect = async () => {
@@ -161,6 +197,7 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
     event.preventDefault();
     setSaved(false);
     const payload: UpdateProfileRequest = buildProfileUpdatePayload({
+      phone: waPhoneInput,
       role,
       notifications,
       preferences: profile.preferences ?? DEFAULT_PREFERENCES,
@@ -354,8 +391,8 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
 
         {returnTo && (
           <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-            Hubungkan WhatsApp dulu supaya kamu bisa pasang iklan. Setelah tersambung dan terverifikasi,
-            kamu akan dikembalikan ke proses pasang iklan.
+            Kamu bisa lanjut pasang iklan web seperti biasa. Aktivasi WhatsApp listing bersifat opsional
+            dan butuh challenge verifikasi nomor.
           </div>
         )}
 
@@ -369,6 +406,19 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
             <label className="block">
               <span className="text-sm font-medium text-gray-700">Email</span>
               <input value={displayEmail} disabled className="input-field mt-1 bg-gray-50 text-gray-500" />
+            </label>
+
+            <label className="block md:col-span-2">
+              <span className="text-sm font-medium text-gray-700">Nomor Telepon</span>
+              <input
+                value={waPhoneInput}
+                onChange={(event) => setWaPhoneInput(event.target.value)}
+                placeholder="Contoh: 081234567890"
+                className="input-field mt-1"
+              />
+              <span className="mt-1 block text-xs text-gray-500">
+                Simpan nomor ini untuk kontak listing web. Aktivasi WhatsApp listing tetap opsional di bagian bawah.
+              </span>
             </label>
 
             <label className="block md:col-span-2">
@@ -452,12 +502,12 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <button
             type="button"
-            onClick={() => void handleRequestOtp()}
+            onClick={() => void handleActivateWhatsAppListing()}
             disabled={isWaBusy || normalizeWhatsAppLinkPhone(waPhoneInput) === ''}
             className="btn-primary inline-flex items-center justify-center gap-2 disabled:opacity-60"
           >
             {linkChallengeMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-            Minta OTP
+            Aktifkan WhatsApp Listing
           </button>
 
           <button
@@ -471,32 +521,40 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
           </button>
         </div>
 
-        <div className="mt-4 p-4 rounded-2xl border border-gray-100 bg-gray-50">
-          <p className="text-sm font-semibold text-gray-900 mb-2">Verifikasi OTP</p>
-          <input
-            value={otpCode}
-            onChange={(event) => setOtpCode(event.target.value.replace(/\D+/g, '').slice(0, 6))}
-            inputMode="numeric"
-            placeholder="Masukkan 6 digit OTP"
-            className="input-field mb-3"
-            disabled={isWaBusy}
-          />
-          <button
-            type="button"
-            onClick={() => void handleVerifyOtp()}
-            disabled={isWaBusy || !canVerify}
-            className="w-full btn-primary inline-flex items-center justify-center gap-2 disabled:opacity-60"
-          >
-            {verifyLinkMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-            Verifikasi OTP
-          </button>
-        </div>
+        {challengeId && (
+          <div className="mt-4 p-4 rounded-2xl border border-gray-100 bg-gray-50">
+            <p className="text-sm font-semibold text-gray-900 mb-2">Verifikasi lewat WhatsApp</p>
+            <p className="text-xs text-gray-600 mb-2">Kirim pesan ini tanpa diubah dari nomor WhatsApp yang kamu daftarkan:</p>
+            <div className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900 mb-3">
+              {waChallengeMessage}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <a
+                href={waChallengeLink || '#'}
+                target="_blank"
+                rel="noreferrer"
+                className={`btn-primary inline-flex items-center justify-center gap-2 ${waChallengeLink ? '' : 'pointer-events-none opacity-60'}`}
+              >
+                Kirim Pesan di WhatsApp
+              </a>
+              <button
+                type="button"
+                onClick={() => void handleRefreshVerification()}
+                disabled={isWaBusy}
+                className="w-full btn-primary inline-flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                {refreshWaStatusMutation.isPending || isAutoCheckingVerification ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                Cek Status Verifikasi
+              </button>
+            </div>
+          </div>
+        )}
 
-        {(waStatusQuery.isError || linkChallengeMutation.isError || verifyLinkMutation.isError || disconnectLinkMutation.isError) && (
+        {(waStatusQuery.isError || linkChallengeMutation.isError || refreshWaStatusMutation.isError || disconnectLinkMutation.isError) && (
           <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
             {(waStatusQuery.error as Error)?.message ||
               (linkChallengeMutation.error as Error)?.message ||
-              (verifyLinkMutation.error as Error)?.message ||
+              (refreshWaStatusMutation.error as Error)?.message ||
               (disconnectLinkMutation.error as Error)?.message ||
               'Terjadi kendala saat mengelola koneksi WhatsApp.'}
           </div>
