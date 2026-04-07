@@ -237,7 +237,7 @@ func (h *WhatsAppHandler) processInbound(ctx context.Context, req events.APIGate
 			},
 		})
 		if sendErr != nil {
-			utils.LogWarn("send whatsapp command reply", "error", sendErr.Error())
+			utils.LogWarn("send whatsapp command reply", "error", sendErr.Error(), "to", envelope.From, "providerMessageId", envelope.ProviderMessageID)
 		}
 	}
 	body, _ := json.Marshal(commandResp)
