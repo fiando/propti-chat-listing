@@ -16,12 +16,6 @@ func NewListingMediaPresenter(mediaStore MediaStorage) *ListingMediaPresenter {
 
 func (p *ListingMediaPresenter) PresentPublicSummary(ctx context.Context, listing *models.Listing) (*models.ListingResponse, error) {
 	resp := baseListingResponse(listing)
-	legacy := legacyImageValues(listing.Images)
-	if len(legacy) > 0 {
-		resp.Images = legacy
-		return resp, nil
-	}
-
 	featured := featuredImage(listing.Images)
 	if featured != nil && featured.ThumbnailKey != "" && p.mediaStore != nil {
 		signedURL, err := p.mediaStore.GetSignedDownloadURL(ctx, featured.ThumbnailKey)
@@ -55,18 +49,9 @@ func (p *ListingMediaPresenter) PresentSummaryCollection(ctx context.Context, li
 
 func (p *ListingMediaPresenter) presentDetail(ctx context.Context, listing *models.Listing, ownerView bool) (*models.ListingResponse, error) {
 	resp := baseListingResponse(listing)
-	legacy := legacyImageValues(listing.Images)
-	if len(legacy) > 0 {
-		resp.Images = legacy
-		return resp, nil
-	}
 
 	views := make([]models.ListingImageView, 0, len(listing.Images))
 	for _, image := range listing.Images {
-		if image.IsLegacy() {
-			continue
-		}
-
 		url := ""
 		if p.mediaStore != nil && image.S3Key != "" {
 			signedURL, err := p.mediaStore.GetSignedDownloadURL(ctx, image.S3Key)

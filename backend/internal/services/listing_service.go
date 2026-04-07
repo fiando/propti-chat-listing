@@ -116,10 +116,6 @@ func (s *ListingService) CreateListing(ctx context.Context, userID string, req *
 	if err := utils.ValidateCreateListingRequest(req); err != nil {
 		return nil, utils.WrapError(utils.ErrBadRequest, err)
 	}
-	if containsLegacyImagePayload(req.Images) {
-		return nil, utils.NewAppError(400, "base64 image payloads are no longer accepted; use upload sessions")
-	}
-
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil || user == nil {
 		return nil, utils.ErrUnauthorized
@@ -262,10 +258,6 @@ func (s *ListingService) UpdateListing(ctx context.Context, userID, listingID st
 	if listing.ModerationStatus == models.ModerationStatusRejected {
 		return nil, utils.NewAppError(403, "listing telah ditolak moderasi dan tidak dapat diedit; hapus listing ini dan buat ulang jika diperlukan")
 	}
-	if containsLegacyImagePayload(req.Images) {
-		return nil, utils.NewAppError(400, "base64 image payloads are no longer accepted; use upload sessions")
-	}
-
 	user, _ := s.userRepo.GetByID(ctx, userID)
 	effectiveTier := effectiveTierForUser(user, time.Now())
 	now := s.now()

@@ -62,7 +62,7 @@ func main() {
 		listingSvc.SetModerationEnqueuer(moderationQueue)
 	}
 
-	imageModerator, err := services.NewImageModerator(ctx, os.Getenv("IMAGE_MODERATION_PROVIDER"), openAIAPIKey)
+	imageModerator, err := services.NewImageModerator(openAIAPIKey)
 	if err != nil {
 		utils.LogError("init image moderator", err)
 		panic(err)
