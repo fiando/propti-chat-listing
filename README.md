@@ -63,6 +63,7 @@ cp backend/.env.local.example backend/.env.local
 ```
 
 The frontend runs at `http://localhost:3000` and the backend API runs at `http://localhost:3001`.
+`./scripts/dev-local.mjs` now auto-detects Podman and sets `DOCKER_HOST` to the Podman socket for AWS SAM when Docker is unavailable.
 
 To reuse `backend/.env.development` instead, run `./scripts/dev-local.mjs --backend-env-file backend/.env.development`.
 

@@ -9,6 +9,7 @@ import {
   findMissingEnvFiles,
   parseCliArgs,
   parseDotenv,
+  resolveContainerRuntimeOptions,
   shouldBootstrapLocalDynamoDB,
 } from './dev-local.mjs';
 
@@ -130,4 +131,53 @@ test('buildLocalDynamoTableDefinitions uses local dev defaults and GSIs', () => 
     listingsTable.globalSecondaryIndexes.map((index) => index.IndexName),
     ['listingId-index', 'userId-createdAt-index'],
   );
+});
+
+test('resolveContainerRuntimeOptions keeps defaults when docker is available', () => {
+  const options = resolveContainerRuntimeOptions({
+    dockerAvailable: true,
+    podmanAvailable: true,
+    runtimeDir: '/run/user/1000',
+    uid: 1000,
+  });
+
+  assert.deepEqual(options, {
+    envOverrides: {},
+    podmanSocketPath: null,
+    shouldUsePodmanSocket: false,
+  });
+});
+
+test('resolveContainerRuntimeOptions uses podman socket when docker is unavailable', () => {
+  const options = resolveContainerRuntimeOptions({
+    dockerAvailable: false,
+    podmanAvailable: true,
+    runtimeDir: '/run/user/1000',
+    uid: 1000,
+  });
+
+  assert.deepEqual(options, {
+    envOverrides: {
+      DOCKER_HOST: 'unix:///run/user/1000/podman/podman.sock',
+    },
+    podmanSocketPath: '/run/user/1000/podman/podman.sock',
+    shouldUsePodmanSocket: true,
+  });
+});
+
+test('resolveContainerRuntimeOptions falls back to uid runtime dir when XDG_RUNTIME_DIR is absent', () => {
+  const options = resolveContainerRuntimeOptions({
+    dockerAvailable: false,
+    podmanAvailable: true,
+    runtimeDir: '',
+    uid: 1234,
+  });
+
+  assert.deepEqual(options, {
+    envOverrides: {
+      DOCKER_HOST: 'unix:///run/user/1234/podman/podman.sock',
+    },
+    podmanSocketPath: '/run/user/1234/podman/podman.sock',
+    shouldUsePodmanSocket: true,
+  });
 });

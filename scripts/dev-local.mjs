@@ -119,6 +119,39 @@ export function shouldBootstrapLocalDynamoDB(endpointUrl) {
   }
 }
 
+export function resolveContainerRuntimeOptions({
+  dockerAvailable,
+  podmanAvailable,
+  runtimeDir = process.env.XDG_RUNTIME_DIR,
+  uid = typeof process.getuid === 'function' ? process.getuid() : null,
+}) {
+  if (dockerAvailable || !podmanAvailable) {
+    return {
+      envOverrides: {},
+      podmanSocketPath: null,
+      shouldUsePodmanSocket: false,
+    };
+  }
+
+  const effectiveRuntimeDir = runtimeDir || (typeof uid === 'number' ? `/run/user/${uid}` : null);
+  if (!effectiveRuntimeDir) {
+    return {
+      envOverrides: {},
+      podmanSocketPath: null,
+      shouldUsePodmanSocket: false,
+    };
+  }
+
+  const podmanSocketPath = path.join(effectiveRuntimeDir, 'podman', 'podman.sock');
+  return {
+    envOverrides: {
+      DOCKER_HOST: `unix://${podmanSocketPath}`,
+    },
+    podmanSocketPath,
+    shouldUsePodmanSocket: true,
+  };
+}
+
 function resolveStage(envVars) {
   return envVars.STAGE || DEFAULT_STAGE;
 }
@@ -252,7 +285,8 @@ function createSamEnvOverridesFile(envFile) {
   };
 }
 
-function runCommand(cwd, command, args, envOverrides = {}) {
+function runCommand(cwd, command, args, envOverrides = {}, options = {}) {
+  const stdio = options.stdio ?? 'inherit';
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd,
@@ -260,7 +294,7 @@ function runCommand(cwd, command, args, envOverrides = {}) {
         ...process.env,
         ...envOverrides,
       },
-      stdio: 'inherit',
+      stdio,
     });
 
     child.on('error', reject);
@@ -277,7 +311,7 @@ function runCommand(cwd, command, args, envOverrides = {}) {
 
 async function commandSucceeds(cwd, command, args, envOverrides = {}) {
   try {
-    await runCommand(cwd, command, args, envOverrides);
+    await runCommand(cwd, command, args, envOverrides, { stdio: 'ignore' });
     return true;
   } catch {
     return false;
@@ -351,13 +385,77 @@ async function bootstrapLocalDynamoDB(cwd, envVars) {
   }
 }
 
-function startLongRunningCommand(cwd, command, args) {
+function startLongRunningCommand(cwd, command, args, envOverrides = {}) {
   return spawn(command, args, {
     cwd,
-    env: process.env,
+    env: {
+      ...process.env,
+      ...envOverrides,
+    },
     stdio: 'inherit',
     detached: process.platform !== 'win32',
   });
+}
+
+async function waitForFile(filePath, timeoutMs = 5000, intervalMs = 100) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    if (fs.existsSync(filePath)) {
+      return true;
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+
+  return fs.existsSync(filePath);
+}
+
+async function ensureContainerRuntime(cwd) {
+  const dockerAvailable = await commandSucceeds(cwd, 'docker', ['info']);
+  const podmanAvailable = await commandSucceeds(cwd, 'podman', ['--version']);
+  const runtimeOptions = resolveContainerRuntimeOptions({
+    dockerAvailable,
+    podmanAvailable,
+  });
+
+  if (!runtimeOptions.shouldUsePodmanSocket || !runtimeOptions.podmanSocketPath) {
+    return {
+      envOverrides: {},
+      auxiliaryChildren: [],
+    };
+  }
+
+  const socketDir = path.dirname(runtimeOptions.podmanSocketPath);
+  fs.mkdirSync(socketDir, { recursive: true });
+
+  if (!fs.existsSync(runtimeOptions.podmanSocketPath)) {
+    await commandSucceeds(cwd, 'systemctl', ['--user', 'start', 'podman.socket']);
+    await waitForFile(runtimeOptions.podmanSocketPath, 2000);
+  }
+
+  let podmanService = null;
+  if (!fs.existsSync(runtimeOptions.podmanSocketPath)) {
+    console.log('Starting Podman API service for AWS SAM...');
+    podmanService = startLongRunningCommand(
+      cwd,
+      'podman',
+      ['system', 'service', '--time=0', runtimeOptions.envOverrides.DOCKER_HOST],
+      runtimeOptions.envOverrides,
+    );
+
+    const socketReady = await waitForFile(runtimeOptions.podmanSocketPath, 5000);
+    if (!socketReady) {
+      terminateChild(podmanService);
+      throw new Error(
+        `Failed to start Podman service at ${runtimeOptions.podmanSocketPath}. Start Podman and retry ./scripts/dev-local.mjs.`,
+      );
+    }
+  }
+
+  console.log(`Using Podman runtime via ${runtimeOptions.envOverrides.DOCKER_HOST}`);
+  return {
+    envOverrides: runtimeOptions.envOverrides,
+    auxiliaryChildren: podmanService ? [podmanService] : [],
+  };
 }
 
 function terminateChild(child) {
@@ -394,6 +492,7 @@ async function main() {
 
   const backendEnvContent = fs.readFileSync(plan.backend.envFile, 'utf8');
   const backendEnvVars = parseDotenv(backendEnvContent);
+  const containerRuntime = await ensureContainerRuntime(plan.backend.cwd);
 
   if (shouldBootstrapLocalDynamoDB(backendEnvVars.DYNAMODB_ENDPOINT_URL)) {
     await bootstrapLocalDynamoDB(plan.backend.cwd, backendEnvVars);
@@ -413,6 +512,7 @@ async function main() {
     plan.backend.cwd,
     backendStartCommand.command,
     backendStartCommand.args,
+    containerRuntime.envOverrides,
   );
 
   console.log('Starting frontend on http://localhost:3000');
@@ -422,7 +522,7 @@ async function main() {
     plan.frontend.startCommand.args,
   );
 
-  const runningChildren = [backend, frontend];
+  const runningChildren = [...containerRuntime.auxiliaryChildren, backend, frontend];
   let shuttingDown = false;
 
   const shutdown = (exitCode = 0) => {
