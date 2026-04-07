@@ -2,41 +2,25 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-test('listing form keeps phone in create-only schema and create-only UI gating', () => {
+test('listing form no longer owns phone input for website create flow', () => {
   const formFile = readFileSync(new URL('../components/listings/ListingForm.tsx', import.meta.url), 'utf8');
-  const baseSchemaMatch = formFile.match(/const listingBaseSchema = z\.object\(\{([\s\S]*?)\n\}\);/);
-
-  assert.ok(baseSchemaMatch, 'expected a shared base listing schema');
-  assert.doesNotMatch(baseSchemaMatch[1], /phone:/);
-  assert.match(
-    formFile,
-    /const createListingSchema = listingBaseSchema\.extend\(\{\s*phone: z\.string\(\)\.min\(1, 'Nomor telepon harus diisi'\),\s*\}\);/s
-  );
-  assert.match(formFile, /const editListingSchema = listingBaseSchema;/);
-  assert.match(
-    formFile,
-    /resolver: zodResolver\(mode === 'create' \? createListingSchema : editListingSchema\)/
-  );
-  assert.match(
-    formFile,
-    /\{mode === 'create' && \(\s*<div>\s*<label className="label">Nomor Telepon \*<\/label>/s
-  );
+  assert.doesNotMatch(formFile, /phone: z\.string\(\)\.min\(1, 'Nomor telepon harus diisi'\)/);
+  assert.doesNotMatch(formFile, /const createListingSchema = listingBaseSchema\.extend/);
+  assert.doesNotMatch(formFile, /resolver: zodResolver\(mode === 'create' \? createListingSchema : editListingSchema\)/);
+  assert.doesNotMatch(formFile, /<label className="label">Nomor Telepon \*<\/label>/);
 });
 
-test('create listing flow prefills and saves phone from profile', () => {
+test('create listing flow gates on missing profile phone instead of prefilling form phone', () => {
   const createPageFile = readFileSync(new URL('../app/(app)/listings/create/page.tsx', import.meta.url), 'utf8');
   const createClientFile = readFileSync(new URL('../components/listings/CreateListingClient.tsx', import.meta.url), 'utf8');
 
   assert.match(createPageFile, /initialProfilePhone=\{profile\?\.phone \?\? ''\}/);
-  assert.match(createClientFile, /function seedDraftPhone\(/);
-  assert.match(
-    createClientFile,
-    /const \[formDraft, setFormDraft\] = useState<Partial<ListingFormValues> \| null>\(\(\) =>\s*seedDraftPhone\(null, normalizedInitialProfilePhone\)\s*\)/
-  );
-  assert.match(
-    createClientFile,
-    /setFormDraft\(\s*seedDraftPhone\(\(draft\.formValues as Partial<ListingFormValues> \| undefined\) \|\| null, normalizedInitialProfilePhone\)\s*\)/
-  );
-  assert.match(createClientFile, /await updateProfile\(\{ phone: data\.phone\.trim\(\) \}\)/);
+  assert.match(createClientFile, /const \[showPhoneSetupModal, setShowPhoneSetupModal\] = useState\(false\)/);
+  assert.match(createClientFile, /if \(isAuthenticated && !normalizedInitialProfilePhone\) \{\s*setShowPhoneSetupModal\(true\);\s*\}/);
+  assert.match(createClientFile, /Lengkapi nomor telepon profil dulu/);
+  assert.match(createClientFile, /Simpan Nomor di Profil/);
+  assert.match(createClientFile, /router\.push\('\/profile\?returnTo=%2Flistings%2Fcreate'\)/);
+  assert.doesNotMatch(createClientFile, /function seedDraftPhone\(/);
+  assert.doesNotMatch(createClientFile, /await updateProfile\(\{ phone: data\.phone\.trim\(\) \}\)/);
   assert.match(createClientFile, /initialFormValues=\{formDraft \|\| undefined\}/);
 });

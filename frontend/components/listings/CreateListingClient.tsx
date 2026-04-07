@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { MessageCircle, PenLine, ArrowLeft, AlertTriangle, Crown } from 'lucide-react';
@@ -24,7 +24,7 @@ import {
   getCreateListingErrorMessage,
 } from '@/lib/create-listing-errors';
 import { normalizeAmenityIds } from '@/lib/listing-form-utils';
-import { updateProfile, uploadListingImage, prepareListingUpload } from '@/lib/api';
+import { uploadListingImage, prepareListingUpload } from '@/lib/api';
 import { uploadPendingListingImages } from '@/lib/listing-images';
 import { ImageLimits } from '@/types';
 
@@ -43,20 +43,6 @@ type CreateListingClientProps = {
   initialCreateAccessState: CreateAccessState;
 };
 
-function seedDraftPhone(
-  draft: Partial<ListingFormValues> | null,
-  profilePhone: string
-): Partial<ListingFormValues> | null {
-  if (!profilePhone || draft?.phone?.trim()) {
-    return draft;
-  }
-
-  return {
-    ...(draft ?? {}),
-    phone: profilePhone,
-  };
-}
-
 export function CreateListingClient({
   initialIsAuthenticated,
   initialTier,
@@ -69,13 +55,11 @@ export function CreateListingClient({
   const [parsedLocation, setParsedLocation] = useState<Partial<Location> | null>(null);
   const [parseTextDraft, setParseTextDraft] = useState('');
   const normalizedInitialProfilePhone = initialProfilePhone.trim();
-  const [formDraft, setFormDraft] = useState<Partial<ListingFormValues> | null>(() =>
-    seedDraftPhone(null, normalizedInitialProfilePhone)
-  );
+  const [formDraft, setFormDraft] = useState<Partial<ListingFormValues> | null>(null);
   const [draftRestored, setDraftRestored] = useState(false);
+  const [showPhoneSetupModal, setShowPhoneSetupModal] = useState(false);
   const { mutateAsync: createListing, isPending } = useCreateListing();
   const { toast } = useToast();
-  const savedProfilePhoneRef = useRef(normalizedInitialProfilePhone);
 
   const isAuthenticated = initialIsAuthenticated;
   const isPremium = initialTier !== 'free';
@@ -101,16 +85,20 @@ export function CreateListingClient({
     setStep('choose');
   }, [hasCreateAccessError, isCreateBlocked]);
 
+  useEffect(() => {
+    if (isAuthenticated && !normalizedInitialProfilePhone) {
+      setShowPhoneSetupModal(true);
+    }
+  }, [isAuthenticated, normalizedInitialProfilePhone]);
+
   const applyDraft = useCallback((draft: NonNullable<ReturnType<typeof loadCreateListingDraft>>) => {
     setStep(draft.step);
     setParseTextDraft(draft.parseText || '');
     setParsedData(draft.parsedData || null);
     setParsedLocation(draft.parsedLocation || null);
-    setFormDraft(
-      seedDraftPhone((draft.formValues as Partial<ListingFormValues> | undefined) || null, normalizedInitialProfilePhone)
-    );
+    setFormDraft((draft.formValues as Partial<ListingFormValues> | undefined) || null);
     setDraftRestored(true);
-  }, [normalizedInitialProfilePhone]);
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -134,7 +122,7 @@ export function CreateListingClient({
     setParseTextDraft('');
     setParsedData(null);
     setParsedLocation(null);
-    setFormDraft(seedDraftPhone(null, normalizedInitialProfilePhone));
+    setFormDraft(null);
     setStep('choose');
     toast('Draft dibuang. Kamu bisa mulai dari awal.', 'success');
   };
@@ -176,7 +164,7 @@ export function CreateListingClient({
 
   const handleUseParsedResult = (result: ParsedListing) => {
     setParsedData(result);
-    setFormDraft(seedDraftPhone(null, normalizedInitialProfilePhone));
+    setFormDraft(null);
     setParsedLocation({
       address: result.locationSuggestion?.normalizedAddress || result.address || '',
       province: result.locationSuggestion?.province || '',
@@ -197,12 +185,6 @@ export function CreateListingClient({
   };
 
   const submitListing = async (data: ListingFormValues) => {
-    const normalizedPhone = data.phone.trim();
-    if (normalizedPhone !== savedProfilePhoneRef.current) {
-      await updateProfile({ phone: data.phone.trim() });
-      savedProfilePhoneRef.current = normalizedPhone;
-    }
-
     const uploadPayload = await uploadPendingListingImages(
       data.images,
       {
@@ -258,7 +240,10 @@ export function CreateListingClient({
       toast(createAccessState.message || CREATE_LISTING_ACCESS_ERROR_MESSAGE, 'error');
       return;
     }
-
+    if (!normalizedInitialProfilePhone) {
+      setShowPhoneSetupModal(true);
+      return;
+    }
 
     try {
       await submitListing(data);
@@ -277,7 +262,7 @@ export function CreateListingClient({
         clearCreateListingDraft(window.localStorage);
       }
       setDraftRestored(false);
-      setFormDraft(seedDraftPhone(null, savedProfilePhoneRef.current));
+      setFormDraft(null);
       setParseTextDraft('');
       setParsedData(null);
       setParsedLocation(null);
@@ -489,6 +474,34 @@ export function CreateListingClient({
           isPremium={isPremium}
           maxImages={ImageLimits[initialTier]}
         />
+      )}
+
+      {showPhoneSetupModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+            <h2 className="text-xl font-bold text-gray-900">Lengkapi nomor telepon profil dulu</h2>
+            <p className="mt-3 text-sm leading-6 text-gray-600">
+              Nomor telepon untuk listing website diambil dari profil akun. Simpan nomor telepon di profil sekali saja,
+              setelah itu kamu bisa pasang iklan tanpa diminta lagi.
+            </p>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setShowPhoneSetupModal(false)}
+                className="rounded-2xl border border-gray-200 px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+              >
+                Nanti Saja
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push('/profile?returnTo=%2Flistings%2Fcreate')}
+                className="rounded-2xl bg-brand-primary px-4 py-3 text-sm font-semibold text-white transition hover:brightness-110"
+              >
+                Simpan Nomor di Profil
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

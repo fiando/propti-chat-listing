@@ -48,13 +48,7 @@ const listingBaseSchema = z.object({
   images: z.array(z.custom<ListingFormImage>()),
 });
 
-const createListingSchema = listingBaseSchema.extend({
-  phone: z.string().min(1, 'Nomor telepon harus diisi'),
-});
-
-const editListingSchema = listingBaseSchema;
-
-type ListingFormValues = z.infer<typeof createListingSchema>;
+type ListingFormValues = z.infer<typeof listingBaseSchema>;
 
 export type { ListingFormValues };
 
@@ -146,9 +140,8 @@ export function ListingForm({
     setValue,
     formState: { errors },
   } = useForm<ListingFormValues>({
-    resolver: zodResolver(mode === 'create' ? createListingSchema : editListingSchema),
+    resolver: zodResolver(listingBaseSchema),
     defaultValues: {
-      phone: initialFormValues?.phone || '',
       title: initialFormValues?.title || initialData?.title || '',
       description: initialFormValues?.description || initialData?.description || '',
       price: (initialFormValues?.price ?? initialData?.price) || 0,
@@ -267,18 +260,6 @@ export function ListingForm({
           />
           {errors.title && <p className="text-red-500 text-xs mt-1">{errors.title.message}</p>}
         </div>
-
-        {mode === 'create' && (
-          <div>
-            <label className="label">Nomor Telepon *</label>
-            <input
-              {...register('phone')}
-              className="input-field"
-              placeholder="Contoh: 081234567890"
-            />
-            {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone.message}</p>}
-          </div>
-        )}
 
         {/* Description */}
         <div>
