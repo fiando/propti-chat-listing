@@ -588,7 +588,7 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-blue-800">Pasang Iklan</p>
-                  <p className="text-xs text-blue-600 mt-0.5">Ketik atau kirim voice note deskripsi propertimu langsung ke nomor WhatsApp Propti. AI kami otomatis buatkan draftnya.</p>
+                  <p className="text-xs text-blue-600 mt-0.5">Ketik atau kirim voice note deskripsi propertimu langsung ke WhatsApp Propti. AI kami otomatis buatkan draftnya.</p>
                   <p className="text-xs font-mono bg-blue-100 text-blue-700 rounded-lg px-2 py-1 mt-1 inline-block">Contoh: &quot;jual rumah 2 lantai di Ciputat harga 750jt&quot;</p>
                 </div>
               </div>
@@ -603,6 +603,17 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
                 </div>
               </div>
             </div>
+            {process.env.NEXT_PUBLIC_WHATSAPP_NUMBER && (
+              <a
+                href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}`}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-4 inline-flex items-center gap-2 text-xs font-semibold text-blue-700 hover:text-blue-900"
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+                Buka WhatsApp Propti
+              </a>
+            )}
           </div>
         )}
       </div>
