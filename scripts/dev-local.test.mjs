@@ -2,7 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 
-import { buildDevLocalPlan, buildSamEnvOverrides, findMissingEnvFiles, parseCliArgs } from './dev-local.mjs';
+import {
+  buildDevLocalPlan,
+  buildLocalDynamoTableDefinitions,
+  buildSamEnvOverrides,
+  findMissingEnvFiles,
+  parseCliArgs,
+  parseDotenv,
+  shouldBootstrapLocalDynamoDB,
+} from './dev-local.mjs';
 
 test('buildDevLocalPlan uses app-level .env.local files and localhost ports', () => {
   const rootDir = '/workspace/propti';
@@ -80,5 +88,46 @@ test('parseCliArgs accepts backend env file override', () => {
   assert.deepEqual(
     parseCliArgs(['--backend-env-file', 'backend/.env.development']),
     { backendEnvFile: 'backend/.env.development' },
+  );
+});
+
+test('parseDotenv reads comments, quoted values, and blank values', () => {
+  assert.deepEqual(
+    parseDotenv(`
+# comment
+AWS_REGION=ap-southeast-1
+DYNAMODB_ENDPOINT_URL="http://127.0.0.1:8000"
+EMPTY_VALUE=
+`),
+    {
+      AWS_REGION: 'ap-southeast-1',
+      DYNAMODB_ENDPOINT_URL: 'http://127.0.0.1:8000',
+      EMPTY_VALUE: '',
+    },
+  );
+});
+
+test('shouldBootstrapLocalDynamoDB only enables bootstrap for localhost endpoints', () => {
+  assert.equal(shouldBootstrapLocalDynamoDB('http://127.0.0.1:8000'), true);
+  assert.equal(shouldBootstrapLocalDynamoDB('http://localhost:8000'), true);
+  assert.equal(shouldBootstrapLocalDynamoDB('https://dynamodb.ap-southeast-1.amazonaws.com'), false);
+  assert.equal(shouldBootstrapLocalDynamoDB(undefined), false);
+});
+
+test('buildLocalDynamoTableDefinitions uses local dev defaults and GSIs', () => {
+  const definitions = buildLocalDynamoTableDefinitions({});
+  const usersTable = definitions.find((definition) => definition.tableName === 'propti-users-dev');
+
+  assert.ok(usersTable);
+  assert.deepEqual(
+    usersTable.globalSecondaryIndexes.map((index) => index.IndexName),
+    ['googleId-index', 'whatsAppLinkedPhone-index'],
+  );
+
+  const listingsTable = definitions.find((definition) => definition.tableName === 'propti-listings-dev');
+  assert.ok(listingsTable);
+  assert.deepEqual(
+    listingsTable.globalSecondaryIndexes.map((index) => index.IndexName),
+    ['listingId-index', 'userId-createdAt-index'],
   );
 });

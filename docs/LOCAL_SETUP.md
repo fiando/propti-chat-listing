@@ -29,6 +29,8 @@ Required local defaults:
 ```
 JWT_SECRET=your-jwt-secret-min-32-chars
 OPENAI_API_KEY=sk-...
+AWS_REGION=ap-southeast-1
+DYNAMODB_ENDPOINT_URL=http://127.0.0.1:8000
 GOOGLE_MAPS_API_KEY=AIza...
 PUBLIC_API_BASE_URL=http://localhost:3001
 ```
@@ -85,6 +87,7 @@ The frontend will be available at `http://localhost:3000` and the API will be av
 
 The script:
 - validates `frontend/.env.local` and `backend/.env.local`
+- bootstraps local DynamoDB tables when `DYNAMODB_ENDPOINT_URL` points to `localhost` or `127.0.0.1`
 - builds the backend Lambda binaries with `make build`
 - starts AWS SAM on port `3001`
 - starts Next.js on port `3000`
@@ -122,19 +125,9 @@ If you call the wrong path or HTTP method, SAM returns:
 
 ```bash
 docker run -p 8000:8000 amazon/dynamodb-local
-
-# Create tables
-aws dynamodb create-table \
-  --table-name propti-listings \
-  --attribute-definitions \
-    AttributeName=PK,AttributeType=S \
-    AttributeName=SK,AttributeType=S \
-  --key-schema \
-    AttributeName=PK,KeyType=HASH \
-    AttributeName=SK,KeyType=RANGE \
-  --billing-mode PAY_PER_REQUEST \
-  --endpoint-url http://localhost:8000
 ```
+
+Once DynamoDB Local is running, `./scripts/dev-local.mjs` creates the required local tables automatically.
 
 ### S3 Local (MinIO)
 
@@ -150,7 +143,7 @@ docker run -p 9000:9000 minio/minio server /data
 4. Create OAuth 2.0 credentials
 5. Add `http://localhost:3000` to authorized origins
 6. Add `http://localhost:3000/api/auth/callback/google` to redirect URIs
-7. Copy Client ID and Client Secret to your env files
+7. Copy Client ID and Client Secret to `frontend/.env.local`
 
 ## 8. Midtrans Sandbox Setup
 

@@ -7,6 +7,12 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+const DEFAULT_STAGE = 'dev';
+const DEFAULT_LOCAL_DYNAMODB_ENDPOINT = 'http://127.0.0.1:8000';
+const DEFAULT_LOCAL_AWS_REGION = 'ap-southeast-1';
+const DEFAULT_LOCAL_AWS_ACCESS_KEY_ID = 'local';
+const DEFAULT_LOCAL_AWS_SECRET_ACCESS_KEY = 'local';
+
 export function parseCliArgs(argv = process.argv.slice(2)) {
   const options = {};
 
@@ -57,7 +63,7 @@ export function findMissingEnvFiles(envFiles, existingEnvFiles = null) {
   return envFiles.filter((envFile) => !existing.has(envFile));
 }
 
-export function buildSamEnvOverrides(envContent) {
+export function parseDotenv(envContent) {
   const parameters = {};
 
   for (const rawLine of envContent.split(/\r?\n/)) {
@@ -89,9 +95,149 @@ export function buildSamEnvOverrides(envContent) {
     parameters[key] = value;
   }
 
+  return parameters;
+}
+
+export function buildSamEnvOverrides(envContent) {
+  const parameters = parseDotenv(envContent);
+
   return {
     Parameters: parameters,
   };
+}
+
+export function shouldBootstrapLocalDynamoDB(endpointUrl) {
+  if (!endpointUrl) {
+    return false;
+  }
+
+  try {
+    const url = new URL(endpointUrl);
+    return url.hostname === '127.0.0.1' || url.hostname === 'localhost';
+  } catch {
+    return false;
+  }
+}
+
+function resolveStage(envVars) {
+  return envVars.STAGE || DEFAULT_STAGE;
+}
+
+function resolveTableName(envVars, envKey, defaultBaseName) {
+  const configured = envVars[envKey];
+  if (configured) {
+    return configured;
+  }
+
+  return `${defaultBaseName}-${resolveStage(envVars)}`;
+}
+
+export function buildLocalDynamoTableDefinitions(envVars) {
+  return [
+    {
+      tableName: resolveTableName(envVars, 'DYNAMODB_LISTINGS_TABLE', 'propti-listings'),
+      attributeDefinitions: [
+        ['PK', 'S'],
+        ['SK', 'S'],
+        ['listingId', 'S'],
+        ['userId', 'S'],
+        ['createdAt', 'S'],
+      ],
+      keySchema: [
+        ['PK', 'HASH'],
+        ['SK', 'RANGE'],
+      ],
+      globalSecondaryIndexes: [
+        { IndexName: 'listingId-index', KeySchema: [['listingId', 'HASH']] },
+        { IndexName: 'userId-createdAt-index', KeySchema: [['userId', 'HASH'], ['createdAt', 'RANGE']] },
+      ],
+    },
+    {
+      tableName: resolveTableName(envVars, 'DYNAMODB_USERS_TABLE', 'propti-users'),
+      attributeDefinitions: [
+        ['PK', 'S'],
+        ['SK', 'S'],
+        ['googleId', 'S'],
+        ['whatsAppLinkedPhone', 'S'],
+      ],
+      keySchema: [
+        ['PK', 'HASH'],
+        ['SK', 'RANGE'],
+      ],
+      globalSecondaryIndexes: [
+        { IndexName: 'googleId-index', KeySchema: [['googleId', 'HASH']] },
+        { IndexName: 'whatsAppLinkedPhone-index', KeySchema: [['whatsAppLinkedPhone', 'HASH']] },
+      ],
+    },
+    {
+      tableName: resolveTableName(envVars, 'DYNAMODB_TRANSACTIONS_TABLE', 'propti-transactions'),
+      attributeDefinitions: [
+        ['PK', 'S'],
+        ['SK', 'S'],
+        ['userId', 'S'],
+        ['orderId', 'S'],
+        ['createdAt', 'S'],
+      ],
+      keySchema: [
+        ['PK', 'HASH'],
+        ['SK', 'RANGE'],
+      ],
+      globalSecondaryIndexes: [
+        { IndexName: 'userId-createdAt-index', KeySchema: [['userId', 'HASH'], ['createdAt', 'RANGE']] },
+        { IndexName: 'orderId-index', KeySchema: [['orderId', 'HASH']] },
+      ],
+    },
+    {
+      tableName: resolveTableName(envVars, 'DYNAMODB_MODERATIONS_TABLE', 'propti-moderations'),
+      attributeDefinitions: [
+        ['PK', 'S'],
+        ['SK', 'S'],
+        ['listingId', 'S'],
+      ],
+      keySchema: [
+        ['PK', 'HASH'],
+        ['SK', 'RANGE'],
+      ],
+      globalSecondaryIndexes: [{ IndexName: 'listingId-index', KeySchema: [['listingId', 'HASH']] }],
+    },
+    {
+      tableName: resolveTableName(envVars, 'DYNAMODB_LEADS_TABLE', 'propti-leads'),
+      attributeDefinitions: [
+        ['PK', 'S'],
+        ['SK', 'S'],
+        ['ownerUserId', 'S'],
+        ['createdAt', 'S'],
+      ],
+      keySchema: [
+        ['PK', 'HASH'],
+        ['SK', 'RANGE'],
+      ],
+      globalSecondaryIndexes: [
+        { IndexName: 'ownerUserId-createdAt-index', KeySchema: [['ownerUserId', 'HASH'], ['createdAt', 'RANGE']] },
+      ],
+    },
+    {
+      tableName: resolveTableName(envVars, 'DYNAMODB_UPLOAD_SESSIONS_TABLE', 'propti-upload-sessions'),
+      attributeDefinitions: [['sessionId', 'S']],
+      keySchema: [['sessionId', 'HASH']],
+      globalSecondaryIndexes: [],
+    },
+    {
+      tableName: resolveTableName(envVars, 'DYNAMODB_WHATSAPP_SESSIONS_TABLE', 'propti-whatsapp-sessions'),
+      attributeDefinitions: [['sessionId', 'S']],
+      keySchema: [['sessionId', 'HASH']],
+      globalSecondaryIndexes: [],
+    },
+    {
+      tableName:
+        envVars.DYNAMODB_OTP_CHALLENGES_TABLE ||
+        envVars.DYNAMODB_WHATSAPP_OTP_TABLE ||
+        `propti-whatsapp-otp-${resolveStage(envVars)}`,
+      attributeDefinitions: [['otpId', 'S']],
+      keySchema: [['otpId', 'HASH']],
+      globalSecondaryIndexes: [],
+    },
+  ];
 }
 
 function createSamEnvOverridesFile(envFile) {
@@ -106,11 +252,14 @@ function createSamEnvOverridesFile(envFile) {
   };
 }
 
-function runCommand(cwd, command, args) {
+function runCommand(cwd, command, args, envOverrides = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd,
-      env: process.env,
+      env: {
+        ...process.env,
+        ...envOverrides,
+      },
       stdio: 'inherit',
     });
 
@@ -124,6 +273,82 @@ function runCommand(cwd, command, args) {
       reject(new Error(`${command} ${args.join(' ')} exited with ${signal ?? code}`));
     });
   });
+}
+
+async function commandSucceeds(cwd, command, args, envOverrides = {}) {
+  try {
+    await runCommand(cwd, command, args, envOverrides);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function flattenAttributeDefinitions(attributeDefinitions) {
+  return attributeDefinitions.map(([attributeName, attributeType]) => `AttributeName=${attributeName},AttributeType=${attributeType}`);
+}
+
+function flattenKeySchema(keySchema) {
+  return keySchema.map(([attributeName, keyType]) => `AttributeName=${attributeName},KeyType=${keyType}`);
+}
+
+function buildGlobalSecondaryIndexes(globalSecondaryIndexes) {
+  return globalSecondaryIndexes.map((index) => ({
+    IndexName: index.IndexName,
+    KeySchema: index.KeySchema.map(([attributeName, keyType]) => ({
+      AttributeName: attributeName,
+      KeyType: keyType,
+    })),
+    Projection: {
+      ProjectionType: 'ALL',
+    },
+  }));
+}
+
+async function bootstrapLocalDynamoDB(cwd, envVars) {
+  const endpointUrl = envVars.DYNAMODB_ENDPOINT_URL || DEFAULT_LOCAL_DYNAMODB_ENDPOINT;
+  const awsEnv = {
+    AWS_EC2_METADATA_DISABLED: 'true',
+    AWS_REGION: envVars.AWS_REGION || DEFAULT_LOCAL_AWS_REGION,
+    AWS_ACCESS_KEY_ID: envVars.AWS_ACCESS_KEY_ID || DEFAULT_LOCAL_AWS_ACCESS_KEY_ID,
+    AWS_SECRET_ACCESS_KEY: envVars.AWS_SECRET_ACCESS_KEY || DEFAULT_LOCAL_AWS_SECRET_ACCESS_KEY,
+  };
+
+  console.log(`Ensuring local DynamoDB tables exist at ${endpointUrl}`);
+
+  for (const definition of buildLocalDynamoTableDefinitions(envVars)) {
+    const exists = await commandSucceeds(
+      cwd,
+      'aws',
+      ['dynamodb', 'describe-table', '--table-name', definition.tableName, '--endpoint-url', endpointUrl],
+      awsEnv,
+    );
+
+    if (exists) {
+      continue;
+    }
+
+    const args = [
+      'dynamodb',
+      'create-table',
+      '--table-name',
+      definition.tableName,
+      '--billing-mode',
+      'PAY_PER_REQUEST',
+      '--attribute-definitions',
+      ...flattenAttributeDefinitions(definition.attributeDefinitions),
+      '--key-schema',
+      ...flattenKeySchema(definition.keySchema),
+      '--endpoint-url',
+      endpointUrl,
+    ];
+
+    if (definition.globalSecondaryIndexes.length > 0) {
+      args.push('--global-secondary-indexes', JSON.stringify(buildGlobalSecondaryIndexes(definition.globalSecondaryIndexes)));
+    }
+
+    await runCommand(cwd, 'aws', args, awsEnv);
+  }
 }
 
 function startLongRunningCommand(cwd, command, args) {
@@ -165,6 +390,13 @@ async function main() {
     console.error('Create them from the matching *.example files before starting local development.');
     process.exitCode = 1;
     return;
+  }
+
+  const backendEnvContent = fs.readFileSync(plan.backend.envFile, 'utf8');
+  const backendEnvVars = parseDotenv(backendEnvContent);
+
+  if (shouldBootstrapLocalDynamoDB(backendEnvVars.DYNAMODB_ENDPOINT_URL)) {
+    await bootstrapLocalDynamoDB(plan.backend.cwd, backendEnvVars);
   }
 
   console.log('Building backend Lambda binaries...');
