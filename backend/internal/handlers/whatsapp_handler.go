@@ -17,6 +17,8 @@ import (
 	"github.com/fiando/propti/backend/internal/utils"
 )
 
+const whatsAppLinkConfirmationMessage = "✅ Nomor WhatsApp kamu berhasil terhubung ke Propti! Sekarang kamu bisa kirim iklan properti langsung via WhatsApp."
+
 type whatsAppWebhookProvider interface {
 	ParseInboundWebhook(ctx context.Context, request *http.Request) (*models.WhatsAppMessageEnvelope, error)
 	ParseDeliveryStatusWebhook(ctx context.Context, request *http.Request) ([]models.WhatsAppDeliveryStatusEvent, error)
@@ -173,12 +175,11 @@ func (h *WhatsAppHandler) processInbound(ctx context.Context, req events.APIGate
 		}
 		if verified {
 			if h.confirmSender != nil {
-				confirmMsg := "✅ Nomor WhatsApp kamu berhasil terhubung ke Propti! Sekarang kamu bisa kirim iklan properti langsung via WhatsApp."
 				_, sendErr := h.confirmSender.Send(ctx, models.WhatsAppSendRequest{
 					To: envelope.From,
 					Message: models.WhatsAppOutboundMessage{
 						Type: models.WhatsAppMessageTypeText,
-						Text: confirmMsg,
+						Text: whatsAppLinkConfirmationMessage,
 					},
 				})
 				if sendErr != nil {
