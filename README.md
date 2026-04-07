@@ -52,20 +52,19 @@ propti/
 See [docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md) for setup instructions.
 See [docs/BRAND_GUIDELINES.md](docs/BRAND_GUIDELINES.md) for the Propti brand system.
 
-### Backend
+### Local stack
 ```bash
-cd backend
-make build
-sam local start-api
+cd frontend && npm install
+cd ../backend && go mod download
+cd ..
+cp frontend/.env.local.example frontend/.env.local
+cp backend/.env.local.example backend/.env.local
+./scripts/dev-local.mjs
 ```
 
-### Frontend
-```bash
-cd frontend
-cp .env.local.example .env.local
-npm install
-npm run dev
-```
+The frontend runs at `http://localhost:3000` and the backend API runs at `http://localhost:3001`.
+
+To reuse `backend/.env.development` instead, run `./scripts/dev-local.mjs --backend-env-file backend/.env.development`.
 
 ## Deployment
 
