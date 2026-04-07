@@ -52,7 +52,7 @@ export function buildDevLocalPlan(rootDir = process.cwd(), options = {}) {
       cwd: path.join(projectRoot, 'frontend'),
       startCommand: {
         command: 'npm',
-        args: ['run', 'dev', '--', '--hostname', 'localhost', '--port', '3000'],
+        args: ['run', 'dev', '--', '--hostname', '0.0.0.0', '--port', '3000'],
       },
     },
   };

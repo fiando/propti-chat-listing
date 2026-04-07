@@ -34,7 +34,7 @@ test('buildDevLocalPlan uses app-level .env.local files and localhost ports', ()
   assert.equal(plan.frontend.cwd, path.join(rootDir, 'frontend'));
   assert.deepEqual(plan.frontend.startCommand, {
     command: 'npm',
-    args: ['run', 'dev', '--', '--hostname', 'localhost', '--port', '3000'],
+    args: ['run', 'dev', '--', '--hostname', '0.0.0.0', '--port', '3000'],
   });
 });
 
