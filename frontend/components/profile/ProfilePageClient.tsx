@@ -91,12 +91,12 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
     queryFn: () => getWhatsAppLinkStatus(),
   });
 
-  const runAutoVerificationCheck = async () => {
+  const runAutoVerificationCheck = async (expectedPhone: string) => {
     setIsAutoCheckingVerification(true);
     for (let attempt = 0; attempt < 30; attempt++) {
       try {
         const status = await getWhatsAppLinkStatus();
-        if (status.eligible) {
+        if (status.eligible && status.linkedPhone === expectedPhone) {
           await waStatusQuery.refetch();
           setChallengeId('');
           setWaChallengeMessage('');
@@ -125,7 +125,7 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
       if (result.messageLink) {
         window.open(result.messageLink, '_blank', 'noopener,noreferrer');
       }
-      void runAutoVerificationCheck();
+      void runAutoVerificationCheck(result.phone);
     },
   });
 

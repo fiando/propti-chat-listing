@@ -356,6 +356,63 @@ func TestWhatsAppHandlerInboundLinkVerificationReturnsVerifiedBeforeUserLookup(t
 	}
 }
 
+type fakeLinkConfirmSender struct {
+	sendRequests []models.WhatsAppSendRequest
+	sendErr      error
+}
+
+func (f *fakeLinkConfirmSender) Send(_ context.Context, req models.WhatsAppSendRequest) (models.WhatsAppSendResult, error) {
+	f.sendRequests = append(f.sendRequests, req)
+	return models.WhatsAppSendResult{}, f.sendErr
+}
+
+func TestWhatsAppHandlerInboundLinkVerificationSendsConfirmationMessage(t *testing.T) {
+	provider := &fakeWebhookProvider{
+		inboundEnvelope: &models.WhatsAppMessageEnvelope{
+			Provider:          models.WhatsAppProviderTwilio,
+			ProviderMessageID: "SM999",
+			From:              "whatsapp:+628123456789",
+			To:                "whatsapp:+14155550000",
+			Type:              models.WhatsAppMessageTypeText,
+			Text:              "PROPTI LINK 182542",
+			ReceivedAt:        time.Now().UTC(),
+		},
+	}
+	verifier := &fakeIdentityVerifier{verified: true}
+	sender := &fakeLinkConfirmSender{}
+	handler := NewWhatsAppHandler(WhatsAppHandlerDependencies{
+		Provider:         provider,
+		UserStore:        &fakeWhatsAppUserStore{},
+		IdentityVerifier: verifier,
+		ConfirmSender:    sender,
+	})
+
+	resp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodPost,
+		Path:       "/whatsapp/webhook/inbound",
+		Headers:    map[string]string{"Content-Type": "application/json"},
+		Body:       `{"entry":[]}`,
+	})
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", resp.StatusCode, resp.Body)
+	}
+	if len(sender.sendRequests) != 1 {
+		t.Fatalf("expected 1 confirmation send, got %d", len(sender.sendRequests))
+	}
+	if sender.sendRequests[0].To != "whatsapp:+628123456789" {
+		t.Fatalf("expected confirmation sent to %q, got %q", "whatsapp:+628123456789", sender.sendRequests[0].To)
+	}
+	if sender.sendRequests[0].Message.Type != models.WhatsAppMessageTypeText {
+		t.Fatalf("expected text message type, got %q", sender.sendRequests[0].Message.Type)
+	}
+	if strings.TrimSpace(sender.sendRequests[0].Message.Text) == "" {
+		t.Fatal("expected non-empty confirmation message text")
+	}
+}
+
 func TestWhatsAppHandlerTemplateWiresWebhookLambdaRoutes(t *testing.T) {
 	template, err := os.ReadFile("../../template.yaml")
 	if err != nil {

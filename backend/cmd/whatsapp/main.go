@@ -201,6 +201,7 @@ func main() {
 		VoiceService:        voiceSvc,
 		Policy:              policy,
 		IdentityVerifier:    identitySvc,
+		ConfirmSender:       provider,
 		StatusSink:          &whatsAppDeliveryStatusLogger{},
 		MetaVerifyToken:     metaVerifyToken,
 	})
