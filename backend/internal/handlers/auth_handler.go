@@ -87,13 +87,7 @@ func mustWhatsAppIdentityService(service *services.WhatsAppIdentityService, err 
 }
 
 func resolveWhatsAppMessageTarget() string {
-	if target := strings.TrimSpace(os.Getenv("WHATSAPP_MESSAGE_TARGET")); target != "" {
-		return target
-	}
-	if target := strings.TrimSpace(os.Getenv("TWILIO_WHATSAPP_NUMBER")); target != "" {
-		return target
-	}
-	return strings.TrimSpace(os.Getenv("TWILIO_WHATSAPP_FROM"))
+	return strings.TrimSpace(os.Getenv("WHATSAPP_MESSAGE_TARGET"))
 }
 
 // googleLogin verifies a Google ID token and upserts the user, returning a JWT.

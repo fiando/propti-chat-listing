@@ -57,6 +57,8 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
   const [role, setRole] = useState<'buyer' | 'seller' | 'both' | ''>(profile.role ?? '');
   const [notifications, setNotifications] = useState(profile.preferences?.notifications ?? true);
   const [saved, setSaved] = useState(false);
+  const [profilePhoneInput, setProfilePhoneInput] = useState(profile.phone ?? '');
+  const [savedProfilePhone, setSavedProfilePhone] = useState(profile.phone ?? '');
   const [waPhoneInput, setWaPhoneInput] = useState(profile.phone ?? '');
   const [challengeId, setChallengeId] = useState('');
   const [waChallengeMessage, setWaChallengeMessage] = useState('');
@@ -155,13 +157,21 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
 
   const updateMutation = useMutation({
     mutationFn: (payload: UpdateProfileRequest) => updateProfile(payload),
-    onSuccess: () => {
+    onSuccess: (updatedProfile) => {
+      const nextPhone = updatedProfile.phone ?? '';
+      const previousSavedPhone = savedProfilePhone;
+
+      setSavedProfilePhone(nextPhone);
+      setProfilePhoneInput(nextPhone);
+      if (waPhoneInput === previousSavedPhone) {
+        setWaPhoneInput(nextPhone);
+      }
       setSaved(true);
-    if (returnTo) {
-      router.push(returnTo);
-    }
-  },
-});
+      if (returnTo) {
+        router.push(returnTo);
+      }
+    },
+  });
 
   const waStatus = waStatusQuery.data ?? {
     eligible: false,
@@ -197,7 +207,7 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
     event.preventDefault();
     setSaved(false);
     const payload: UpdateProfileRequest = buildProfileUpdatePayload({
-      phone: waPhoneInput,
+      phone: profilePhoneInput,
       role,
       notifications,
       preferences: profile.preferences ?? DEFAULT_PREFERENCES,
@@ -411,8 +421,8 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
             <label className="block md:col-span-2">
               <span className="text-sm font-medium text-gray-700">Nomor Telepon</span>
               <input
-                value={waPhoneInput}
-                onChange={(event) => setWaPhoneInput(event.target.value)}
+                value={profilePhoneInput}
+                onChange={(event) => setProfilePhoneInput(event.target.value)}
                 placeholder="Contoh: 081234567890"
                 className="input-field mt-1"
               />

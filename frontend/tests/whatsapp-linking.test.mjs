@@ -68,6 +68,9 @@ test('profile page exposes connect, whatsapp challenge verify, disconnect, and e
   assert.match(profilePageFile, /Cek Status Verifikasi/);
   assert.match(profilePageFile, /Putuskan WhatsApp/);
   assert.match(profilePageFile, /Status WA Write/);
+  assert.match(profilePageFile, /const \[profilePhoneInput, setProfilePhoneInput\] = useState\(profile\.phone \?\? ''\)/);
+  assert.match(profilePageFile, /const \[waPhoneInput, setWaPhoneInput\] = useState\(profile\.phone \?\? ''\)/);
+  assert.match(profilePageFile, /phone: profilePhoneInput/);
 });
 
 test('create listing page does not gate website flow with whatsapp otp modal', () => {

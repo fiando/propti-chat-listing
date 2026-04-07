@@ -234,11 +234,5 @@ func buildWhatsAppProvider() (services.WhatsAppProvider, string, error) {
 }
 
 func resolveWhatsAppMessageTarget() string {
-	if target := strings.TrimSpace(os.Getenv("WHATSAPP_MESSAGE_TARGET")); target != "" {
-		return target
-	}
-	if target := strings.TrimSpace(os.Getenv("TWILIO_WHATSAPP_NUMBER")); target != "" {
-		return target
-	}
-	return strings.TrimSpace(os.Getenv("TWILIO_WHATSAPP_FROM"))
+	return strings.TrimSpace(os.Getenv("WHATSAPP_MESSAGE_TARGET"))
 }

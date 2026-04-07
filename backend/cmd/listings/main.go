@@ -28,7 +28,6 @@ func main() {
 	userRepo := repository.NewUserRepo(db)
 	moderationRepo := repository.NewModerationRepo(db)
 	uploadSessionRepo := repository.NewUploadSessionRepo(db)
-	otpRepo := repository.NewOTPRepo(db)
 
 	s3Svc, err := services.NewS3Service(ctx, os.Getenv("S3_MEDIA_BUCKET"))
 	if err != nil {
@@ -51,12 +50,6 @@ func main() {
 	}
 	listingSvc := services.NewListingService(listingRepo, userRepo, aiSvc, s3Svc, mapsSvc, locationCatalog)
 	leadSvc := services.NewLeadService(leadRepo)
-	identitySvc, err := services.NewWhatsAppIdentityService(userRepo, otpRepo, services.WhatsAppIdentityOptions{})
-	if err != nil {
-		utils.LogError("init whatsapp identity service", err)
-		panic(err)
-	}
-	listingSvc.SetWriteEligibilityGuard(identitySvc)
 	listingSvc.SetUploadSessionStore(uploadSessionRepo)
 	uploadSessionSvc := services.NewUploadSessionService(uploadSessionRepo, userRepo, listingRepo, s3Svc)
 	searchIntentSvc := services.NewSearchIntentService(aiSvc, locationCatalog)
