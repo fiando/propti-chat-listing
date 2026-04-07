@@ -240,7 +240,7 @@ func TestWhatsAppVoiceServiceResetsMonthlyQuotaWindow(t *testing.T) {
 		users,
 		&fakeWhatsAppVoiceMediaDownloader{data: []byte("audio")},
 		&fakeWhatsAppAudioTranscriber{result: WhatsAppVoiceTranscription{Text: "listing saya", DurationSeconds: 60, Confidence: 0.95}},
-		&fakeWhatsAppVoiceOrchestrator{response: &WhatsAppCommandResponse{Intent: WhatsAppCommandIntentListingRead}},
+		&fakeWhatsAppVoiceOrchestrator{response: &WhatsAppCommandResponse{Intent: WhatsAppCommandIntentListingCreate}},
 		now,
 	)
 

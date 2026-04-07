@@ -12,27 +12,17 @@ import (
 )
 
 type fakeWhatsAppOrchestratorListingService struct {
-	parseResp      *models.ParseTextResponse
-	parseErr       error
-	createResp     *models.Listing
-	createErr      error
-	updateResp     *models.Listing
-	updateErr      error
-	deleteErr      error
-	listResp       []models.Listing
-	listErr        error
-	searchResp     []models.Listing
-	searchErr      error
-	parseCalls     int
-	createCalls    int
-	updateCalls    int
-	deleteCalls    int
-	listCalls      int
-	searchCalls    int
-	lastCreateReq  *models.CreateListingRequest
-	lastUpdateReq  *models.UpdateListingRequest
-	lastDeleteID   string
-	lastSearch     *models.ListingSearchParams
+	parseResp    *models.ParseTextResponse
+	parseErr     error
+	createResp   *models.Listing
+	createErr    error
+	searchResp   []models.Listing
+	searchErr    error
+	parseCalls   int
+	createCalls  int
+	searchCalls  int
+	lastCreateReq *models.CreateListingRequest
+	lastSearch   *models.ListingSearchParams
 }
 
 func (f *fakeWhatsAppOrchestratorListingService) ParseListingText(_ context.Context, text string) (*models.ParseTextResponse, error) {
@@ -58,33 +48,6 @@ func (f *fakeWhatsAppOrchestratorListingService) CreateListing(_ context.Context
 		return &listing, nil
 	}
 	return &models.Listing{ListingID: "listing-created"}, nil
-}
-
-func (f *fakeWhatsAppOrchestratorListingService) UpdateListing(_ context.Context, _, _ string, req *models.UpdateListingRequest) (*models.Listing, error) {
-	f.updateCalls++
-	f.lastUpdateReq = req
-	if f.updateErr != nil {
-		return nil, f.updateErr
-	}
-	if f.updateResp != nil {
-		listing := *f.updateResp
-		return &listing, nil
-	}
-	return &models.Listing{ListingID: "listing-updated"}, nil
-}
-
-func (f *fakeWhatsAppOrchestratorListingService) DeleteListing(_ context.Context, _, listingID string) error {
-	f.deleteCalls++
-	f.lastDeleteID = listingID
-	return f.deleteErr
-}
-
-func (f *fakeWhatsAppOrchestratorListingService) ListMyListings(_ context.Context, _ string, _ *models.ListingSearchParams) ([]models.Listing, error) {
-	f.listCalls++
-	if f.listErr != nil {
-		return nil, f.listErr
-	}
-	return append([]models.Listing(nil), f.listResp...), nil
 }
 
 func (f *fakeWhatsAppOrchestratorListingService) SearchListings(_ context.Context, params *models.ListingSearchParams) ([]models.Listing, error) {
@@ -140,7 +103,7 @@ func (f *fakeWhatsAppOrchestratorEligibilityGuard) RequireWriteEligible(_ contex
 	return f.err
 }
 
-func TestWhatsAppOrchestratorFreeTierAllowsCreateOnly(t *testing.T) {
+func TestWhatsAppOrchestratorFreeTierAllowsCreate(t *testing.T) {
 	t.Parallel()
 
 	listingSvc := &fakeWhatsAppOrchestratorListingService{
@@ -163,64 +126,25 @@ func TestWhatsAppOrchestratorFreeTierAllowsCreateOnly(t *testing.T) {
 	if guard.calls != 1 {
 		t.Fatalf("expected write eligibility guard to be called, got %d", guard.calls)
 	}
-
-	_, err = orchestrator.HandleText(context.Background(), WhatsAppCommandRequest{UserID: "user-1", Text: "listing saya"})
-	if err == nil {
-		t.Fatal("expected free tier read to be blocked")
-	}
-	if appCodeFromErr(t, err) != 403 {
-		t.Fatalf("expected 403 for blocked read, got %d (%v)", appCodeFromErr(t, err), err)
-	}
 }
 
-func TestWhatsAppOrchestratorBasicTierBlocksEditAndDelete(t *testing.T) {
+func TestWhatsAppOrchestratorFreeTierBlocksSearch(t *testing.T) {
 	t.Parallel()
 
 	orchestrator := mustNewWhatsAppOrchestrator(
 		t,
 		&fakeWhatsAppOrchestratorListingService{},
 		&fakeWhatsAppOrchestratorSearchIntentService{},
-		&fakeWhatsAppOrchestratorUserStore{user: &models.User{UserID: "user-1", Subscription: models.Subscription{Tier: models.SubscriptionBasic}}},
+		&fakeWhatsAppOrchestratorUserStore{user: &models.User{UserID: "user-1", Subscription: models.Subscription{Tier: models.SubscriptionFree}}},
 		&fakeWhatsAppOrchestratorEligibilityGuard{},
 	)
 
-	_, err := orchestrator.HandleText(context.Background(), WhatsAppCommandRequest{UserID: "user-1", Text: "edit listing-1 | ubah deskripsi"})
-	if err == nil || appCodeFromErr(t, err) != 403 {
-		t.Fatalf("expected edit blocked for basic tier with 403, got %v", err)
+	_, err := orchestrator.HandleText(context.Background(), WhatsAppCommandRequest{UserID: "user-1", Text: "cari rumah jogja"})
+	if err == nil {
+		t.Fatal("expected free tier search to be blocked")
 	}
-
-	_, err = orchestrator.HandleText(context.Background(), WhatsAppCommandRequest{UserID: "user-1", Text: "delete listing-1"})
-	if err == nil || appCodeFromErr(t, err) != 403 {
-		t.Fatalf("expected delete blocked for basic tier with 403, got %v", err)
-	}
-}
-
-func TestWhatsAppOrchestratorPremiumAllowsDeleteAndRoutesToListingService(t *testing.T) {
-	t.Parallel()
-
-	listingSvc := &fakeWhatsAppOrchestratorListingService{}
-	guard := &fakeWhatsAppOrchestratorEligibilityGuard{}
-	renewDate := time.Now().UTC().Add(24 * time.Hour)
-	orchestrator := mustNewWhatsAppOrchestrator(
-		t,
-		listingSvc,
-		&fakeWhatsAppOrchestratorSearchIntentService{},
-		&fakeWhatsAppOrchestratorUserStore{user: &models.User{UserID: "user-1", Subscription: models.Subscription{Tier: models.SubscriptionPremium, RenewDate: &renewDate}}},
-		guard,
-	)
-
-	resp, err := orchestrator.HandleText(context.Background(), WhatsAppCommandRequest{UserID: "user-1", Text: "hapus listing-9"})
-	if err != nil {
-		t.Fatalf("HandleText delete returned error: %v", err)
-	}
-	if resp.Intent != WhatsAppCommandIntentListingDelete {
-		t.Fatalf("expected delete intent, got %q", resp.Intent)
-	}
-	if listingSvc.deleteCalls != 1 || listingSvc.lastDeleteID != "listing-9" {
-		t.Fatalf("expected delete listing-9 to be routed, got calls=%d id=%q", listingSvc.deleteCalls, listingSvc.lastDeleteID)
-	}
-	if guard.calls != 1 {
-		t.Fatalf("expected write guard to run for delete, got %d", guard.calls)
+	if appCodeFromErr(t, err) != 403 {
+		t.Fatalf("expected 403 for blocked search, got %d (%v)", appCodeFromErr(t, err), err)
 	}
 }
 
@@ -250,40 +174,6 @@ func TestWhatsAppOrchestratorSearchBuildsDeepLinkContinuation(t *testing.T) {
 	}
 	if !strings.Contains(resp.WebDeepLink, "https://propti.id/search") || !strings.Contains(resp.WebDeepLink, "q=cari+rumah+dijual+di+jogja") {
 		t.Fatalf("expected deep-link continuation to include encoded query, got %q", resp.WebDeepLink)
-	}
-}
-
-func TestWhatsAppOrchestratorSubscriptionIncludesRemainingAndUpgradeGuidance(t *testing.T) {
-	t.Parallel()
-
-	renewDate := time.Now().UTC().Add(5 * 24 * time.Hour)
-	listingSvc := &fakeWhatsAppOrchestratorListingService{listResp: []models.Listing{{ListingID: "a"}, {ListingID: "b"}}}
-	orchestrator := mustNewWhatsAppOrchestrator(
-		t,
-		listingSvc,
-		&fakeWhatsAppOrchestratorSearchIntentService{},
-		&fakeWhatsAppOrchestratorUserStore{user: &models.User{UserID: "user-1", Subscription: models.Subscription{Tier: models.SubscriptionBasic, RenewDate: &renewDate}}},
-		&fakeWhatsAppOrchestratorEligibilityGuard{},
-	)
-
-	resp, err := orchestrator.HandleText(context.Background(), WhatsAppCommandRequest{UserID: "user-1", Text: "status subscription"})
-	if err != nil {
-		t.Fatalf("HandleText subscription returned error: %v", err)
-	}
-	if resp.Intent != WhatsAppCommandIntentSubscriptionStatus {
-		t.Fatalf("expected subscription intent, got %q", resp.Intent)
-	}
-	if resp.Subscription == nil {
-		t.Fatal("expected subscription payload")
-	}
-	if resp.Subscription.RemainingListings != 4 {
-		t.Fatalf("expected remaining listing cap 4 for basic with 2 used, got %d", resp.Subscription.RemainingListings)
-	}
-	if resp.Subscription.Status != models.SubscriptionExpiringSoon {
-		t.Fatalf("expected expiring soon status, got %q", resp.Subscription.Status)
-	}
-	if resp.Subscription.UpgradeGuidance == "" {
-		t.Fatal("expected upgrade guidance to be populated")
 	}
 }
 
@@ -324,9 +214,10 @@ func TestWhatsAppOrchestratorExpiredPaidPlanFallsBackToFreeGate(t *testing.T) {
 		&fakeWhatsAppOrchestratorEligibilityGuard{},
 	)
 
+	// Expired premium falls back to free tier, which cannot search via WhatsApp.
 	_, err := orchestrator.HandleText(context.Background(), WhatsAppCommandRequest{UserID: "user-1", Text: "cari rumah jogja"})
 	if err == nil {
-		t.Fatal("expected search read to be blocked after premium expiry")
+		t.Fatal("expected search to be blocked after premium expiry")
 	}
 	if appCodeFromErr(t, err) != 403 {
 		t.Fatalf("expected 403 for expired paid tier gate, got %d (%v)", appCodeFromErr(t, err), err)
