@@ -13,9 +13,11 @@ frontend/tsconfig.tsbuildinfo
 .env.local
 .env.production
 .env.development
+frontend/.env.local
 frontend/.env.production
 frontend/.env.development
 backend/.env
+backend/.env.local
 backend/.env.production
 backend/.env.development
 
