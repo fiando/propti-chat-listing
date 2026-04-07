@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { MessageCircle, PenLine, ArrowLeft, AlertTriangle, Crown, Loader2, ShieldCheck, X } from 'lucide-react';
@@ -27,6 +27,7 @@ import { normalizeAmenityIds } from '@/lib/listing-form-utils';
 import {
   createWhatsAppLinkChallenge,
   getWhatsAppLinkStatus,
+  updateProfile,
   uploadListingImage,
   verifyWhatsAppLink,
   prepareListingUpload,
@@ -46,12 +47,28 @@ type CreateAccessState = {
 type CreateListingClientProps = {
   initialIsAuthenticated: boolean;
   initialTier: 'free' | 'basic' | 'premium' | 'pro';
+  initialProfilePhone: string;
   initialCreateAccessState: CreateAccessState;
 };
+
+function seedDraftPhone(
+  draft: Partial<ListingFormValues> | null,
+  profilePhone: string
+): Partial<ListingFormValues> | null {
+  if (!profilePhone || draft?.phone?.trim()) {
+    return draft;
+  }
+
+  return {
+    ...(draft ?? {}),
+    phone: profilePhone,
+  };
+}
 
 export function CreateListingClient({
   initialIsAuthenticated,
   initialTier,
+  initialProfilePhone,
   initialCreateAccessState,
 }: CreateListingClientProps) {
   const router = useRouter();
@@ -59,7 +76,10 @@ export function CreateListingClient({
   const [parsedData, setParsedData] = useState<ParsedListing | null>(null);
   const [parsedLocation, setParsedLocation] = useState<Partial<Location> | null>(null);
   const [parseTextDraft, setParseTextDraft] = useState('');
-  const [formDraft, setFormDraft] = useState<Partial<ListingFormValues> | null>(null);
+  const normalizedInitialProfilePhone = initialProfilePhone.trim();
+  const [formDraft, setFormDraft] = useState<Partial<ListingFormValues> | null>(() =>
+    seedDraftPhone(null, normalizedInitialProfilePhone)
+  );
   const [draftRestored, setDraftRestored] = useState(false);
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
   const [pendingSubmitData, setPendingSubmitData] = useState<ListingFormValues | null>(null);
@@ -74,6 +94,7 @@ export function CreateListingClient({
   const [isSubmittingListingFromWaModal, setIsSubmittingListingFromWaModal] = useState(false);
   const { mutateAsync: createListing, isPending } = useCreateListing();
   const { toast } = useToast();
+  const savedProfilePhoneRef = useRef(normalizedInitialProfilePhone);
 
   const isAuthenticated = initialIsAuthenticated;
   const isPremium = initialTier !== 'free';
@@ -128,9 +149,11 @@ export function CreateListingClient({
     setParseTextDraft(draft.parseText || '');
     setParsedData(draft.parsedData || null);
     setParsedLocation(draft.parsedLocation || null);
-    setFormDraft((draft.formValues as Partial<ListingFormValues> | undefined) || null);
+    setFormDraft(
+      seedDraftPhone((draft.formValues as Partial<ListingFormValues> | undefined) || null, normalizedInitialProfilePhone)
+    );
     setDraftRestored(true);
-  }, []);
+  }, [normalizedInitialProfilePhone]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -154,7 +177,7 @@ export function CreateListingClient({
     setParseTextDraft('');
     setParsedData(null);
     setParsedLocation(null);
-    setFormDraft(null);
+    setFormDraft(seedDraftPhone(null, normalizedInitialProfilePhone));
     setStep('choose');
     toast('Draft dibuang. Kamu bisa mulai dari awal.', 'success');
   };
@@ -196,7 +219,7 @@ export function CreateListingClient({
 
   const handleUseParsedResult = (result: ParsedListing) => {
     setParsedData(result);
-    setFormDraft(null);
+    setFormDraft(seedDraftPhone(null, normalizedInitialProfilePhone));
     setParsedLocation({
       address: result.locationSuggestion?.normalizedAddress || result.address || '',
       province: result.locationSuggestion?.province || '',
@@ -217,6 +240,12 @@ export function CreateListingClient({
   };
 
   const submitListing = async (data: ListingFormValues) => {
+    const normalizedPhone = data.phone.trim();
+    if (normalizedPhone !== savedProfilePhoneRef.current) {
+      await updateProfile({ phone: data.phone.trim() });
+      savedProfilePhoneRef.current = normalizedPhone;
+    }
+
     const uploadPayload = await uploadPendingListingImages(
       data.images,
       {
@@ -296,10 +325,10 @@ export function CreateListingClient({
         clearCreateListingDraft(window.localStorage);
       }
       setDraftRestored(false);
+      setFormDraft(seedDraftPhone(null, savedProfilePhoneRef.current));
       setParseTextDraft('');
       setParsedData(null);
       setParsedLocation(null);
-      setFormDraft(null);
     }
 
     setStep(nextStep);
