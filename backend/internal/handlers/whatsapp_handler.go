@@ -17,6 +17,8 @@ import (
 	"github.com/fiando/propti/backend/internal/utils"
 )
 
+const whatsAppLinkConfirmationMessage = "✅ Nomor WhatsApp kamu berhasil terhubung ke Propti! Sekarang kamu bisa kirim iklan properti langsung via WhatsApp."
+
 type whatsAppWebhookProvider interface {
 	ParseInboundWebhook(ctx context.Context, request *http.Request) (*models.WhatsAppMessageEnvelope, error)
 	ParseDeliveryStatusWebhook(ctx context.Context, request *http.Request) ([]models.WhatsAppDeliveryStatusEvent, error)
@@ -43,6 +45,10 @@ type whatsAppInboundIdentityVerifier interface {
 	VerifyLinkFromInbound(ctx context.Context, fromPhone, text string) (bool, error)
 }
 
+type whatsAppLinkConfirmSender interface {
+	Send(ctx context.Context, request models.WhatsAppSendRequest) (models.WhatsAppSendResult, error)
+}
+
 type whatsAppWebhookStatusSink interface {
 	HandleDeliveryStatus(ctx context.Context, event models.WhatsAppDeliveryStatusEvent) error
 }
@@ -54,6 +60,7 @@ type WhatsAppHandlerDependencies struct {
 	VoiceService        whatsAppWebhookVoiceService
 	Policy              whatsAppWebhookPolicy
 	IdentityVerifier    whatsAppInboundIdentityVerifier
+	ConfirmSender       whatsAppLinkConfirmSender
 	StatusSink          whatsAppWebhookStatusSink
 	MetaVerifyToken     string
 }
@@ -65,6 +72,7 @@ type WhatsAppHandler struct {
 	voiceService        whatsAppWebhookVoiceService
 	policy              whatsAppWebhookPolicy
 	identityVerifier    whatsAppInboundIdentityVerifier
+	confirmSender       whatsAppLinkConfirmSender
 	statusSink          whatsAppWebhookStatusSink
 	metaVerifyToken     string
 }
@@ -77,6 +85,7 @@ func NewWhatsAppHandler(deps WhatsAppHandlerDependencies) *WhatsAppHandler {
 		voiceService:        deps.VoiceService,
 		policy:              deps.Policy,
 		identityVerifier:    deps.IdentityVerifier,
+		confirmSender:       deps.ConfirmSender,
 		statusSink:          deps.StatusSink,
 		metaVerifyToken:     strings.TrimSpace(deps.MetaVerifyToken),
 	}
@@ -165,6 +174,18 @@ func (h *WhatsAppHandler) processInbound(ctx context.Context, req events.APIGate
 			return appErrorResponse(err), true
 		}
 		if verified {
+			if h.confirmSender != nil {
+				_, sendErr := h.confirmSender.Send(ctx, models.WhatsAppSendRequest{
+					To: envelope.From,
+					Message: models.WhatsAppOutboundMessage{
+						Type: models.WhatsAppMessageTypeText,
+						Text: whatsAppLinkConfirmationMessage,
+					},
+				})
+				if sendErr != nil {
+					utils.LogWarn("send whatsapp link confirmation", "error", sendErr.Error())
+				}
+			}
 			return jsonResponse(http.StatusOK, `{"status":"ok","reason":"whatsapp_link_verified"}`), true
 		}
 	}
