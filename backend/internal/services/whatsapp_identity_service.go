@@ -325,7 +325,10 @@ func (s *WhatsAppIdentityService) DisconnectLink(ctx context.Context, userID str
 }
 
 func (s *WhatsAppIdentityService) VerifyLinkFromInbound(ctx context.Context, fromPhone, text string) (bool, error) {
-	normalizedPhone, err := utils.NormalizeWhatsAppPhone(fromPhone)
+	phone := strings.TrimSpace(fromPhone)
+	phone = strings.TrimPrefix(strings.ToLower(phone), "whatsapp:")
+	phone = strings.TrimSpace(phone)
+	normalizedPhone, err := utils.NormalizeWhatsAppPhone(phone)
 	if err != nil {
 		return false, nil
 	}
