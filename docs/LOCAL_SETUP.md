@@ -46,6 +46,8 @@ go mod download
 # Build all Lambda functions
 make build
 
+podman system service --time=0 tcp:127.0.0.1:2375 &
+export DOCKER_HOST=tcp://127.0.0.1:2375
 # Start local API (requires Docker)
 sam local start-api --env-vars .env
 ```
