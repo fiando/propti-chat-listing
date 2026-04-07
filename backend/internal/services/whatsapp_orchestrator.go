@@ -225,6 +225,7 @@ func (o *WhatsAppCommandOrchestrator) handleCreate(ctx context.Context, userID, 
 			District: parsed.LocationSuggestion.District,
 		},
 		PropertyDetails: parsed.PropertyDetails,
+		IsDraft:         parsedResp.RequiresCorrection,
 	}
 	listing, err := o.listingService.CreateListing(ctx, userID, createReq)
 	if err != nil {
@@ -232,7 +233,12 @@ func (o *WhatsAppCommandOrchestrator) handleCreate(ctx context.Context, userID, 
 	}
 
 	link := o.buildListingLink(listing.ListingID)
-	msg := fmt.Sprintf("Listing berhasil dibuat. Tinjau dan lengkapi iklan Anda di: %s", link)
+	var msg string
+	if parsedResp.RequiresCorrection {
+		msg = fmt.Sprintf("📝 Iklan kamu tersimpan sebagai draft karena beberapa info belum lengkap. Lengkapi di: %s", link)
+	} else {
+		msg = fmt.Sprintf("✅ Iklan kamu berhasil dibuat dan sedang menunggu review. Lihat di: %s", link)
+	}
 	return &WhatsAppCommandResponse{Intent: WhatsAppCommandIntentListingCreate, Listing: listing, Message: msg}, nil
 }
 

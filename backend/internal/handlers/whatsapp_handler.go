@@ -49,6 +49,10 @@ type whatsAppLinkConfirmSender interface {
 	Send(ctx context.Context, request models.WhatsAppSendRequest) (models.WhatsAppSendResult, error)
 }
 
+type whatsAppCommandReplySender interface {
+	Send(ctx context.Context, request models.WhatsAppSendRequest) (models.WhatsAppSendResult, error)
+}
+
 type whatsAppWebhookStatusSink interface {
 	HandleDeliveryStatus(ctx context.Context, event models.WhatsAppDeliveryStatusEvent) error
 }
@@ -61,6 +65,7 @@ type WhatsAppHandlerDependencies struct {
 	Policy              whatsAppWebhookPolicy
 	IdentityVerifier    whatsAppInboundIdentityVerifier
 	ConfirmSender       whatsAppLinkConfirmSender
+	CommandReplySender  whatsAppCommandReplySender
 	StatusSink          whatsAppWebhookStatusSink
 	MetaVerifyToken     string
 }
@@ -73,6 +78,7 @@ type WhatsAppHandler struct {
 	policy              whatsAppWebhookPolicy
 	identityVerifier    whatsAppInboundIdentityVerifier
 	confirmSender       whatsAppLinkConfirmSender
+	commandReplySender  whatsAppCommandReplySender
 	statusSink          whatsAppWebhookStatusSink
 	metaVerifyToken     string
 }
@@ -86,6 +92,7 @@ func NewWhatsAppHandler(deps WhatsAppHandlerDependencies) *WhatsAppHandler {
 		policy:              deps.Policy,
 		identityVerifier:    deps.IdentityVerifier,
 		confirmSender:       deps.ConfirmSender,
+		commandReplySender:  deps.CommandReplySender,
 		statusSink:          deps.StatusSink,
 		metaVerifyToken:     strings.TrimSpace(deps.MetaVerifyToken),
 	}
@@ -220,6 +227,18 @@ func (h *WhatsAppHandler) processInbound(ctx context.Context, req events.APIGate
 	})
 	if err != nil {
 		return appErrorResponse(err), true
+	}
+	if commandResp.Message != "" && h.commandReplySender != nil {
+		_, sendErr := h.commandReplySender.Send(ctx, models.WhatsAppSendRequest{
+			To: envelope.From,
+			Message: models.WhatsAppOutboundMessage{
+				Type: models.WhatsAppMessageTypeText,
+				Text: commandResp.Message,
+			},
+		})
+		if sendErr != nil {
+			utils.LogWarn("send whatsapp command reply", "error", sendErr.Error())
+		}
 	}
 	body, _ := json.Marshal(commandResp)
 	return jsonResponse(http.StatusOK, string(body)), true

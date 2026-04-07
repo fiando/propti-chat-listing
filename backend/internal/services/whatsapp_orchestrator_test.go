@@ -247,3 +247,68 @@ func appCodeFromErr(t *testing.T, err error) int {
 	}
 	return appErr.Code
 }
+
+func TestWhatsAppOrchestratorCreateWithRequiresCorrectionSavesDraft(t *testing.T) {
+	t.Parallel()
+
+	listingSvc := &fakeWhatsAppOrchestratorListingService{
+		parseResp: &models.ParseTextResponse{
+			Parsed:             models.ParsedListing{Title: "Rumah", Description: "Bagus", Price: 1200000000, PriceUnit: "total", Address: "Jl. Malioboro"},
+			RequiresCorrection: true,
+		},
+		createResp: &models.Listing{ListingID: "draft-listing-1", ModerationStatus: models.ModerationStatusDraft},
+	}
+	renewDate := time.Now().UTC().Add(24 * time.Hour)
+	orchestrator := mustNewWhatsAppOrchestrator(
+		t,
+		listingSvc,
+		&fakeWhatsAppOrchestratorSearchIntentService{},
+		&fakeWhatsAppOrchestratorUserStore{user: &models.User{UserID: "user-1", Subscription: models.Subscription{Tier: models.SubscriptionBasic, RenewDate: &renewDate}}},
+		&fakeWhatsAppOrchestratorEligibilityGuard{},
+	)
+
+	resp, err := orchestrator.HandleText(context.Background(), WhatsAppCommandRequest{UserID: "user-1", Text: "jual rumah"})
+	if err != nil {
+		t.Fatalf("HandleText returned error: %v", err)
+	}
+	if resp.Intent != WhatsAppCommandIntentListingCreate {
+		t.Fatalf("expected create intent, got %q", resp.Intent)
+	}
+	if listingSvc.lastCreateReq == nil || !listingSvc.lastCreateReq.IsDraft {
+		t.Fatal("expected IsDraft=true when RequiresCorrection=true")
+	}
+	if !strings.Contains(resp.Message, "draft") {
+		t.Fatalf("expected draft message, got %q", resp.Message)
+	}
+}
+
+func TestWhatsAppOrchestratorCreateWithoutRequiresCorrectionSubmitsPending(t *testing.T) {
+	t.Parallel()
+
+	listingSvc := &fakeWhatsAppOrchestratorListingService{
+		parseResp: &models.ParseTextResponse{
+			Parsed:             models.ParsedListing{Title: "Rumah", Description: "Bagus", Price: 1200000000, PriceUnit: "total", Address: "Jl. Malioboro"},
+			RequiresCorrection: false,
+		},
+		createResp: &models.Listing{ListingID: "listing-pending-1", ModerationStatus: models.ModerationStatusPending},
+	}
+	renewDate := time.Now().UTC().Add(24 * time.Hour)
+	orchestrator := mustNewWhatsAppOrchestrator(
+		t,
+		listingSvc,
+		&fakeWhatsAppOrchestratorSearchIntentService{},
+		&fakeWhatsAppOrchestratorUserStore{user: &models.User{UserID: "user-1", Subscription: models.Subscription{Tier: models.SubscriptionBasic, RenewDate: &renewDate}}},
+		&fakeWhatsAppOrchestratorEligibilityGuard{},
+	)
+
+	resp, err := orchestrator.HandleText(context.Background(), WhatsAppCommandRequest{UserID: "user-1", Text: "jual rumah lengkap di bandung harga 2M 3KT 2KM LT120 LB90"})
+	if err != nil {
+		t.Fatalf("HandleText returned error: %v", err)
+	}
+	if listingSvc.lastCreateReq == nil || listingSvc.lastCreateReq.IsDraft {
+		t.Fatal("expected IsDraft=false when RequiresCorrection=false")
+	}
+	if !strings.Contains(resp.Message, "berhasil") {
+		t.Fatalf("expected success message, got %q", resp.Message)
+	}
+}
