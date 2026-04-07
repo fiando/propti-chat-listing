@@ -23,8 +23,7 @@ import {
   parseListingPriceInput,
 } from '@/lib/listing-form-utils';
 
-const listingSchema = z.object({
-  phone: z.string().min(1, 'Nomor telepon harus diisi'),
+const listingBaseSchema = z.object({
   title: z.string().min(10, 'Judul minimal 10 karakter').max(200, 'Judul maksimal 200 karakter'),
   description: z.string().min(20, 'Deskripsi minimal 20 karakter'),
   price: z.number({ invalid_type_error: 'Harga harus berupa angka' }).positive('Harga harus lebih dari 0'),
@@ -49,11 +48,13 @@ const listingSchema = z.object({
   images: z.array(z.custom<ListingFormImage>()),
 });
 
-const editListingSchema = listingSchema.extend({
-  phone: z.string().optional(),
+const createListingSchema = listingBaseSchema.extend({
+  phone: z.string().min(1, 'Nomor telepon harus diisi'),
 });
 
-type ListingFormValues = z.infer<typeof listingSchema>;
+const editListingSchema = listingBaseSchema;
+
+type ListingFormValues = z.infer<typeof createListingSchema>;
 
 export type { ListingFormValues };
 
@@ -145,7 +146,7 @@ export function ListingForm({
     setValue,
     formState: { errors },
   } = useForm<ListingFormValues>({
-    resolver: zodResolver(mode === 'create' ? listingSchema : editListingSchema),
+    resolver: zodResolver(mode === 'create' ? createListingSchema : editListingSchema),
     defaultValues: {
       phone: initialFormValues?.phone || '',
       title: initialFormValues?.title || initialData?.title || '',
