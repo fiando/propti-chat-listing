@@ -255,6 +255,7 @@ func (o *WhatsAppCommandOrchestrator) handleSearch(ctx context.Context, query st
 
 	return &WhatsAppCommandResponse{
 		Intent:       WhatsAppCommandIntentSearch,
+		Message:      o.buildSearchReplyMessage(listings, query),
 		Listings:     listings,
 		SearchIntent: intentResp,
 		WebDeepLink:  o.buildWebSearchDeepLink(query),
@@ -268,6 +269,15 @@ func (o *WhatsAppCommandOrchestrator) buildListingLink(listingID string) string 
 func (o *WhatsAppCommandOrchestrator) buildWebSearchDeepLink(query string) string {
 	base := strings.TrimRight(o.webSearchURL, "?")
 	return base + "?q=" + url.QueryEscape(strings.TrimSpace(query))
+}
+
+func (o *WhatsAppCommandOrchestrator) buildSearchReplyMessage(listings []models.Listing, query string) string {
+	link := o.buildWebSearchDeepLink(query)
+	if len(listings) == 0 {
+		return fmt.Sprintf("🔎 Belum ada listing yang cocok untuk pencarian ini. Coba ubah detail pencarianmu atau lihat hasil terbaru di: %s", link)
+	}
+
+	return fmt.Sprintf("🔎 Ditemukan %d listing untuk pencarianmu.\nLihat hasilnya di: %s", len(listings), link)
 }
 
 func detectWhatsAppIntent(text string) (WhatsAppCommandIntent, string) {

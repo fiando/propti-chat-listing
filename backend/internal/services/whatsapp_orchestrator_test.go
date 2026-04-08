@@ -12,17 +12,17 @@ import (
 )
 
 type fakeWhatsAppOrchestratorListingService struct {
-	parseResp    *models.ParseTextResponse
-	parseErr     error
-	createResp   *models.Listing
-	createErr    error
-	searchResp   []models.Listing
-	searchErr    error
-	parseCalls   int
-	createCalls  int
-	searchCalls  int
+	parseResp     *models.ParseTextResponse
+	parseErr      error
+	createResp    *models.Listing
+	createErr     error
+	searchResp    []models.Listing
+	searchErr     error
+	parseCalls    int
+	createCalls   int
+	searchCalls   int
 	lastCreateReq *models.CreateListingRequest
-	lastSearch   *models.ListingSearchParams
+	lastSearch    *models.ListingSearchParams
 }
 
 func (f *fakeWhatsAppOrchestratorListingService) ParseListingText(_ context.Context, text string) (*models.ParseTextResponse, error) {
@@ -107,7 +107,7 @@ func TestWhatsAppOrchestratorFreeTierAllowsCreate(t *testing.T) {
 	t.Parallel()
 
 	listingSvc := &fakeWhatsAppOrchestratorListingService{
-		parseResp: &models.ParseTextResponse{Parsed: models.ParsedListing{Title: "Rumah", Description: "Bagus", Price: 1200000000, PriceUnit: "total", Address: "Jl. Malioboro"}},
+		parseResp:  &models.ParseTextResponse{Parsed: models.ParsedListing{Title: "Rumah", Description: "Bagus", Price: 1200000000, PriceUnit: "total", Address: "Jl. Malioboro"}},
 		createResp: &models.Listing{ListingID: "listing-1"},
 	}
 	guard := &fakeWhatsAppOrchestratorEligibilityGuard{}
@@ -172,8 +172,14 @@ func TestWhatsAppOrchestratorSearchBuildsDeepLinkContinuation(t *testing.T) {
 	if searchSvc.calls != 1 || listingSvc.searchCalls != 1 {
 		t.Fatalf("expected search services to be called once each, parse=%d search=%d", searchSvc.calls, listingSvc.searchCalls)
 	}
+	if !strings.Contains(resp.Message, "Ditemukan 1 listing") {
+		t.Fatalf("expected search reply message to summarize results, got %q", resp.Message)
+	}
 	if !strings.Contains(resp.WebDeepLink, "https://propti.id/search") || !strings.Contains(resp.WebDeepLink, "q=cari+rumah+dijual+di+jogja") {
 		t.Fatalf("expected deep-link continuation to include encoded query, got %q", resp.WebDeepLink)
+	}
+	if !strings.Contains(resp.Message, resp.WebDeepLink) {
+		t.Fatalf("expected search reply message to include deep-link continuation, got %q", resp.Message)
 	}
 }
 

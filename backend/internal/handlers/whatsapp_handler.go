@@ -17,7 +17,7 @@ import (
 	"github.com/fiando/propti/backend/internal/utils"
 )
 
-const whatsAppLinkConfirmationMessage = "✅ Nomor WhatsApp kamu berhasil terhubung ke Propti! Sekarang kamu bisa kirim iklan properti langsung via WhatsApp."
+const whatsAppLinkConfirmationMessage = "✅ Nomor WhatsApp kamu berhasil terhubung ke Propti!\n\nCara pakainya:\n• Pasang iklan: ketik detail properti langsung di chat atau kirim voice note. Contoh: \"jual rumah 2 lantai di Ciputat harga 750jt\"\n• Cari properti: awali pesan dengan kata \"cari\". Contoh: \"cari rumah 3 kamar di Sleman harga di bawah 500 jt\"\n\nSilakan kirim pesan kapan saja ke chat ini dan Propti akan balas langsung di WhatsApp."
 
 type whatsAppWebhookProvider interface {
 	ParseInboundWebhook(ctx context.Context, request *http.Request) (*models.WhatsAppMessageEnvelope, error)

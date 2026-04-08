@@ -146,6 +146,14 @@ func main() {
 	}
 
 	listingSvc := services.NewListingService(listingRepo, userRepo, aiSvc, s3Svc, mapsSvc, locationCatalog)
+	moderationQueue, err := services.NewLambdaModerationEnqueuer(ctx, strings.TrimSpace(os.Getenv("LISTINGS_FUNCTION_NAME")))
+	if err != nil {
+		utils.LogError("init moderation queue", err)
+		panic(err)
+	}
+	if moderationQueue != nil {
+		listingSvc.SetModerationEnqueuer(moderationQueue)
+	}
 	listingSvc.SetWriteEligibilityGuard(identitySvc)
 	searchIntentSvc := services.NewSearchIntentService(aiSvc, locationCatalog)
 	metricsSvc, err := services.NewWhatsAppMetricsService(&whatsAppMetricsLogger{}, services.WhatsAppMetricsServiceOptions{})
