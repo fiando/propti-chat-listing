@@ -217,12 +217,20 @@ func TestWhatsAppHandlerInboundVoiceRoutesToVoiceService(t *testing.T) {
 		},
 	}
 	voice := &fakeWhatsAppVoiceService{
-		resp: &services.WhatsAppVoiceResponse{Status: services.WhatsAppVoiceStatusProcessed},
+		resp: &services.WhatsAppVoiceResponse{
+			Status: services.WhatsAppVoiceStatusProcessed,
+			CommandResponse: &services.WhatsAppCommandResponse{
+				Intent:  services.WhatsAppCommandIntentListingCreate,
+				Message: "✅ Iklan kamu berhasil dibuat dan sedang menunggu review.",
+			},
+		},
 	}
+	replySender := &fakeLinkConfirmSender{}
 	handler := NewWhatsAppHandler(WhatsAppHandlerDependencies{
-		Provider:     provider,
-		UserStore:    &fakeWhatsAppUserStore{user: &models.User{UserID: "user-1"}},
-		VoiceService: voice,
+		Provider:           provider,
+		UserStore:          &fakeWhatsAppUserStore{user: &models.User{UserID: "user-1"}},
+		VoiceService:       voice,
+		CommandReplySender: replySender,
 	})
 
 	resp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
@@ -244,6 +252,62 @@ func TestWhatsAppHandlerInboundVoiceRoutesToVoiceService(t *testing.T) {
 	}
 	if voice.lastReq.UserID != "user-1" {
 		t.Fatalf("expected voice request userID user-1, got %q", voice.lastReq.UserID)
+	}
+	if len(replySender.sendRequests) != 1 {
+		t.Fatalf("expected 1 voice reply send, got %d", len(replySender.sendRequests))
+	}
+	if !strings.Contains(replySender.sendRequests[0].Message.Text, "berhasil dibuat") {
+		t.Fatalf("expected voice reply text to include listing success, got %q", replySender.sendRequests[0].Message.Text)
+	}
+}
+
+func TestWhatsAppHandlerInboundVoiceSendsFallbackReply(t *testing.T) {
+	provider := &fakeWebhookProvider{
+		inboundEnvelope: &models.WhatsAppMessageEnvelope{
+			Provider:          models.WhatsAppProviderTwilio,
+			ProviderMessageID: "SMVOICE2",
+			From:              "whatsapp:+628123456789",
+			To:                "whatsapp:+14155550000",
+			Type:              models.WhatsAppMessageTypeMedia,
+			Media: []models.WhatsAppMediaItem{
+				{URL: "https://media.example.com/voice.mp3", MimeType: "audio/mpeg"},
+			},
+			ReceivedAt: time.Now().UTC(),
+		},
+	}
+	voice := &fakeWhatsAppVoiceService{
+		resp: &services.WhatsAppVoiceResponse{
+			Status:          services.WhatsAppVoiceStatusFallback,
+			FallbackMessage: "Maaf, voice note belum cukup jelas.",
+		},
+	}
+	replySender := &fakeLinkConfirmSender{}
+	handler := NewWhatsAppHandler(WhatsAppHandlerDependencies{
+		Provider:           provider,
+		UserStore:          &fakeWhatsAppUserStore{user: &models.User{UserID: "user-1"}},
+		VoiceService:       voice,
+		CommandReplySender: replySender,
+	})
+
+	resp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodPost,
+		Path:       "/whatsapp/webhook/inbound",
+		Headers: map[string]string{
+			"Content-Type": "application/json",
+		},
+		Body: `{"entry":[]}`,
+	})
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", resp.StatusCode, resp.Body)
+	}
+	if len(replySender.sendRequests) != 1 {
+		t.Fatalf("expected 1 fallback reply send, got %d", len(replySender.sendRequests))
+	}
+	if replySender.sendRequests[0].Message.Text != "Maaf, voice note belum cukup jelas." {
+		t.Fatalf("expected fallback reply message, got %q", replySender.sendRequests[0].Message.Text)
 	}
 }
 
