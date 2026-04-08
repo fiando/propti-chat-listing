@@ -12,6 +12,7 @@ const DEFAULT_LOCAL_DYNAMODB_ENDPOINT = 'http://localhost:8000';
 const DEFAULT_LOCAL_AWS_REGION = 'ap-southeast-1';
 const DEFAULT_LOCAL_AWS_ACCESS_KEY_ID = 'local';
 const DEFAULT_LOCAL_AWS_SECRET_ACCESS_KEY = 'local';
+const LOCAL_DEV_PORTS = [3000, 3001];
 
 export function parseCliArgs(argv = process.argv.slice(2)) {
   const options = {};
@@ -96,6 +97,77 @@ export function parseDotenv(envContent) {
   }
 
   return parameters;
+}
+
+export function canonicalizeLocalLoopbackUrl(rawUrl) {
+  if (!rawUrl) {
+    return rawUrl;
+  }
+
+  try {
+    const parsed = new URL(rawUrl);
+    if (parsed.hostname !== '127.0.0.1') {
+      return rawUrl;
+    }
+    parsed.hostname = 'localhost';
+    return parsed.toString();
+  } catch {
+    return rawUrl;
+  }
+}
+
+export function buildFrontendEnvOverrides(frontendEnvContent) {
+  const envVars = parseDotenv(frontendEnvContent);
+  const nextAuthUrl = canonicalizeLocalLoopbackUrl(envVars.NEXTAUTH_URL || 'http://localhost:3000');
+  const nextPublicApiUrl = canonicalizeLocalLoopbackUrl(envVars.NEXT_PUBLIC_API_URL || 'http://localhost:3001');
+
+  return {
+    NEXTAUTH_URL: nextAuthUrl,
+    NEXTAUTH_URL_INTERNAL: nextAuthUrl,
+    NEXT_PUBLIC_API_URL: nextPublicApiUrl,
+  };
+}
+
+export function parseListeningPidsFromSsOutput(output, targetPorts = []) {
+  const ports = new Set(targetPorts.map((port) => Number(port)));
+  const seen = new Set();
+  const owners = [];
+
+  for (const line of output.split(/\r?\n/)) {
+    const portMatch = line.match(/:(\d+)\s+/);
+    if (!portMatch) {
+      continue;
+    }
+    const port = Number(portMatch[1]);
+    if (!ports.has(port)) {
+      continue;
+    }
+
+    for (const pidMatch of line.matchAll(/pid=(\d+)/g)) {
+      const pid = Number(pidMatch[1]);
+      const key = `${port}:${pid}`;
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      owners.push({ port, pid });
+    }
+  }
+
+  return owners;
+}
+
+export function shouldStopPortOwner(processCwd, projectRoot) {
+  if (!processCwd || !projectRoot) {
+    return false;
+  }
+
+  const normalizedProcessCwd = path.resolve(processCwd);
+  const normalizedProjectRoot = path.resolve(projectRoot);
+  return (
+    normalizedProcessCwd === normalizedProjectRoot ||
+    normalizedProcessCwd.startsWith(`${normalizedProjectRoot}${path.sep}`)
+  );
 }
 
 export function buildSamEnvOverrides(envContent) {
@@ -318,6 +390,37 @@ async function commandSucceeds(cwd, command, args, envOverrides = {}) {
   }
 }
 
+function runCommandCapture(cwd, command, args, envOverrides = {}) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd,
+      env: {
+        ...process.env,
+        ...envOverrides,
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    child.on('error', reject);
+    child.on('exit', (code) => {
+      resolve({
+        code: code ?? 1,
+        stdout,
+        stderr,
+      });
+    });
+  });
+}
+
 function flattenAttributeDefinitions(attributeDefinitions) {
   return attributeDefinitions.map(([attributeName, attributeType]) => `AttributeName=${attributeName},AttributeType=${attributeType}`);
 }
@@ -409,6 +512,18 @@ async function waitForFile(filePath, timeoutMs = 5000, intervalMs = 100) {
   return fs.existsSync(filePath);
 }
 
+async function waitForCommandSuccess(cwd, command, args, envOverrides = {}, timeoutMs = 5000, intervalMs = 250) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    if (await commandSucceeds(cwd, command, args, envOverrides)) {
+      return true;
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+
+  return commandSucceeds(cwd, command, args, envOverrides);
+}
+
 async function ensureContainerRuntime(cwd) {
   const dockerAvailable = await commandSucceeds(cwd, 'docker', ['info']);
   const podmanAvailable = await commandSucceeds(cwd, 'podman', ['--version']);
@@ -427,28 +542,46 @@ async function ensureContainerRuntime(cwd) {
   const socketDir = path.dirname(runtimeOptions.podmanSocketPath);
   fs.mkdirSync(socketDir, { recursive: true });
 
+  const podmanRuntimeReady = async () =>
+    waitForCommandSuccess(cwd, 'docker', ['info'], runtimeOptions.envOverrides, 1500, 250);
+
+  if (await podmanRuntimeReady()) {
+    console.log(`Using Podman runtime via ${runtimeOptions.envOverrides.DOCKER_HOST}`);
+    return {
+      envOverrides: runtimeOptions.envOverrides,
+      auxiliaryChildren: [],
+    };
+  }
+
   if (!fs.existsSync(runtimeOptions.podmanSocketPath)) {
     await commandSucceeds(cwd, 'systemctl', ['--user', 'start', 'podman.socket']);
     await waitForFile(runtimeOptions.podmanSocketPath, 2000);
   }
 
-  let podmanService = null;
-  if (!fs.existsSync(runtimeOptions.podmanSocketPath)) {
-    console.log('Starting Podman API service for AWS SAM...');
-    podmanService = startLongRunningCommand(
-      cwd,
-      'podman',
-      ['system', 'service', '--time=0', runtimeOptions.envOverrides.DOCKER_HOST],
-      runtimeOptions.envOverrides,
-    );
+  if (await podmanRuntimeReady()) {
+    console.log(`Using Podman runtime via ${runtimeOptions.envOverrides.DOCKER_HOST}`);
+    return {
+      envOverrides: runtimeOptions.envOverrides,
+      auxiliaryChildren: [],
+    };
+  }
 
-    const socketReady = await waitForFile(runtimeOptions.podmanSocketPath, 5000);
-    if (!socketReady) {
-      terminateChild(podmanService);
-      throw new Error(
-        `Failed to start Podman service at ${runtimeOptions.podmanSocketPath}. Start Podman and retry ./scripts/dev-local.mjs.`,
-      );
-    }
+  let podmanService = null;
+  console.log('Starting Podman API service for AWS SAM...');
+  podmanService = startLongRunningCommand(
+    cwd,
+    'podman',
+    ['system', 'service', '--time=0', runtimeOptions.envOverrides.DOCKER_HOST],
+    runtimeOptions.envOverrides,
+  );
+
+  const socketReady = await waitForFile(runtimeOptions.podmanSocketPath, 5000);
+  const runtimeReady = socketReady && (await podmanRuntimeReady());
+  if (!runtimeReady) {
+    terminateChild(podmanService);
+    throw new Error(
+      `Failed to initialize Podman runtime at ${runtimeOptions.podmanSocketPath}. Ensure podman and podman-docker are installed, then retry ./scripts/dev-local.mjs.`,
+    );
   }
 
   console.log(`Using Podman runtime via ${runtimeOptions.envOverrides.DOCKER_HOST}`);
@@ -456,6 +589,86 @@ async function ensureContainerRuntime(cwd) {
     envOverrides: runtimeOptions.envOverrides,
     auxiliaryChildren: podmanService ? [podmanService] : [],
   };
+}
+
+async function getListeningPortOwners(cwd, ports) {
+  try {
+    const { code, stdout } = await runCommandCapture(cwd, 'ss', ['-ltnp']);
+    if (code !== 0) {
+      return [];
+    }
+    return parseListeningPidsFromSsOutput(stdout, ports);
+  } catch {
+    return [];
+  }
+}
+
+function processExists(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function terminatePid(pid) {
+  if (!processExists(pid)) {
+    return;
+  }
+
+  try {
+    process.kill(pid, 'SIGTERM');
+  } catch {
+    return;
+  }
+
+  const deadline = Date.now() + 2000;
+  while (Date.now() < deadline) {
+    if (!processExists(pid)) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
+  if (processExists(pid)) {
+    try {
+      process.kill(pid, 'SIGKILL');
+    } catch {
+      // Ignore failure to kill; caller will report if port remains occupied.
+    }
+  }
+}
+
+function readProcessCwd(pid) {
+  try {
+    return fs.readlinkSync(`/proc/${pid}/cwd`);
+  } catch {
+    return null;
+  }
+}
+
+async function cleanupProjectOwnedPortConflicts(cwd, projectRoot, ports) {
+  const owners = await getListeningPortOwners(cwd, ports);
+  for (const owner of owners) {
+    const ownerCwd = readProcessCwd(owner.pid);
+    if (!shouldStopPortOwner(ownerCwd, projectRoot)) {
+      continue;
+    }
+
+    console.log(`Stopping stale local process on port ${owner.port} (pid ${owner.pid})...`);
+    await terminatePid(owner.pid);
+  }
+
+  const unresolvedOwners = await getListeningPortOwners(cwd, ports);
+  if (unresolvedOwners.length === 0) {
+    return;
+  }
+
+  const details = unresolvedOwners.map((owner) => `${owner.port} (pid ${owner.pid})`).join(', ');
+  throw new Error(
+    `Local ports already in use: ${details}. Stop them and rerun ./scripts/dev-local.mjs.`,
+  );
 }
 
 function terminateChild(child) {
@@ -492,6 +705,9 @@ async function main() {
 
   const backendEnvContent = fs.readFileSync(plan.backend.envFile, 'utf8');
   const backendEnvVars = parseDotenv(backendEnvContent);
+  const frontendEnvContent = fs.readFileSync(plan.envFiles[0], 'utf8');
+  const frontendEnvOverrides = buildFrontendEnvOverrides(frontendEnvContent);
+  await cleanupProjectOwnedPortConflicts(plan.backend.cwd, plan.projectRoot, LOCAL_DEV_PORTS);
   const containerRuntime = await ensureContainerRuntime(plan.backend.cwd);
 
   if (shouldBootstrapLocalDynamoDB(backendEnvVars.DYNAMODB_ENDPOINT_URL)) {
@@ -516,10 +732,14 @@ async function main() {
   );
 
   console.log('Starting frontend on http://localhost:3000');
+  if (Object.keys(frontendEnvOverrides).length > 0) {
+    console.log('Canonicalizing frontend local origin settings:', frontendEnvOverrides);
+  }
   const frontend = startLongRunningCommand(
     plan.frontend.cwd,
     plan.frontend.startCommand.command,
     plan.frontend.startCommand.args,
+    frontendEnvOverrides,
   );
 
   const runningChildren = [...containerRuntime.auxiliaryChildren, backend, frontend];

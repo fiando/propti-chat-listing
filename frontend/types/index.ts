@@ -30,7 +30,7 @@ export interface PremiumFeatures {
 
 export type ListingType = 'sell' | 'rent';
 export type ListingStatus = 'active' | 'sold' | 'archived';
-export type ModerationStatus = 'approved' | 'pending' | 'rejected';
+export type ModerationStatus = 'approved' | 'pending' | 'rejected' | 'draft';
 export type SearchMode = 'manual' | 'smart';
 
 export interface ListingImageView {

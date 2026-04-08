@@ -144,6 +144,12 @@ func (s *ListingService) CreateListing(ctx context.Context, userID string, req *
 
 	now := s.now()
 	expiresAt := now.AddDate(0, 0, listingDurationDaysForTier(effectiveTier))
+
+	moderationStatus := models.ModerationStatusPending
+	if req.IsDraft {
+		moderationStatus = models.ModerationStatusDraft
+	}
+
 	listing := &models.Listing{
 		PK:               fmt.Sprintf("%s#%s", userID, listingID),
 		SK:               listingID,
@@ -161,7 +167,7 @@ func (s *ListingService) CreateListing(ctx context.Context, userID string, req *
 		Videos:           req.Videos,
 		ImageCount:       len(images),
 		PremiumFeatures:  models.PremiumFeatures{IsPremium: IsPaidTier(effectiveTier)},
-		ModerationStatus: models.ModerationStatusPending,
+		ModerationStatus: moderationStatus,
 		CreatedAt:        now,
 		UpdatedAt:        now,
 		ExpiresAt:        &expiresAt,
@@ -172,9 +178,11 @@ func (s *ListingService) CreateListing(ctx context.Context, userID string, req *
 		return nil, utils.ErrInternal
 	}
 
-	if err := s.enqueueListingModeration(ctx, listing.ListingID, true, nil); err != nil {
-		utils.LogError("enqueue listing moderation", err, "listingId", listing.ListingID)
-		return nil, utils.ErrInternal
+	if !req.IsDraft {
+		if err := s.enqueueListingModeration(ctx, listing.ListingID, true, nil); err != nil {
+			utils.LogError("enqueue listing moderation", err, "listingId", listing.ListingID)
+			return nil, utils.ErrInternal
+		}
 	}
 
 	return listing, nil

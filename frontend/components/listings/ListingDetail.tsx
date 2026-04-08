@@ -51,12 +51,17 @@ interface ListingDetailProps {
 }
 
 const OWNER_MODERATION_NOTICES: Partial<
-  Record<'approved' | 'pending' | 'rejected', { title: string; message: string; tone: string }>
+  Record<'approved' | 'pending' | 'rejected' | 'draft', { title: string; message: string; tone: string }>
 > = {
   pending: {
     title: 'Iklan sedang diproses',
     message: 'Iklan kamu sudah tersimpan dan sedang kami proses. Sebentar lagi akan tampil ke publik.',
     tone: 'border-blue-200 bg-blue-50 text-blue-700',
+  },
+  draft: {
+    title: 'Iklan tersimpan sebagai draft',
+    message: 'Beberapa informasi iklan belum lengkap. Lengkapi iklan kamu agar bisa ditayangkan ke publik.',
+    tone: 'border-yellow-200 bg-yellow-50 text-yellow-700',
   },
   rejected: {
     title: 'Iklan Ditarik Otomatis',
@@ -69,6 +74,7 @@ const STATUS_CONFIG = {
   approved: { icon: CheckCircle, label: 'Aktif', color: 'text-green-600 bg-green-50' },
   pending: { icon: Clock, label: 'Menunggu Review', color: 'text-amber-600 bg-amber-50' },
   rejected: { icon: XCircle, label: 'Ditolak', color: 'text-red-600 bg-red-50' },
+  draft: { icon: Clock, label: 'Draft', color: 'text-yellow-600 bg-yellow-50' },
 };
 
 export function ListingDetail({
@@ -217,11 +223,13 @@ export function ListingDetail({
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900">
-                    {listing.moderationStatus === 'rejected' ? 'Iklan Ditarik Otomatis' : 'Sedang diproses'}
+                    {listing.moderationStatus === 'rejected' ? 'Iklan Ditarik Otomatis' : listing.moderationStatus === 'draft' ? 'Iklan Tersimpan sebagai Draft' : 'Sedang diproses'}
                   </h1>
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-600">
                     {listing.moderationStatus === 'rejected'
                       ? 'Konten ini tidak lolos pemeriksaan otomatis kami dan tidak tampil di pencarian.'
+                      : listing.moderationStatus === 'draft'
+                      ? 'Iklan kamu belum tampil ke publik. Lengkapi informasi yang kurang agar bisa ditayangkan.'
                       : 'Detail iklan belum tampil ke publik sampai review selesai.'}
                   </p>
                 </div>
@@ -248,7 +256,7 @@ export function ListingDetail({
           <div className="space-y-4">
             <div className="card p-6 sticky top-20">
               <h2 className="text-lg font-bold text-gray-900">
-                {listing.moderationStatus === 'rejected' ? 'Ada pertanyaan?' : 'Sedang dalam proses'}
+                {listing.moderationStatus === 'rejected' ? 'Ada pertanyaan?' : listing.moderationStatus === 'draft' ? 'Lengkapi draft iklanmu' : 'Sedang dalam proses'}
               </h2>
               {listing.moderationStatus === 'rejected' ? (
                 <>
@@ -262,6 +270,10 @@ export function ListingDetail({
                     <li className="flex gap-2"><span>🚫</span> Hindari kata berlebihan atau menyesatkan</li>
                   </ul>
                 </>
+              ) : listing.moderationStatus === 'draft' ? (
+                <p className="mt-2 text-sm leading-6 text-gray-600">
+                  Klik tombol Edit untuk melengkapi informasi iklan dan mengirimkannya untuk review.
+                </p>
               ) : (
                 <p className="mt-2 text-sm leading-6 text-gray-600">
                   Biasanya selesai dalam beberapa jam. Kamu akan bisa melihat iklan setelah disetujui.

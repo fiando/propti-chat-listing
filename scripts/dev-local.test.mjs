@@ -3,13 +3,17 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 
 import {
+  buildFrontendEnvOverrides,
   buildDevLocalPlan,
   buildLocalDynamoTableDefinitions,
   buildSamEnvOverrides,
+  canonicalizeLocalLoopbackUrl,
   findMissingEnvFiles,
+  parseListeningPidsFromSsOutput,
   parseCliArgs,
   parseDotenv,
   resolveContainerRuntimeOptions,
+  shouldStopPortOwner,
   shouldBootstrapLocalDynamoDB,
 } from './dev-local.mjs';
 
@@ -180,4 +184,78 @@ test('resolveContainerRuntimeOptions falls back to uid runtime dir when XDG_RUNT
     podmanSocketPath: '/run/user/1234/podman/podman.sock',
     shouldUsePodmanSocket: true,
   });
+});
+
+test('canonicalizeLocalLoopbackUrl rewrites 127.0.0.1 hostname to localhost', () => {
+  assert.equal(
+    canonicalizeLocalLoopbackUrl('http://127.0.0.1:3000/callback?callbackUrl=%2F'),
+    'http://localhost:3000/callback?callbackUrl=%2F',
+  );
+});
+
+test('canonicalizeLocalLoopbackUrl keeps non-loopback or invalid urls unchanged', () => {
+  assert.equal(canonicalizeLocalLoopbackUrl('http://localhost:3000'), 'http://localhost:3000');
+  assert.equal(canonicalizeLocalLoopbackUrl('not-a-url'), 'not-a-url');
+});
+
+test('buildFrontendEnvOverrides canonicalizes local auth and api urls', () => {
+  const overrides = buildFrontendEnvOverrides(`
+NEXTAUTH_URL=http://127.0.0.1:3000
+NEXT_PUBLIC_API_URL=http://127.0.0.1:3001
+NEXTAUTH_SECRET=secret
+`);
+
+  assert.deepEqual(overrides, {
+    NEXTAUTH_URL: 'http://localhost:3000/',
+    NEXTAUTH_URL_INTERNAL: 'http://localhost:3000/',
+    NEXT_PUBLIC_API_URL: 'http://localhost:3001/',
+  });
+});
+
+test('buildFrontendEnvOverrides preserves localhost values to override inherited env', () => {
+  const overrides = buildFrontendEnvOverrides(`
+NEXTAUTH_URL=http://localhost:3000
+NEXT_PUBLIC_API_URL=http://localhost:3001
+`);
+
+  assert.deepEqual(overrides, {
+    NEXTAUTH_URL: 'http://localhost:3000',
+    NEXTAUTH_URL_INTERNAL: 'http://localhost:3000',
+    NEXT_PUBLIC_API_URL: 'http://localhost:3001',
+  });
+});
+
+test('buildFrontendEnvOverrides falls back to local defaults when vars are missing', () => {
+  const overrides = buildFrontendEnvOverrides('NEXTAUTH_SECRET=secret');
+
+  assert.deepEqual(overrides, {
+    NEXTAUTH_URL: 'http://localhost:3000',
+    NEXTAUTH_URL_INTERNAL: 'http://localhost:3000',
+    NEXT_PUBLIC_API_URL: 'http://localhost:3001',
+  });
+});
+
+test('parseListeningPidsFromSsOutput extracts pids for target ports', () => {
+  const ssOutput = `State  Recv-Q Send-Q      Local Address:Port  Peer Address:PortProcess
+LISTEN 0      511               0.0.0.0:3000       0.0.0.0:*    users:(("next-server",pid=111,fd=24))
+LISTEN 0      128             127.0.0.1:3001       0.0.0.0:*    users:(("sam",pid=222,fd=7))
+LISTEN 0      128             127.0.0.1:5432       0.0.0.0:*    users:(("postgres",pid=333,fd=7))
+`;
+
+  const owners = parseListeningPidsFromSsOutput(ssOutput, [3000, 3001]);
+  assert.deepEqual(owners, [
+    { port: 3000, pid: 111 },
+    { port: 3001, pid: 222 },
+  ]);
+});
+
+test('shouldStopPortOwner only stops processes under current project root', () => {
+  assert.equal(
+    shouldStopPortOwner('/home/bobby/Development/IdeaProjects/saas/propti/frontend', '/home/bobby/Development/IdeaProjects/saas/propti'),
+    true,
+  );
+  assert.equal(
+    shouldStopPortOwner('/home/bobby/Development/IdeaProjects/another-app', '/home/bobby/Development/IdeaProjects/saas/propti'),
+    false,
+  );
 });

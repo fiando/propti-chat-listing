@@ -2010,3 +2010,67 @@ func containsString(values []string, needle string) bool {
 	}
 	return false
 }
+
+func TestCreateListingWithIsDraftSetsDraftStatusAndSkipsModeration(t *testing.T) {
+	ctx := context.Background()
+	store := &fakeListingStore{}
+	queue := &fakeModerationEnqueuer{}
+
+	service := NewListingService(
+		store,
+		&fakeUserStore{user: &models.User{UserID: "user-1", Subscription: models.Subscription{Tier: models.SubscriptionFree}}},
+		nil, nil, nil, nil,
+	)
+	service.SetModerationEnqueuer(queue)
+
+	listing, err := service.CreateListing(ctx, "user-1", &models.CreateListingRequest{
+		Title:       "Rumah Minimalis",
+		Description: "Bagus",
+		Price:       1200000000,
+		PriceUnit:   "total",
+		ListingType: models.ListingTypeSell,
+		Location:    models.Location{Address: "Jl. Contoh"},
+		IsDraft:     true,
+	})
+	if err != nil {
+		t.Fatalf("CreateListing returned error: %v", err)
+	}
+	if listing.ModerationStatus != models.ModerationStatusDraft {
+		t.Fatalf("expected ModerationStatus=draft, got %q", listing.ModerationStatus)
+	}
+	if len(queue.listingIDs) != 0 {
+		t.Fatalf("expected moderation queue not to be called for draft, got %d calls", len(queue.listingIDs))
+	}
+}
+
+func TestCreateListingWithoutIsDraftSetsPendingAndEnqueuesModeration(t *testing.T) {
+	ctx := context.Background()
+	store := &fakeListingStore{}
+	queue := &fakeModerationEnqueuer{}
+
+	service := NewListingService(
+		store,
+		&fakeUserStore{user: &models.User{UserID: "user-1", Subscription: models.Subscription{Tier: models.SubscriptionFree}}},
+		nil, nil, nil, nil,
+	)
+	service.SetModerationEnqueuer(queue)
+
+	listing, err := service.CreateListing(ctx, "user-1", &models.CreateListingRequest{
+		Title:       "Rumah Minimalis",
+		Description: "Bagus",
+		Price:       1200000000,
+		PriceUnit:   "total",
+		ListingType: models.ListingTypeSell,
+		Location:    models.Location{Address: "Jl. Contoh"},
+		IsDraft:     false,
+	})
+	if err != nil {
+		t.Fatalf("CreateListing returned error: %v", err)
+	}
+	if listing.ModerationStatus != models.ModerationStatusPending {
+		t.Fatalf("expected ModerationStatus=pending, got %q", listing.ModerationStatus)
+	}
+	if len(queue.listingIDs) != 1 || queue.listingIDs[0] != listing.ListingID {
+		t.Fatalf("expected moderation queue to be called once with listing ID, got %v", queue.listingIDs)
+	}
+}

@@ -202,6 +202,7 @@ func main() {
 		Policy:              policy,
 		IdentityVerifier:    identitySvc,
 		ConfirmSender:       provider,
+		CommandReplySender:  provider,
 		StatusSink:          &whatsAppDeliveryStatusLogger{},
 		MetaVerifyToken:     metaVerifyToken,
 	})

@@ -76,6 +76,7 @@ export function ListingCard({
 
   const isRejected = listing.moderationStatus === 'rejected';
   const isPending = listing.moderationStatus === 'pending';
+  const isDraft = listing.moderationStatus === 'draft';
   const isModerationHidden = isRejected;
   const priceLabel =
     listing.listingType === 'rent'
@@ -137,12 +138,17 @@ export function ListingCard({
                   Sedang diproses
                 </span>
               )}
+              {isDraft && (
+                <span className="border text-xs font-bold px-2.5 py-1 rounded-full bg-yellow-50 text-yellow-700 border-yellow-200">
+                  Draft
+                </span>
+              )}
               {isOwnerListingCard && expiryInfo && (
                 <span className={`border text-xs font-bold px-2.5 py-1 rounded-full ${expiryInfo.tone}`}>
                   {expiryInfo.label}
                 </span>
               )}
-              {!isPending && listing.premiumFeatures?.isFeatured && (
+              {!isPending && !isDraft && listing.premiumFeatures?.isFeatured && (
                 <span className="bg-brand-gold text-white text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1">
                   <Star className="w-3 h-3" />
                   Unggulan
@@ -202,6 +208,9 @@ export function ListingCard({
             </h3>
             {isPending && (
               <p className="text-xs text-amber-600 mb-1">Belum tampil ke publik · sedang diproses</p>
+            )}
+            {isDraft && (
+              <p className="text-xs text-yellow-600 mb-1">Belum tampil ke publik · draft, perlu dilengkapi</p>
             )}
             <p className="text-brand-primary font-bold text-lg mb-2">{priceLabel}</p>
 
