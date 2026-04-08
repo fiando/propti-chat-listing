@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -278,11 +277,7 @@ func (o *WhatsAppCommandOrchestrator) buildSearchReplyMessage(listings []models.
 		return fmt.Sprintf("🔎 Belum ada listing yang cocok untuk pencarian ini. Coba ubah detail pencarianmu atau lihat hasil terbaru di: %s", link)
 	}
 
-	countText := "listing"
-	if len(listings) > 1 {
-		countText = "listings"
-	}
-	return fmt.Sprintf("🔎 Ditemukan %s %s untuk pencarianmu.\nLihat hasilnya di: %s", strconv.Itoa(len(listings)), countText, link)
+	return fmt.Sprintf("🔎 Ditemukan %d listing untuk pencarianmu.\nLihat hasilnya di: %s", len(listings), link)
 }
 
 func detectWhatsAppIntent(text string) (WhatsAppCommandIntent, string) {
