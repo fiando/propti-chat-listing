@@ -408,8 +408,11 @@ func TestWhatsAppHandlerInboundLinkVerificationSendsConfirmationMessage(t *testi
 	if sender.sendRequests[0].Message.Type != models.WhatsAppMessageTypeText {
 		t.Fatalf("expected text message type, got %q", sender.sendRequests[0].Message.Type)
 	}
-	if strings.TrimSpace(sender.sendRequests[0].Message.Text) == "" {
-		t.Fatal("expected non-empty confirmation message text")
+	if !strings.Contains(sender.sendRequests[0].Message.Text, "voice note") {
+		t.Fatalf("expected confirmation message to include voice note guidance, got %q", sender.sendRequests[0].Message.Text)
+	}
+	if !strings.Contains(sender.sendRequests[0].Message.Text, "cari rumah 3 kamar") {
+		t.Fatalf("expected confirmation message to include search guidance, got %q", sender.sendRequests[0].Message.Text)
 	}
 }
 
@@ -431,6 +434,24 @@ func TestWhatsAppHandlerTemplateWiresWebhookLambdaRoutes(t *testing.T) {
 	}
 	if !strings.Contains(content, "Path: /whatsapp/webhook/status") {
 		t.Fatal("expected SAM template to expose /whatsapp/webhook/status route")
+	}
+	if !strings.Contains(content, "WhatsAppFunction:") || !strings.Contains(content, "LISTINGS_FUNCTION_NAME: !Sub \"propti-listings-${Stage}\"") {
+		t.Fatal("expected WhatsApp lambda environment to include LISTINGS_FUNCTION_NAME for async moderation")
+	}
+}
+
+func TestWhatsAppBootstrapConfiguresModerationQueue(t *testing.T) {
+	source, err := os.ReadFile("../../cmd/whatsapp/main.go")
+	if err != nil {
+		t.Fatalf("read whatsapp main: %v", err)
+	}
+	content := string(source)
+
+	if !strings.Contains(content, "LISTINGS_FUNCTION_NAME") {
+		t.Fatal("expected whatsapp bootstrap to read LISTINGS_FUNCTION_NAME")
+	}
+	if !strings.Contains(content, "SetModerationEnqueuer") {
+		t.Fatal("expected whatsapp bootstrap to attach moderation enqueuer to listing service")
 	}
 }
 

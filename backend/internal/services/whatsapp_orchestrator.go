@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -255,6 +256,7 @@ func (o *WhatsAppCommandOrchestrator) handleSearch(ctx context.Context, query st
 
 	return &WhatsAppCommandResponse{
 		Intent:       WhatsAppCommandIntentSearch,
+		Message:      o.buildSearchReplyMessage(listings, query),
 		Listings:     listings,
 		SearchIntent: intentResp,
 		WebDeepLink:  o.buildWebSearchDeepLink(query),
@@ -268,6 +270,19 @@ func (o *WhatsAppCommandOrchestrator) buildListingLink(listingID string) string 
 func (o *WhatsAppCommandOrchestrator) buildWebSearchDeepLink(query string) string {
 	base := strings.TrimRight(o.webSearchURL, "?")
 	return base + "?q=" + url.QueryEscape(strings.TrimSpace(query))
+}
+
+func (o *WhatsAppCommandOrchestrator) buildSearchReplyMessage(listings []models.Listing, query string) string {
+	link := o.buildWebSearchDeepLink(query)
+	if len(listings) == 0 {
+		return fmt.Sprintf("🔎 Belum ada listing yang cocok untuk pencarian ini. Coba ubah detail pencarianmu atau lihat hasil terbaru di: %s", link)
+	}
+
+	countText := "listing"
+	if len(listings) > 1 {
+		countText = "listings"
+	}
+	return fmt.Sprintf("🔎 Ditemukan %s %s untuk pencarianmu.\nLihat hasilnya di: %s", strconv.Itoa(len(listings)), countText, link)
 }
 
 func detectWhatsAppIntent(text string) (WhatsAppCommandIntent, string) {
