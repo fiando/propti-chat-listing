@@ -125,7 +125,7 @@ const PRICING_PLANS = [
     blurb: 'Coba dulu, tanpa biaya.',
     highlight: false,
     features: [
-      '1 listing aktif',
+      '3 listing aktif',
       'Hingga 3 foto per listing',
       'Buat listing via WhatsApp',
       'Listing tayang 30 hari',
@@ -594,9 +594,9 @@ export default async function HomePage() {
             <span className="inline-block bg-amber-50 text-amber-700 text-sm font-semibold px-4 py-1.5 rounded-full mb-4 border border-amber-200">
               Harga Paket
             </span>
-            <h2 className="section-title">Kapasitas Kerja, Bukan Kuota Iklan</h2>
+            <h2 className="section-title">Pilih Paket Sesuai Aktivitas Kerjamu</h2>
             <p className="section-subtitle max-w-2xl mx-auto">
-              Pilih paket sesuai volume kerja harianmu. Semakin banyak listing aktif yang perlu kamu kelola, semakin tinggi paket yang kamu butuhkan.
+              Mulai gratis, upgrade kapan saja. Semakin banyak listing yang perlu kamu kelola aktif sekaligus, pilih paket yang lebih tinggi.
             </p>
           </div>
 

@@ -70,7 +70,7 @@ const TIER_CONFIG: Record<
 };
 
 const FREE_FEATURES = [
-  '1 listing aktif',
+  '3 listing aktif',
   'Hingga 3 foto per listing',
   'Buat listing via WhatsApp',
   'Listing tayang 30 hari',
@@ -126,9 +126,9 @@ export function UpgradePageClient({ currentTier, initialTier }: UpgradePageClien
           <Crown className="w-4 h-4" />
           Pilih Paket
         </div>
-        <h1 className="text-3xl font-black text-gray-900 mb-3">Pilih Kapasitas Kerja Anda</h1>
+        <h1 className="text-3xl font-black text-gray-900 mb-3">Pilih Paket yang Sesuai</h1>
         <p className="text-gray-500 max-w-xl mx-auto">
-          Semakin banyak listing aktif yang perlu kamu kelola, semakin tinggi paket yang kamu butuhkan. Semua paket berbayar mendukung WhatsApp dan voice note.
+          Mulai gratis, upgrade kapan saja. Semakin banyak listing yang kamu kelola aktif sekaligus, pilih paket yang lebih tinggi.
         </p>
       </div>
 
