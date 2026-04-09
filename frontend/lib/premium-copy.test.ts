@@ -4,7 +4,6 @@ import { readFileSync } from 'node:fs';
 
 const profilePage = readFileSync(new URL('../components/profile/ProfilePageClient.tsx', import.meta.url), 'utf8');
 const premiumModal = readFileSync(new URL('../components/premium/PremiumUpgradeModal.tsx', import.meta.url), 'utf8');
-const upgradePage = readFileSync(new URL('../components/upgrade/UpgradePageClient.tsx', import.meta.url), 'utf8');
 const imageUpload = readFileSync(new URL('../components/listings/ImageUpload.tsx', import.meta.url), 'utf8');
 const homePage = readFileSync(new URL('../app/(app)/page.tsx', import.meta.url), 'utf8');
 
@@ -19,7 +18,7 @@ test('premium modal copy reflects tiered caps and durations', () => {
   assert.match(premiumModal, /Maksimal 20 listing aktif/i);
   assert.match(premiumModal, /Maksimal 8 foto per iklan/i);
   assert.match(premiumModal, /Maksimal 8 listing aktif/i);
-  assert.match(premiumModal, /Maksimal 20 foto per iklan/i);
+  assert.match(premiumModal, /Maksimal 25 foto per iklan/i);
   assert.match(premiumModal, /Maksimal 50 listing aktif/i);
   assert.match(premiumModal, /Iklan tayang hingga 90 hari/i);
   assert.match(premiumModal, /Paket gratis: maksimal 3 foto/i);
@@ -32,8 +31,9 @@ test('premium modal copy reflects tiered caps and durations', () => {
   assert.doesNotMatch(premiumModal, /gratis maksimal 3/i);
 });
 
-test('profile package copy shows tiered package pricing instead of legacy 49rb', () => {
+test('profile page shows tier selection for all users including paid', () => {
   assert.match(profilePage, /Pilih paket upgrade:/i);
+  assert.match(profilePage, /Ganti atau perpanjang paket:/i);
   assert.doesNotMatch(profilePage, /Rp 49rb/i);
 });
 
@@ -42,18 +42,16 @@ test('image upload upsell copy also reflects the 15-photo premium cap', () => {
   assert.doesNotMatch(imageUpload, /30 foto/i);
 });
 
-test('premium and homepage copy avoid statistics or insight claims', () => {
-  assert.match(premiumModal, /WA baca, buat, edit & hapus listing/i);
+test('premium modal WA copy says create and search only, no edit or delete', () => {
+  assert.match(premiumModal, /Buat & cari via WhatsApp/i);
+  assert.doesNotMatch(premiumModal, /edit & hapus/i);
+  assert.doesNotMatch(premiumModal, /tanpa edit\/hapus/i);
   assert.match(premiumModal, /Voice note hingga 60 menit/i);
-  assert.doesNotMatch(premiumModal, /statistik|insight/i);
-  assert.doesNotMatch(homePage, /statistik|insight/i);
-  assert.doesNotMatch(premiumModal, /statistik detail/i);
   assert.doesNotMatch(premiumModal, /penjual terverifikasi/i);
   assert.doesNotMatch(premiumModal, /prioritas dukungan pelanggan/i);
 });
 
 test('homepage copy avoids internal MVP wording and speaks to end users', () => {
-  assert.match(homePage, /Kelola Lebih Banyak Listing/i);
   assert.match(homePage, /lebih rapi/i);
   assert.doesNotMatch(homePage, /MVP fokus ke hal yang paling penting/i);
   assert.doesNotMatch(homePage, /MVP focus/i);
@@ -78,13 +76,14 @@ test('premium modal clearly differentiates upgrade and downgrade actions', () =>
   assert.match(premiumModal, /Perpanjang Paket/);
 });
 
-test('upgrade page uses wider desktop layout to reduce wrapped plan text', () => {
-  assert.match(upgradePage, /max-w-7xl/);
+test('homepage pricing links point to profile page, not separate upgrade page', () => {
+  assert.match(homePage, /\/profile\?upgradeTier=basic#premium/);
+  assert.match(homePage, /\/profile\?upgradeTier=premium#premium/);
+  assert.match(homePage, /\/profile\?upgradeTier=pro#premium/);
+  assert.doesNotMatch(homePage, /\/upgrade\?tier=/);
 });
 
-test('upgrade page computes per-plan upgrade\/downgrade labels from current tier', () => {
-  assert.match(upgradePage, /const TIER_ORDER: Record<SubscriptionTier, number>/);
-  assert.match(upgradePage, /const isDowngrade = selectedTierRank < currentTierRank/);
-  assert.match(upgradePage, /Downgrade ke/);
-  assert.match(upgradePage, /Upgrade ke/);
+test('profile page auto-opens modal from upgradeTier query param', () => {
+  assert.match(profilePage, /upgradeTierParam/);
+  assert.match(profilePage, /setShowPremiumModal\(true\)/);
 });

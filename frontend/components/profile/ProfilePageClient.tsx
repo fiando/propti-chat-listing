@@ -1,7 +1,7 @@
 'use client';
 
 import { signOut } from 'next-auth/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   User,
   Mail,
@@ -68,6 +68,7 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
   const [isAutoCheckingVerification, setIsAutoCheckingVerification] = useState(false);
   const [waSuccessMessage, setWaSuccessMessage] = useState<string | null>(null);
   const returnTo = searchParams.get('returnTo');
+  const upgradeTierParam = searchParams.get('upgradeTier');
   const DEFAULT_PREFERENCES: UserPreferences = {
     favoriteLocations: [],
     searchHistory: [],
@@ -82,6 +83,15 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
   const activeListingsCount = profile.subscription.activeListingsCount ?? 0;
   const currentPriceLabel =
     tier === 'basic' ? 'Rp 59rb/bulan' : tier === 'premium' ? 'Rp 129rb/bulan' : tier === 'pro' ? 'Rp 199rb/bulan' : 'Rp 0';
+
+  const TIER_ORDER: Record<string, number> = { free: 0, basic: 1, premium: 2, pro: 3 };
+
+  useEffect(() => {
+    if (upgradeTierParam && ['basic', 'premium', 'pro'].includes(upgradeTierParam)) {
+      setSelectedUpgradeTier(upgradeTierParam as 'basic' | 'premium' | 'pro');
+      setShowPremiumModal(true);
+    }
+  }, [upgradeTierParam]);
 
   const displayName = profile.name || sessionUser?.name || '';
   const displayEmail = profile.email || sessionUser?.email || '';
@@ -287,88 +297,92 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
         </div>
 
         {isPaidTier || subscriptionStatus === 'expired' ? (
-          <div>
-            <div className="flex items-center gap-4 bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-3">
-              <div className="w-12 h-12 bg-brand-gold rounded-xl flex items-center justify-center">
-                <Crown className="w-6 h-6 text-white" />
-              </div>
-              <div className="flex-1">
-                <p className="font-bold text-amber-700">
-                  Propti {tier === 'basic' ? 'Basic' : tier === 'premium' ? 'Premium' : tier === 'pro' ? 'Pro' : 'Premium'}
-                </p>
-                <SubscriptionStatusBadge
-                  status={subscriptionStatus}
-                  renewDate={profile.subscription.renewDate}
-                  tier={tier}
-                  className="mt-1 text-xs"
-                />
-              </div>
-              {isPremium && <Check className="w-5 h-5 text-amber-500" />}
+          <div className="flex items-center gap-4 bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-4">
+            <div className="w-12 h-12 bg-brand-gold rounded-xl flex items-center justify-center">
+              <Crown className="w-6 h-6 text-white" />
             </div>
-
-            {showRenewalCTA && (
-                <button
-                type="button"
-                onClick={() => setShowPremiumModal(true)}
-                className="w-full btn-gold flex items-center justify-center gap-2"
-              >
-                <RefreshCw className="w-4 h-4" />
-                Perpanjang Paket - {currentPriceLabel}
-              </button>
-            )}
+            <div className="flex-1">
+              <p className="font-bold text-amber-700">
+                Propti {tier === 'basic' ? 'Basic' : tier === 'premium' ? 'Premium' : tier === 'pro' ? 'Pro' : 'Premium'}
+              </p>
+              <SubscriptionStatusBadge
+                status={subscriptionStatus}
+                renewDate={profile.subscription.renewDate}
+                tier={tier}
+                className="mt-1 text-xs"
+              />
+            </div>
+            {isPremium && <Check className="w-5 h-5 text-amber-500" />}
           </div>
         ) : (
-          <div>
-            <div className="bg-gray-50 rounded-2xl p-4 mb-4">
-              <div className="flex items-center justify-between mb-3">
-                <span className="font-semibold text-gray-700">Paket Gratis</span>
-                <span className="badge bg-gray-100 text-gray-500">Aktif</span>
-              </div>
-              <ul className="space-y-2 text-sm text-gray-600">
-               {['3 iklan pertama gratis', 'Maksimal 3 foto per iklan', 'Iklan tayang 30 hari'].map((f) => (
-                  <li key={f} className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-gray-400" />
-                    {f}
-                  </li>
-                ))}
-              </ul>
+          <div className="bg-gray-50 rounded-2xl p-4 mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <span className="font-semibold text-gray-700">Paket Gratis</span>
+              <span className="badge bg-gray-100 text-gray-500">Aktif</span>
             </div>
-
-            <p className="text-sm font-semibold text-gray-700 mb-3">Pilih paket upgrade:</p>
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              {(
-                [
-                  { key: 'basic', label: 'Basic', price: 'Rp 59rb/bln', highlight: false },
-                  { key: 'premium', label: 'Premium', price: 'Rp 129rb/bln', highlight: true },
-                  { key: 'pro', label: 'Pro', price: 'Rp 199rb/bln', highlight: false },
-                ] as const
-              ).map((plan) => (
-                <button
-                  key={plan.key}
-                  type="button"
-                  onClick={() => {
-                    setSelectedUpgradeTier(plan.key);
-                    setShowPremiumModal(true);
-                  }}
-                  className={`flex flex-col items-center p-3 rounded-2xl border-2 transition-all text-center ${
-                    plan.highlight
-                      ? 'border-brand-gold bg-amber-50 text-amber-700'
-                      : 'border-gray-200 bg-white text-gray-700 hover:border-brand-gold hover:bg-amber-50'
-                  }`}
-                >
-                  <Crown className={`w-5 h-5 mb-1 ${plan.highlight ? 'text-brand-gold' : 'text-gray-400'}`} />
-                  <span className="text-xs font-bold">{plan.label}</span>
-                  <span className="text-xs text-gray-500 mt-0.5">{plan.price}</span>
-                  {plan.highlight && (
-                    <span className="mt-1 text-[10px] font-semibold bg-brand-gold text-white px-1.5 py-0.5 rounded-full">
-                      Populer
-                    </span>
-                  )}
-                </button>
+            <ul className="space-y-2 text-sm text-gray-600">
+             {['3 iklan pertama gratis', 'Maksimal 3 foto per iklan', 'Iklan tayang 30 hari'].map((f) => (
+                <li key={f} className="flex items-center gap-2">
+                  <Check className="w-3.5 h-3.5 text-gray-400" />
+                  {f}
+                </li>
               ))}
-            </div>
+            </ul>
           </div>
         )}
+
+        <p className="text-sm font-semibold text-gray-700 mb-3">
+          {isPaidTier ? 'Ganti atau perpanjang paket:' : 'Pilih paket upgrade:'}
+        </p>
+        <div className="grid grid-cols-3 gap-3 mb-4">
+          {(
+            [
+              { key: 'basic', label: 'Basic', price: 'Rp 59rb/bln', highlight: false },
+              { key: 'premium', label: 'Premium', price: 'Rp 129rb/bln', highlight: true },
+              { key: 'pro', label: 'Pro', price: 'Rp 199rb/bln', highlight: false },
+            ] as const
+          ).map((plan) => {
+            const isCurrent = tier === plan.key;
+            const isUpgrade = TIER_ORDER[plan.key] > TIER_ORDER[tier];
+            const actionLabel = isCurrent
+              ? (showRenewalCTA ? 'Perpanjang' : 'Paket Aktif')
+              : isUpgrade
+                ? 'Upgrade'
+                : 'Ganti';
+            const isDisabled = isCurrent && !showRenewalCTA;
+            return (
+              <button
+                key={plan.key}
+                type="button"
+                disabled={isDisabled}
+                onClick={() => {
+                  setSelectedUpgradeTier(plan.key);
+                  setShowPremiumModal(true);
+                }}
+                className={`flex flex-col items-center p-3 rounded-2xl border-2 transition-all text-center ${
+                  isCurrent
+                    ? 'border-amber-300 bg-amber-50 text-amber-700'
+                    : plan.highlight
+                      ? 'border-brand-gold bg-amber-50 text-amber-700'
+                      : 'border-gray-200 bg-white text-gray-700 hover:border-brand-gold hover:bg-amber-50'
+                } ${isDisabled ? 'opacity-60 cursor-default' : ''}`}
+              >
+                <Crown className={`w-5 h-5 mb-1 ${isCurrent || plan.highlight ? 'text-brand-gold' : 'text-gray-400'}`} />
+                <span className="text-xs font-bold">{plan.label}</span>
+                <span className="text-xs text-gray-500 mt-0.5">{plan.price}</span>
+                <span className={`mt-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                  isCurrent
+                    ? 'bg-amber-200 text-amber-800'
+                    : isUpgrade
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-gray-100 text-gray-600'
+                }`}>
+                  {actionLabel}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="card p-2 mb-4">
@@ -630,10 +644,10 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
       <PremiumUpgradeModal
         isOpen={showPremiumModal}
         onClose={() => setShowPremiumModal(false)}
-        mode={showRenewalCTA ? 'renew' : 'upgrade'}
+        mode={showRenewalCTA && selectedUpgradeTier === tier ? 'renew' : 'upgrade'}
         currentRenewDate={profile.subscription.renewDate}
         currentTier={tier}
-        selectedTier={showRenewalCTA ? (tier === 'free' ? 'basic' : tier) : selectedUpgradeTier}
+        selectedTier={selectedUpgradeTier}
       />
     </div>
   );
