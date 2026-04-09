@@ -4,7 +4,20 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { BarChart3, Clock3, Filter, Plus, CheckCircle2, MessageCircle, ExternalLink } from 'lucide-react';
 import { useAddLeadNote, useCompleteFollowUpTask, useCreateLead, useLeadAnalytics, useLeads, useUpdateLeadStage } from '@/hooks/useLeads';
+import { useMyListings } from '@/hooks/useListings';
 import type { Lead, LeadStage } from '@/types';
+
+const LEAD_SOURCES = [
+  'whatsapp',
+  'instagram',
+  'facebook',
+  'tiktok',
+  'referral',
+  'website',
+  'telepon',
+  'walk-in',
+  'manual',
+];
 
 function waLink(phone: string): string {
   return `https://wa.me/${phone.replace(/\D/g, '')}`;
@@ -30,6 +43,7 @@ export function AgentWorkspaceClient() {
 
   const leadQuery = useLeads(selectedStage ? { stage: selectedStage } : undefined);
   const analyticsQuery = useLeadAnalytics();
+  const myListingsQuery = useMyListings({ pageSize: 100 });
   const createLeadMutation = useCreateLead();
   const updateStageMutation = useUpdateLeadStage();
   const addNoteMutation = useAddLeadNote();
@@ -81,8 +95,30 @@ export function AgentWorkspaceClient() {
         <div className="grid gap-2 md:grid-cols-4">
           <input value={newLeadName} onChange={(e) => setNewLeadName(e.target.value)} placeholder="Nama lead" className="input-field text-sm" />
           <input value={newLeadPhone} onChange={(e) => setNewLeadPhone(e.target.value)} placeholder="Nomor WhatsApp/Telepon" className="input-field text-sm" />
-          <input value={newLeadSource} onChange={(e) => setNewLeadSource(e.target.value)} placeholder="Sumber (mis. whatsapp)" className="input-field text-sm" />
-          <input value={newLeadListingId} onChange={(e) => setNewLeadListingId(e.target.value)} placeholder="ID Iklan (opsional)" className="input-field text-sm" />
+          <div>
+            <input
+              list="lead-source-list"
+              value={newLeadSource}
+              onChange={(e) => setNewLeadSource(e.target.value)}
+              placeholder="Sumber (mis. whatsapp)"
+              className="input-field w-full text-sm"
+            />
+            <datalist id="lead-source-list">
+              {LEAD_SOURCES.map((s) => <option key={s} value={s} />)}
+            </datalist>
+          </div>
+          <select
+            value={newLeadListingId}
+            onChange={(e) => setNewLeadListingId(e.target.value)}
+            className="input-field text-sm"
+          >
+            <option value="">ID Iklan (opsional)</option>
+            {(myListingsQuery.data?.items ?? []).map((listing) => (
+              <option key={listing.listingId} value={listing.listingId}>
+                {listing.title || listing.listingId}
+              </option>
+            ))}
+          </select>
           <button type="button" onClick={submitCreateLead} className="btn-primary flex items-center justify-center gap-2 text-sm md:col-span-4">
             <Plus className="h-4 w-4" /> Tambah Lead
           </button>
