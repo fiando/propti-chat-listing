@@ -25,21 +25,23 @@ import { getAuthenticatedHomeRedirectPath } from '@/lib/home-redirect';
 import { getServerAuthProfile } from '@/lib/server-profile';
 
 export const metadata: Metadata = {
-  title: 'Propti — Alat Kerja Properti untuk Agen & Pemilik di Indonesia',
+  title: 'Propti — Workspace Properti untuk Penjual & Pembeli di Indonesia',
+  description:
+    'Propti membantu penjual merapikan listing dan menindaklanjuti pembeli, sambil membantu pembeli mencari, menyimpan, dan menilai kecocokan properti dari satu tempat.',
 };
 
 const HERO_PROOF_POINTS = [
   {
-    title: 'Buat iklan properti rapi dari teks WhatsApp',
-    desc: 'Paste teks iklan yang sudah kamu punya — AI langsung baca dan rapikan semua detail, lalu buat halaman iklan siap pakai.',
+    title: 'Penjual bisa mulai dari teks WhatsApp yang sudah ada',
+    desc: 'Paste teks iklan yang sudah kamu punya — AI langsung baca dan rapikan detail penting supaya listing lebih cepat tayang.',
   },
   {
-    title: 'Catat semua calon pembeli di satu tempat',
-    desc: 'Lacak setiap orang yang tertarik dari pertama kontak hingga transaksi selesai. Tidak ada lagi yang terlewat hanya karena chat tenggelam.',
+    title: 'Pembeli bisa cari, simpan, lalu cek kesiapan beli',
+    desc: 'Cari properti dengan filter atau kalimat, simpan shortlist favorit, lalu cek kecocokan budget atau kesiapan beli sebelum lanjut survei.',
   },
   {
-    title: 'Bagikan ke semua tempat dari satu link',
-    desc: 'Satu link Propti jadi sumber utama iklanmu saat promosi di WhatsApp, Instagram, atau situs jual beli mana pun.',
+    title: 'Bukan portal listing massal — ini workspace transaksi',
+    desc: 'Propti membantu setelah ada minat: listing tetap rapi, pembeli tetap bisa kembali, dan penjual tetap bisa follow-up sampai deal.',
   },
 ];
 
@@ -73,28 +75,28 @@ const PRODUCT_PROOF = [
     bg: 'bg-[#25D366]/10',
     title: 'Mulai dari teks iklan yang sudah kamu punya',
     desc: 'Paste teks WhatsApp untuk membuat draft lebih cepat, lalu jadikan Propti sebagai pusat listing yang lebih rapi, lebih dipercaya, dan siap kamu bagikan.',
-    tag: 'Buat listing',
+    tag: 'Untuk penjual',
   },
   {
-    icon: <Users className="w-6 h-6 text-brand-primary" />,
+    icon: <Search className="w-6 h-6 text-brand-primary" />,
     bg: 'bg-brand-light',
-    title: 'Catat calon pembeli dari pertama kontak hingga deal',
-    desc: 'Setiap orang yang tertarik bisa dicatat dan dipindah ke tahap berikutnya: tertarik, survei, negosiasi, deal selesai — semua terlihat jelas dalam satu tampilan.',
-    tag: 'Kelola calon pembeli',
+    title: 'Cari, simpan, dan shortlist properti yang relevan',
+    desc: 'Pembeli bisa pakai search biasa atau cari dengan kalimat, lalu simpan properti yang cocok supaya mudah dibandingkan lagi nanti.',
+    tag: 'Untuk pembeli',
   },
   {
     icon: <ShieldIcon className="w-6 h-6 text-blue-600" />,
     bg: 'bg-blue-50',
-    title: 'Halaman iklan yang terasa lebih meyakinkan',
+    title: 'Listing tampil lebih konsisten dan lebih mudah dipercaya',
     desc: 'Iklan aktif melewati pemeriksaan dasar dan menampilkan detail penting dalam format yang lebih konsisten untuk calon pembeli.',
-    tag: 'Lebih dipercaya',
+    tag: 'Kepercayaan',
   },
   {
-    icon: <TrendingUp className="w-6 h-6 text-brand-primary" />,
+    icon: <Users className="w-6 h-6 text-brand-primary" />,
     bg: 'bg-brand-light',
-    title: 'Statistik performa iklan & calon pembeli',
-    desc: 'Lihat berapa banyak calon pembeli yang akhirnya deal, seberapa cepat kamu merespons, dan mana iklan yang paling banyak diminati.',
-    tag: 'Statistik',
+    title: 'Pembeli dan penjual lanjut dari minat ke keputusan',
+    desc: 'Pembeli bisa cek kecocokan budget dan detail penting lebih awal, penjual bisa catat lead dan status follow-up supaya percakapan tidak hilang setelah klik pertama.',
+    tag: 'Untuk closing',
   },
 ];
 
@@ -115,6 +117,52 @@ const WHATSAPP_PERKS = [
     desc: 'Ketik atau rekam perintah cari ke Propti — hasilnya langsung muncul di chat tanpa perlu buka halaman web.',
   },
 ];
+
+const TRANSACTION_WORKSPACE = [
+  {
+    icon: <Search className="w-6 h-6 text-brand-primary" />,
+    bg: 'bg-brand-light',
+    title: 'Cari dengan filter atau kalimat natural',
+    desc: 'Pembeli tidak harus paham format filter. Cukup tulis kebutuhan, lalu rapikan hasilnya dengan filter lanjutan jika perlu.',
+  },
+  {
+    icon: <TrendingUp className="w-6 h-6 text-brand-secondary" />,
+    bg: 'bg-brand-light',
+    title: 'Shortlist yang bisa dibuka lagi kapan saja',
+    desc: 'Listing tersimpan membantu pembeli kembali ke properti yang menarik tanpa perlu mengulang pencarian dari awal.',
+  },
+  {
+    icon: <Calculator className="w-6 h-6 text-brand-primary" />,
+    bg: 'bg-amber-50',
+    title: 'Alat bantu hitung budget bila diperlukan',
+    desc: 'Untuk pembeli yang memakai pembiayaan, simulasi KPR bisa membantu memperkirakan anggaran sebelum lanjut survei.',
+  },
+  {
+    icon: <Users className="w-6 h-6 text-brand-primary" />,
+    bg: 'bg-brand-light',
+    title: 'Follow-up calon pembeli tetap rapi',
+    desc: 'Penjual dan agen bisa lihat siapa yang baru masuk, siapa yang siap survei, sampai siapa yang sudah deal.',
+  },
+] as const;
+
+const BALANCED_MVP_LANES = [
+  {
+    title: 'Untuk penjual / agen',
+    points: [
+      'Buat listing cepat dari teks atau voice note WhatsApp',
+      'Bagikan satu link listing yang lebih rapi dan lebih meyakinkan',
+      'Catat lead dan pantau follow-up sampai deal selesai',
+    ],
+  },
+  {
+    title: 'Untuk pembeli',
+    points: [
+      'Cari properti dengan filter atau kalimat natural',
+      'Simpan shortlist properti yang menarik untuk dibandingkan lagi',
+      'Cek kecocokan budget lalu hubungi penjual dari halaman listing',
+    ],
+  },
+] as const;
 
 const PRICING_PLANS = [
   {
@@ -193,34 +241,34 @@ export default async function HomePage() {
         <div className="relative max-w-6xl mx-auto px-4 pt-16 pb-24 md:pt-24 md:pb-32 text-center">
           <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm border border-white/20 text-white text-sm font-medium px-4 py-2 rounded-full mb-6">
             <span className="w-2 h-2 bg-[#25D366] rounded-full animate-pulse" />
-            Alat kerja properti untuk agen & pemilik
+            Workspace properti untuk penjual & pembeli
           </div>
 
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-white leading-tight mb-4 text-balance">
-            Pasang Iklan Properti Lebih Rapi.
+            Pasang Listing Lebih Rapi.
             <br />
-            <span className="text-brand-accent">Catat Semua Calon Pembeli dengan Mudah.</span>
+            <span className="text-brand-accent">Cari Properti Lebih Yakin.</span>
           </h1>
 
           <p className="text-lg md:text-xl text-white/80 max-w-3xl mx-auto mb-10 text-balance">
-            Buat iklan properti rapi dari teks WhatsApp, catat semua calon pembeli di satu tempat, dan bagikan ke mana saja dari satu link. Bukan sekadar situs jual beli — ini alat kerja sehari-hari untuk agen dan pemilik properti.
+            Untuk penjual, Propti membantu merapikan listing, membagikannya ke mana saja, dan menindaklanjuti pembeli. Untuk pembeli, Propti membantu mencari, menyimpan, dan mengecek kecocokan properti dari satu tempat. Bukan portal listing massal — ini workspace transaksi properti.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
             <Link
-              href="/listings/create"
+              href="/search"
               className="group flex items-center justify-center gap-2 bg-white text-brand-primary font-bold px-8 py-4 rounded-2xl hover:bg-brand-light transition-all duration-200 shadow-xl hover:shadow-2xl hover:-translate-y-0.5 text-lg"
             >
-              <MessageCircle className="w-5 h-5 text-[#25D366]" />
-              Paste listing saya
+              <Search className="w-5 h-5" />
+              Cari properti
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
             <Link
-              href="/agent"
+              href="/listings/create"
               className="flex items-center justify-center gap-2 border-2 border-white/40 text-white font-bold px-8 py-4 rounded-2xl hover:bg-white/10 transition-all duration-200 text-lg"
             >
-              <LayoutDashboard className="w-5 h-5" />
-              Lihat Dasbor Kerja Saya
+              <MessageCircle className="w-5 h-5 text-[#25D366]" />
+              Buat listing saya
             </Link>
           </div>
 
@@ -249,10 +297,10 @@ export default async function HomePage() {
           <span className="inline-block bg-brand-light text-brand-primary text-sm font-semibold px-4 py-1.5 rounded-full mb-4">
             Cara Kerja
           </span>
-          <h2 className="section-title">Pasang Iklan dalam 3 Langkah</h2>
+          <h2 className="section-title">Penjual bisa tayang cepat, pembeli bisa cek detail lebih cepat</h2>
           <p className="section-subtitle max-w-xl mx-auto">
-            Tidak perlu mulai dari nol. Cukup paste teks WhatsApp-mu, rapikan hasilnya, lalu
-            terbitkan satu link listing yang siap dibagikan.
+            Penjual bisa mulai dari teks WhatsApp yang sudah ada. Setelah tayang, pembeli tinggal buka
+            listing yang lebih rapi, simpan properti yang cocok, lalu lanjut hubungi penjual atau cek budget bila perlu.
           </p>
         </div>
 
@@ -340,13 +388,14 @@ export default async function HomePage() {
             <div className="md:w-64 flex-shrink-0">
               <span className="inline-flex items-center gap-1.5 bg-[#25D366]/15 text-[#128C7E] text-xs font-semibold px-3 py-1 rounded-full mb-3">
                 <MessageCircle className="w-3 h-3" />
-                Fitur WhatsApp Listing
+                Fitur WhatsApp
               </span>
               <h2 className="text-xl font-bold text-gray-900 mb-2 leading-snug">
-                Atau pasang listing langsung via WhatsApp
+                WhatsApp tetap jadi jalur cepat untuk penjual & pembeli
               </h2>
               <p className="text-sm text-gray-500 leading-relaxed">
-                Kirim pesan ke nomor Propti — tanpa buka website, tanpa isi form.
+                Buat listing, kirim voice note, atau cari properti langsung dari chat saat kamu belum
+                sempat buka website.
               </p>
               <Link
                 href="/profile"
@@ -377,42 +426,17 @@ export default async function HomePage() {
         <div className="max-w-6xl mx-auto px-4">
           <div className="text-center mb-12">
             <span className="inline-block bg-brand-light text-brand-primary text-sm font-semibold px-4 py-1.5 rounded-full mb-4">
-              Dasbor Kerja Agen
+              Workspace Transaksi
             </span>
-            <h2 className="section-title">Bukan Sekadar Iklan — Ini Alat Kerja Harian Agen</h2>
+            <h2 className="section-title">Kenapa Propti bukan sekadar portal listing</h2>
             <p className="section-subtitle max-w-2xl mx-auto">
-              Propti dirancang agar agen properti bisa kerja lebih terstruktur: dari pasang iklan,
-              catat calon pembeli, sampai deal selesai — semua dari satu dasbor.
+              Portal listing berhenti di impresi. Propti fokus pada langkah setelah orang tertarik:
+              pembeli bisa shortlist dan cek kesiapan beli, penjual bisa follow-up sampai deal.
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            {[
-              {
-                icon: <Users className="w-6 h-6 text-brand-primary" />,
-                bg: 'bg-brand-light',
-                title: 'Kelola Calon Pembeli dengan Mudah',
-                desc: 'Geser calon pembeli dari "baru" → "tertarik" → "survei" → "deal selesai" dengan satu klik.',
-              },
-              {
-                icon: <BarChart3 className="w-6 h-6 text-brand-secondary" />,
-                bg: 'bg-brand-light',
-                title: 'Statistik Penjualan',
-                desc: 'Lihat berapa persen calon pembeli yang akhirnya beli, seberapa cepat kamu merespons, dan performa iklan secara keseluruhan.',
-              },
-              {
-                icon: <MessageCircle className="w-6 h-6 text-[#25D366]" />,
-                bg: 'bg-[#25D366]/10',
-                title: 'Calon Pembeli Masuk via WhatsApp',
-                desc: 'Setiap orang yang menghubungi via WhatsApp bisa langsung dicatat sebagai calon pembeli tanpa perlu input manual.',
-              },
-              {
-                icon: <Calculator className="w-6 h-6 text-brand-primary" />,
-                bg: 'bg-amber-50',
-                title: 'Kalkulator KPR',
-                desc: 'Hitung estimasi angsuran bulanan untuk calon pembeli langsung dari halaman properti.',
-              },
-            ].map((item) => (
+            {TRANSACTION_WORKSPACE.map((item) => (
               <div key={item.title} className="card p-5">
                 <div className={`w-12 h-12 ${item.bg} rounded-xl flex items-center justify-center mb-3`}>
                   {item.icon}
@@ -423,30 +447,49 @@ export default async function HomePage() {
             ))}
           </div>
 
-          <div className="bg-gradient-to-r from-brand-primary/5 to-brand-secondary/5 border border-brand-primary/10 rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-center gap-6">
-            <div className="flex-1">
-              <h3 className="text-xl font-bold text-gray-900 mb-2">
-                Sudah punya iklan properti? Coba fitur kerja hariannya gratis
-              </h3>
-              <p className="text-gray-500 text-sm leading-relaxed">
-                Semua fitur pencatatan calon pembeli, statistik, dan pengelolaan iklan tersedia mulai dari paket gratis. Tidak perlu kartu kredit.
-              </p>
+          <div className="bg-gradient-to-r from-brand-primary/5 to-brand-secondary/5 border border-brand-primary/10 rounded-3xl p-6 md:p-8">
+            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-6">
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-gray-900 mb-2">
+                  MVP yang seimbang untuk dua sisi transaksi
+                </h3>
+                <p className="text-gray-500 text-sm leading-relaxed">
+                  Penjual butuh listing cepat dan follow-up rapi. Pembeli butuh pencarian, shortlist,
+                  dan alat bantu keputusan. Itu sebabnya Propti tidak berhenti di halaman iklan.
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3 flex-shrink-0">
+                <Link
+                  href="/search"
+                  className="flex items-center justify-center gap-2 bg-brand-primary text-white font-bold px-6 py-3 rounded-xl hover:bg-brand-secondary transition-colors text-sm shadow-lg"
+                >
+                  <Search className="w-4 h-4" />
+                  Jelajahi Properti
+                </Link>
+                <Link
+                  href="/agent"
+                  className="flex items-center justify-center gap-2 border-2 border-brand-primary text-brand-primary font-bold px-6 py-3 rounded-xl hover:bg-brand-light transition-colors text-sm"
+                >
+                  <LayoutDashboard className="w-4 h-4" />
+                  Lihat Dasbor Penjual
+                </Link>
+              </div>
             </div>
-            <div className="flex flex-col sm:flex-row gap-3 flex-shrink-0">
-              <Link
-                href="/agent"
-                className="flex items-center justify-center gap-2 bg-brand-primary text-white font-bold px-6 py-3 rounded-xl hover:bg-brand-secondary transition-colors text-sm shadow-lg"
-              >
-                <LayoutDashboard className="w-4 h-4" />
-                Buka Dasbor Kerja Saya
-              </Link>
-              <Link
-                href="/listings/create"
-                className="flex items-center justify-center gap-2 border-2 border-brand-primary text-brand-primary font-bold px-6 py-3 rounded-xl hover:bg-brand-light transition-colors text-sm"
-              >
-                <MessageCircle className="w-4 h-4" />
-                Buat listing baru
-              </Link>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              {BALANCED_MVP_LANES.map((lane) => (
+                <div key={lane.title} className="rounded-2xl border border-white/70 bg-white/80 p-5 shadow-sm">
+                  <h4 className="font-bold text-gray-900 mb-3">{lane.title}</h4>
+                  <ul className="space-y-2.5">
+                    {lane.points.map((point) => (
+                      <li key={point} className="flex items-start gap-2 text-sm text-gray-600">
+                        <Check className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+                        {point}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -491,11 +534,12 @@ export default async function HomePage() {
       <section className="max-w-6xl mx-auto px-4 py-16 md:py-24">
         <div className="text-center mb-12">
           <span className="inline-block bg-brand-light text-brand-primary text-sm font-semibold px-4 py-1.5 rounded-full mb-4">
-            Fitur Lengkap
+            Fitur MVP
           </span>
-          <h2 className="section-title">Semua yang Dibutuhkan Agen & Pemilik Properti</h2>
+          <h2 className="section-title">Fitur yang harus ada untuk pembeli & penjual sejak launch</h2>
           <p className="section-subtitle max-w-2xl mx-auto">
-            Dari membuat listing, mengelola calon pembeli, hingga mempresentasikan properti — semua tersedia di satu platform.
+            Penjual butuh listing yang rapi dan follow-up yang jelas. Pembeli butuh pencarian, shortlist,
+            dan alat bantu keputusan tanpa diasumsikan selalu memakai KPR. Semua ini jadi inti produk Propti.
           </p>
         </div>
 
@@ -528,7 +572,7 @@ export default async function HomePage() {
             </span>
             <h2 className="section-title">Kalkulator KPR</h2>
             <p className="section-subtitle max-w-xl mx-auto">
-              Bantu calon pembeli menghitung angsuran bulanan sebelum survei. Tunjukkan saat presentasi properti untuk membantu mereka siap secara finansial.
+              Untuk pembeli yang membutuhkannya, kalkulator ini membantu memperkirakan angsuran bulanan sebelum survei. Tetap opsional, bukan langkah wajib untuk semua transaksi.
             </p>
           </div>
           <div className="card p-6 md:p-8">
@@ -579,7 +623,9 @@ export default async function HomePage() {
             </span>
             <h2 className="section-title">Pilih Paket Sesuai Aktivitas Kerjamu</h2>
             <p className="section-subtitle max-w-2xl mx-auto">
-              Mulai gratis, upgrade kapan saja. Paket berbayar membuka lebih banyak listing aktif, lebih banyak foto per iklan, fitur WhatsApp bot, dan pembuatan iklan via pesan suara.
+              Fitur pembeli seperti cari, simpan, dan alat bantu keputusan tetap bisa dipakai gratis.
+              Mulai gratis, upgrade kapan saja saat kamu butuh lebih banyak listing aktif, lebih banyak
+              foto per iklan, fitur WhatsApp bot, dan pembuatan iklan via pesan suara.
             </p>
           </div>
 
@@ -646,25 +692,26 @@ export default async function HomePage() {
         </div>
         <div className="relative max-w-4xl mx-auto px-4 text-center">
           <h2 className="text-3xl md:text-4xl font-black text-white mb-4">
-            Mulai kerja lebih terstruktur hari ini
+            Mulai dari sisi yang kamu butuhkan hari ini
           </h2>
           <p className="text-white/80 text-lg mb-8 max-w-2xl mx-auto">
-            Buat iklan properti rapi dari teks WhatsApp, catat semua calon pembeli di satu tempat, dan raih lebih banyak transaksi di seluruh Indonesia.
+            Cari properti, simpan shortlist, cek budget bila perlu, atau mulai dari listing yang sudah kamu punya.
+            Propti membantu pembeli dan penjual bertemu di workflow yang lebih rapi.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
-              href="/listings/create"
+              href="/search"
               className="flex items-center justify-center gap-2 bg-white text-brand-primary font-bold px-8 py-4 rounded-2xl hover:bg-brand-light transition-all shadow-xl text-lg"
             >
-              <MessageCircle className="w-5 h-5 text-[#25D366]" />
-              Paste listing saya
+              <Search className="w-5 h-5" />
+              Cari properti
             </Link>
             <Link
-              href="/agent"
+              href="/listings/create"
               className="flex items-center justify-center gap-2 border-2 border-white/40 text-white font-bold px-8 py-4 rounded-2xl hover:bg-white/10 transition-all text-lg"
             >
-              <LayoutDashboard className="w-5 h-5" />
-              Lihat Dasbor Kerja Saya
+              <MessageCircle className="w-5 h-5 text-[#25D366]" />
+              Buat listing saya
             </Link>
           </div>
           <p className="text-white/50 text-sm mt-6">

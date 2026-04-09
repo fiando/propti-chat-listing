@@ -8,9 +8,9 @@ const privacyPage = readFileSync(new URL('../app/(app)/privacy/page.tsx', import
 const termsPage = readFileSync(new URL('../app/(app)/terms/page.tsx', import.meta.url), 'utf8');
 
 test('product UI copy uses kamu instead of Anda', () => {
-  assert.match(landingPage, /Yang Bisa kamu Cek Langsung di Propti/i);
+  assert.match(landingPage, /Mulai dari sisi yang kamu butuhkan hari ini/i);
   assert.match(parseForm, /Sedang merapikan detail dari chat kamu/i);
-  assert.doesNotMatch(landingPage, /Yang Bisa Anda Cek Langsung di Propti/i);
+  assert.doesNotMatch(landingPage, /Mulai dari sisi yang Anda butuhkan hari ini/i);
   assert.doesNotMatch(parseForm, /chat Anda/i);
 });
 
