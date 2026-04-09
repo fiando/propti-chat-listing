@@ -148,7 +148,7 @@ const PRICING_PLANS = [
       'Listing tayang 90 hari',
     ],
     cta: 'Pilih Basic',
-    href: '/upgrade?tier=basic',
+    href: '/profile?upgradeTier=basic#premium',
   },
   {
     key: 'premium',
@@ -165,7 +165,7 @@ const PRICING_PLANS = [
       'Listing tayang 90 hari',
     ],
     cta: 'Pilih Premium',
-    href: '/upgrade?tier=premium',
+    href: '/profile?upgradeTier=premium#premium',
   },
   {
     key: 'pro',
@@ -176,13 +176,13 @@ const PRICING_PLANS = [
     highlight: false,
     features: [
       'Kelola 50 listing aktif sekaligus',
-      'Hingga 20 foto per listing',
+      'Hingga 25 foto per listing',
       'Buat & cari via WhatsApp',
       'Voice note 120 menit/bulan',
       'Listing tayang 90 hari',
     ],
     cta: 'Pilih Pro',
-    href: '/upgrade?tier=pro',
+    href: '/profile?upgradeTier=pro#premium',
   },
 ] as const;
 

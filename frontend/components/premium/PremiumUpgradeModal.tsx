@@ -24,7 +24,7 @@ const TIER_CONFIG = {
     features: [
       'Maksimal 8 foto per iklan',
       'Maksimal 8 listing aktif',
-      'WA baca + buat listing (tanpa edit/hapus)',
+      'Buat & cari via WhatsApp',
       'Voice note hingga 20 menit per bulan',
       'Iklan tayang hingga 90 hari',
     ],
@@ -36,7 +36,7 @@ const TIER_CONFIG = {
     features: [
       'Maksimal 15 foto per iklan',
       'Maksimal 20 listing aktif',
-      'WA baca, buat, edit & hapus listing',
+      'Buat & cari via WhatsApp',
       'Voice note hingga 60 menit per bulan',
       'Iklan tayang hingga 90 hari',
     ],
@@ -46,9 +46,9 @@ const TIER_CONFIG = {
     price: 'Rp 199.000',
     blurb: 'Untuk tim agen dengan volume listing tinggi.',
     features: [
-      'Maksimal 20 foto per iklan',
+      'Maksimal 25 foto per iklan',
       'Maksimal 50 listing aktif',
-      'WA baca, buat, edit & hapus listing',
+      'Buat & cari via WhatsApp',
       'Voice note hingga 120 menit per bulan',
       'Iklan tayang hingga 90 hari',
     ],
@@ -232,7 +232,7 @@ export function PremiumUpgradeModal({
           </button>
 
           <p className="text-center text-xs text-gray-400 mt-1">
-            Pembayaran aman melalui DOKU. Batalkan kapan saja.
+            Pembayaran aman melalui DOKU. Berlaku 1 bulan dari tanggal pembayaran.
           </p>
         </div>
       </div>

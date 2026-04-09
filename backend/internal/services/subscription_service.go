@@ -48,7 +48,7 @@ var tierEntitlements = map[models.SubscriptionTier]TierEntitlements{
 		Tier:                  models.SubscriptionPro,
 		PriceIDR:              199000,
 		ActiveListingCap:      50,
-		PhotoCapPerListing:    20,
+		PhotoCapPerListing:    25,
 		WhatsAppReadAllowed:   true,
 		WhatsAppCreateAllowed: true,
 		VoiceMinutesPerMonth:  120,
