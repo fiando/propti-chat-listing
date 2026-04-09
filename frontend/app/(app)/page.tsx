@@ -409,8 +409,8 @@ export default async function HomePage() {
               {
                 icon: <Calculator className="w-6 h-6 text-brand-primary" />,
                 bg: 'bg-amber-50',
-                title: 'Kalkulator KPR',
-                desc: 'Hitung estimasi angsuran bulanan untuk calon pembeli langsung dari halaman properti.',
+                title: 'Cek Budget Calon Pembeli',
+                desc: 'Bantu calon pembeli memperkirakan kemampuan beli mereka langsung dari halaman iklan properti.',
               },
             ].map((item) => (
               <div key={item.title} className="card p-5">
@@ -528,7 +528,7 @@ export default async function HomePage() {
             </span>
             <h2 className="section-title">Kalkulator KPR</h2>
             <p className="section-subtitle max-w-xl mx-auto">
-              Bantu calon pembeli menghitung angsuran bulanan sebelum survei. Tunjukkan saat presentasi properti untuk membantu mereka siap secara finansial.
+              Bantu calon pembeli memperkirakan kemampuan beli mereka sebelum survei. Tunjukkan saat presentasi properti agar mereka bisa siap lebih awal.
             </p>
           </div>
           <div className="card p-6 md:p-8">
@@ -539,7 +539,7 @@ export default async function HomePage() {
                   Kalkulator interaktif tersedia di halaman penuh
                 </p>
                 <p className="text-gray-400 text-xs mt-1 mb-4">
-                  Hitung DP, angsuran bulanan, dan total bunga KPR dengan mudah.
+                  Hitung DP, estimasi cicilan, dan kemampuan beli calon pembeli dengan mudah.
                 </p>
                 <Link
                   href="/kpr"
