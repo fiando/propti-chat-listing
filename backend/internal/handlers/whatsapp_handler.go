@@ -214,6 +214,18 @@ func (h *WhatsAppHandler) processInbound(ctx context.Context, req events.APIGate
 		if err != nil {
 			return appErrorResponse(err), true
 		}
+		if replyText := voiceReplyText(voiceResp); replyText != "" && h.commandReplySender != nil {
+			_, sendErr := h.commandReplySender.Send(ctx, models.WhatsAppSendRequest{
+				To: envelope.From,
+				Message: models.WhatsAppOutboundMessage{
+					Type: models.WhatsAppMessageTypeText,
+					Text: replyText,
+				},
+			})
+			if sendErr != nil {
+				utils.LogWarn("send whatsapp voice reply", "error", sendErr.Error(), "to", envelope.From, "providerMessageId", envelope.ProviderMessageID)
+			}
+		}
 		body, _ := json.Marshal(voiceResp)
 		return jsonResponse(http.StatusOK, string(body)), true
 	}
@@ -307,6 +319,19 @@ func hasAudioMedia(items []models.WhatsAppMediaItem) bool {
 		}
 	}
 	return false
+}
+
+func voiceReplyText(resp *services.WhatsAppVoiceResponse) string {
+	if resp == nil {
+		return ""
+	}
+	if msg := strings.TrimSpace(resp.FallbackMessage); msg != "" {
+		return msg
+	}
+	if resp.CommandResponse != nil {
+		return strings.TrimSpace(resp.CommandResponse.Message)
+	}
+	return ""
 }
 
 func toHTTPRequest(req events.APIGatewayProxyRequest) (*http.Request, error) {
