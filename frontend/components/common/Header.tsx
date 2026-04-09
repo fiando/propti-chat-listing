@@ -10,7 +10,6 @@ import {
   Plus,
   Heart,
   User,
-  BriefcaseBusiness,
   LogOut,
   ChevronDown,
   Crown,
@@ -185,14 +184,6 @@ export function Header() {
                     <Heart className="w-4 h-4" />
                     Tersimpan
                   </Link>
-                  <Link
-                    href="/agent"
-                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                    onClick={() => setProfileOpen(false)}
-                  >
-                    <BriefcaseBusiness className="w-4 h-4" />
-                    Agent Tool
-                  </Link>
                   {isSubscriptionLoading ? (
                     <div className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400">
                       <Crown className="w-4 h-4" />
@@ -314,14 +305,6 @@ export function Header() {
               >
                 <Home className="w-4 h-4" />
                 Iklan Saya
-              </Link>
-              <Link
-                href="/agent"
-                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 hover:bg-gray-50 font-medium text-sm"
-                onClick={() => setMenuOpen(false)}
-              >
-                <BriefcaseBusiness className="w-4 h-4" />
-                Agent Tool
               </Link>
               <button
                 type="button"

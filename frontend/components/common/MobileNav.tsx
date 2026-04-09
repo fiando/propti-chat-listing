@@ -2,14 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Search, Plus, Heart, User, BriefcaseBusiness } from 'lucide-react';
+import { Home, Search, Plus, Heart, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSession } from 'next-auth/react';
 
 const NAV_ITEMS = [
   { href: '/', icon: Home, label: 'Beranda' },
   { href: '/search', icon: Search, label: 'Cari' },
-  { href: '/agent', icon: BriefcaseBusiness, label: 'Agent', requiresAuth: true },
   { href: '/saved', icon: Heart, label: 'Simpan', requiresAuth: true },
   { href: '/profile', icon: User, label: 'Profil', requiresAuth: true },
 ];

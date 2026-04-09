@@ -13,10 +13,8 @@ import {
   Search,
   Crown,
   Check,
-  BarChart3,
   Users,
-  Calculator,
-  LayoutDashboard,
+  BarChart3,
 } from 'lucide-react';
 import { ShieldIcon } from '@/components/icons/ShieldIcon';
 import { ListingCard } from '@/components/listings/ListingCard';
@@ -130,12 +128,6 @@ const TRANSACTION_WORKSPACE = [
     bg: 'bg-brand-light',
     title: 'Shortlist yang bisa dibuka lagi kapan saja',
     desc: 'Listing tersimpan membantu pembeli kembali ke properti yang menarik tanpa perlu mengulang pencarian dari awal.',
-  },
-  {
-    icon: <Calculator className="w-6 h-6 text-brand-primary" />,
-    bg: 'bg-amber-50',
-    title: 'Alat bantu hitung budget bila diperlukan',
-    desc: 'Untuk pembeli yang memakai pembiayaan, simulasi KPR bisa membantu memperkirakan anggaran sebelum lanjut survei.',
   },
   {
     icon: <Users className="w-6 h-6 text-brand-primary" />,
@@ -455,7 +447,7 @@ export default async function HomePage() {
                 </h3>
                 <p className="text-gray-500 text-sm leading-relaxed">
                   Penjual butuh listing cepat dan follow-up rapi. Pembeli butuh pencarian, shortlist,
-                  dan alat bantu keputusan. Itu sebabnya Propti tidak berhenti di halaman iklan.
+                  dan detail yang jelas. Itu sebabnya Propti tidak berhenti di halaman iklan.
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-3 flex-shrink-0">
@@ -467,11 +459,11 @@ export default async function HomePage() {
                   Jelajahi Properti
                 </Link>
                 <Link
-                  href="/agent"
+                  href="/listings/create"
                   className="flex items-center justify-center gap-2 border-2 border-brand-primary text-brand-primary font-bold px-6 py-3 rounded-xl hover:bg-brand-light transition-colors text-sm"
                 >
-                  <LayoutDashboard className="w-4 h-4" />
-                  Lihat Dasbor Penjual
+                  <MessageCircle className="w-4 h-4" />
+                  Pasang Iklan Sekarang
                 </Link>
               </div>
             </div>
@@ -539,7 +531,7 @@ export default async function HomePage() {
           <h2 className="section-title">Fitur yang harus ada untuk pembeli & penjual sejak launch</h2>
           <p className="section-subtitle max-w-2xl mx-auto">
             Penjual butuh listing yang rapi dan follow-up yang jelas. Pembeli butuh pencarian, shortlist,
-            dan alat bantu keputusan tanpa diasumsikan selalu memakai KPR. Semua ini jadi inti produk Propti.
+            dan detail yang mudah dibandingkan. Semua ini jadi inti produk Propti.
           </p>
         </div>
 
@@ -560,57 +552,6 @@ export default async function HomePage() {
               </div>
             </div>
           ))}
-        </div>
-      </section>
-
-      {/* KPR Calculator section */}
-      <section className="bg-white py-16 md:py-20">
-        <div className="max-w-4xl mx-auto px-4">
-          <div className="text-center mb-8">
-            <span className="inline-block bg-amber-50 text-amber-700 text-sm font-semibold px-4 py-1.5 rounded-full mb-4 border border-amber-200">
-              Tools Gratis
-            </span>
-            <h2 className="section-title">Kalkulator KPR</h2>
-            <p className="section-subtitle max-w-xl mx-auto">
-              Untuk pembeli yang membutuhkannya, kalkulator ini membantu memperkirakan angsuran bulanan sebelum survei. Tetap opsional, bukan langkah wajib untuk semua transaksi.
-            </p>
-          </div>
-          <div className="card p-6 md:p-8">
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="bg-gray-50 rounded-2xl p-6 flex flex-col justify-center items-center text-center">
-                <Calculator className="w-10 h-10 text-brand-primary mb-3 opacity-60" />
-                <p className="text-gray-600 text-sm font-medium">
-                  Kalkulator interaktif tersedia di halaman penuh
-                </p>
-                <p className="text-gray-400 text-xs mt-1 mb-4">
-                  Hitung DP, angsuran bulanan, dan total bunga KPR dengan mudah.
-                </p>
-                <Link
-                  href="/kpr"
-                  className="inline-flex items-center gap-2 bg-brand-primary text-white font-semibold px-5 py-2.5 rounded-xl hover:bg-brand-secondary transition-colors text-sm"
-                >
-                  <Calculator className="w-4 h-4" />
-                  Buka Kalkulator KPR
-                  <ArrowRight className="w-4 h-4" />
-                </Link>
-              </div>
-              <div className="space-y-3">
-                {[
-                  ['Harga Properti', 'Rp 750.000.000'],
-                  ['Uang Muka (20%)', 'Rp 150.000.000'],
-                  ['Jumlah Pinjaman', 'Rp 600.000.000'],
-                  ['Bunga 10.5% / 15 thn', '→'],
-                  ['Estimasi Angsuran', 'Rp 6,6 Jt / bulan'],
-                ].map(([label, value]) => (
-                  <div key={label} className={`flex items-center justify-between text-sm rounded-xl px-4 py-2.5 ${label === 'Estimasi Angsuran' ? 'bg-brand-light font-bold text-brand-primary' : 'bg-gray-50 text-gray-600'}`}>
-                    <span>{label}</span>
-                    <span className={label === 'Estimasi Angsuran' ? 'text-brand-primary' : 'font-medium text-gray-800'}>{value}</span>
-                  </div>
-                ))}
-                <p className="text-xs text-gray-400 text-center">*contoh ilustrasi, gunakan kalkulator untuk angka aktual</p>
-              </div>
-            </div>
-          </div>
         </div>
       </section>
 

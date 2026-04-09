@@ -17,6 +17,7 @@ test('homepage proof section reinforces must-have buyer and seller MVP value', (
   assert.match(homePage, /MVP yang seimbang untuk dua sisi transaksi/i);
   assert.match(homePage, /workspace transaksi properti/i);
   assert.match(homePage, /Fitur pembeli seperti cari, simpan, dan alat bantu keputusan tetap bisa dipakai gratis/i);
-  assert.match(homePage, /Tetap opsional, bukan langkah wajib untuk semua transaksi/i);
+  assert.doesNotMatch(homePage, /Kalkulator KPR|\/kpr/i);
+  assert.doesNotMatch(homePage, /\/agent|Agent Tool|Dasbor Penjual/i);
   assert.doesNotMatch(homePage, /OLX|Rumah123/i);
 });
