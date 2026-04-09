@@ -4,16 +4,17 @@ import { readFileSync } from 'node:fs';
 
 const homePage = readFileSync(new URL('../app/(app)/page.tsx', import.meta.url), 'utf8');
 
-test('homepage hero sells Propti as the seller listing HQ', () => {
-  assert.match(homePage, /Satu Listing Properti/i);
-  assert.match(homePage, /yang Lebih Rapi/i);
-  assert.match(homePage, /siap dibagikan ke semua\s+channel/i);
-  assert.match(homePage, /pusat listingmu/i);
+test('homepage hero sells Propti as a balanced buyer and seller workspace', () => {
+  assert.match(homePage, /Workspace properti untuk penjual & pembeli/i);
+  assert.match(homePage, /Pasang Listing Lebih Rapi/i);
+  assert.match(homePage, /Cari Properti Lebih Yakin/i);
+  assert.match(homePage, /Bukan portal listing massal/i);
   assert.doesNotMatch(homePage, /Semudah Chat WhatsApp/i);
 });
 
-test('homepage proof section reinforces a share-ready listing position', () => {
-  assert.match(homePage, /pusat listing yang lebih rapi, lebih dipercaya, dan siap kamu bagikan/i);
-  assert.match(homePage, /Satu tempat untuk siap tayang dan siap share/i);
-  assert.match(homePage, /sumber utama listingmu/i);
+test('homepage proof section reinforces must-have buyer and seller MVP value', () => {
+  assert.match(homePage, /Cari, simpan, dan shortlist properti yang relevan/i);
+  assert.match(homePage, /MVP yang seimbang untuk dua sisi transaksi/i);
+  assert.match(homePage, /Fitur buyer seperti cari, simpan, dan kalkulator KPR tetap bisa dipakai gratis/i);
+  assert.doesNotMatch(homePage, /OLX|Rumah123/i);
 });
