@@ -152,7 +152,7 @@ func TestWhatsAppVoiceServiceBlocksWhenQuotaExceeded(t *testing.T) {
 
 	now := time.Date(2026, 2, 9, 0, 0, 0, 0, time.UTC)
 	renew := now.Add(24 * time.Hour)
-	users := &fakeWhatsAppVoiceUserStore{user: &models.User{UserID: "user-1", Subscription: models.Subscription{Tier: models.SubscriptionBasic, RenewDate: &renew, VoiceUsageMonth: "2026-02", VoiceSecondsUsed: 1190}}}
+	users := &fakeWhatsAppVoiceUserStore{user: &models.User{UserID: "user-1", Subscription: models.Subscription{Tier: models.SubscriptionBasic, RenewDate: &renew, VoiceUsageMonth: "2026-02", VoiceSecondsUsed: 5280}}}
 	service := mustNewWhatsAppVoiceService(t,
 		users,
 		&fakeWhatsAppVoiceMediaDownloader{data: []byte("audio")},

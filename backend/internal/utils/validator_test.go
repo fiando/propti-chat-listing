@@ -26,21 +26,21 @@ func TestValidateMediaLimits(t *testing.T) {
 		errSubstr string
 	}{
 		// Free tier
-		{name: "free: 0 media OK", max: 3, tier: "free", images: 0, videos: 0, wantErr: false},
-		{name: "free: 3 media OK", max: 3, tier: "free", images: 3, videos: 0, wantErr: false},
-		{name: "free: 2 img + 1 vid OK", max: 3, tier: "free", images: 2, videos: 1, wantErr: false},
-		{name: "free: 4 media rejected", max: 3, tier: "free", images: 4, videos: 0, wantErr: true, errSubstr: "free tier"},
-		{name: "free: 2 img + 2 vid rejected", max: 3, tier: "free", images: 2, videos: 2, wantErr: true, errSubstr: "free tier"},
+		{name: "free: 0 media OK", max: 5, tier: "free", images: 0, videos: 0, wantErr: false},
+		{name: "free: 5 media OK", max: 5, tier: "free", images: 5, videos: 0, wantErr: false},
+		{name: "free: 2 img + 1 vid OK", max: 5, tier: "free", images: 2, videos: 1, wantErr: false},
+		{name: "free: 6 media rejected", max: 5, tier: "free", images: 6, videos: 0, wantErr: true, errSubstr: "free tier"},
+		{name: "free: 4 img + 2 vid rejected", max: 5, tier: "free", images: 4, videos: 2, wantErr: true, errSubstr: "free tier"},
 
-		{name: "basic: 8 media OK", max: 8, tier: "basic", images: 8, videos: 0, wantErr: false},
-		{name: "basic: 9 media rejected", max: 8, tier: "basic", images: 9, videos: 0, wantErr: true, errSubstr: "basic tier"},
+		{name: "basic: 15 media OK", max: 15, tier: "basic", images: 15, videos: 0, wantErr: false},
+		{name: "basic: 16 media rejected", max: 15, tier: "basic", images: 16, videos: 0, wantErr: true, errSubstr: "basic tier"},
 
 		{name: "premium: 15 media OK", max: 15, tier: "premium", images: 10, videos: 5, wantErr: false},
 		{name: "premium: 16 media rejected", max: 15, tier: "premium", images: 16, videos: 0, wantErr: true, errSubstr: "premium tier"},
 		{name: "premium: rejection message cites correct limit", max: 15, tier: "premium", images: 16, videos: 0, wantErr: true, errSubstr: "15"},
 
-		{name: "pro: 20 media OK", max: 20, tier: "pro", images: 20, videos: 0, wantErr: false},
-		{name: "pro: 21 media rejected", max: 20, tier: "pro", images: 21, videos: 0, wantErr: true, errSubstr: "pro tier"},
+		{name: "pro: 25 media OK", max: 25, tier: "pro", images: 25, videos: 0, wantErr: false},
+		{name: "pro: 26 media rejected", max: 25, tier: "pro", images: 26, videos: 0, wantErr: true, errSubstr: "pro tier"},
 	}
 
 	for _, tc := range tests {

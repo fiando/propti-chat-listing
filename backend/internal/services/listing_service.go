@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	freeTierListingDurationDays    = 30
+	freeTierListingDurationDays    = 60
 	premiumTierListingDurationDays = 90
 
 	minLocationConfidence = 0.7

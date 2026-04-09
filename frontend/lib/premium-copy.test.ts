@@ -7,23 +7,23 @@ const premiumModal = readFileSync(new URL('../components/premium/PremiumUpgradeM
 const imageUpload = readFileSync(new URL('../components/listings/ImageUpload.tsx', import.meta.url), 'utf8');
 const homePage = readFileSync(new URL('../app/(app)/page.tsx', import.meta.url), 'utf8');
 
-test('free package copy says first 3 listings are free, not 1 per month', () => {
-  assert.match(profilePage, /3 iklan pertama gratis/i);
+test('free package copy says 5 listings active and 60 days', () => {
+  assert.match(profilePage, /5 listing aktif/i);
+  assert.match(profilePage, /Maksimal 5 foto per iklan/i);
+  assert.match(profilePage, /Iklan tayang 60 hari/i);
   assert.doesNotMatch(profilePage, /1 iklan aktif per bulan/i);
   assert.doesNotMatch(profilePage, /statistik dasar|insight/i);
 });
 
 test('premium modal copy reflects tiered caps and durations', () => {
   assert.match(premiumModal, /Maksimal 15 foto per iklan/i);
-  assert.match(premiumModal, /Maksimal 20 listing aktif/i);
-  assert.match(premiumModal, /Maksimal 8 foto per iklan/i);
-  assert.match(premiumModal, /Maksimal 8 listing aktif/i);
+  assert.match(premiumModal, /Maksimal 25 listing aktif/i);
   assert.match(premiumModal, /Maksimal 25 foto per iklan/i);
-  assert.match(premiumModal, /Maksimal 50 listing aktif/i);
+  assert.match(premiumModal, /Maksimal 100 listing aktif/i);
   assert.match(premiumModal, /Iklan tayang hingga 90 hari/i);
-  assert.match(premiumModal, /Paket gratis: maksimal 3 foto/i);
-  assert.match(premiumModal, /3 listing aktif/i);
-  assert.match(premiumModal, /tayang 30 hari/i);
+  assert.match(premiumModal, /Paket gratis: maksimal 5 foto/i);
+  assert.match(premiumModal, /5 listing aktif/i);
+  assert.match(premiumModal, /tayang 60 hari/i);
   assert.doesNotMatch(premiumModal, /foto tidak terbatas/i);
   assert.doesNotMatch(premiumModal, /gratis hanya 1/i);
   assert.doesNotMatch(premiumModal, /30 foto/i);
@@ -46,7 +46,7 @@ test('premium modal WA copy says create and search only, no edit or delete', () 
   assert.match(premiumModal, /Buat & cari via WhatsApp/i);
   assert.doesNotMatch(premiumModal, /edit & hapus/i);
   assert.doesNotMatch(premiumModal, /tanpa edit\/hapus/i);
-  assert.match(premiumModal, /Voice note hingga 60 menit/i);
+  assert.match(premiumModal, /Voice note hingga 90 menit/i);
   assert.doesNotMatch(premiumModal, /penjual terverifikasi/i);
   assert.doesNotMatch(premiumModal, /prioritas dukungan pelanggan/i);
 });
@@ -67,7 +67,7 @@ test('premium modal upgrades without requiring profile phone', () => {
 
 test('premium modal provides wider desktop layout and plan selector', () => {
   assert.match(premiumModal, /max-w-4xl/);
-  assert.match(premiumModal, /grid gap-3 md:grid-cols-3/);
+  assert.match(premiumModal, /grid gap-3 md:grid-cols-2/);
 });
 
 test('premium modal clearly differentiates upgrade and downgrade actions', () => {
@@ -77,9 +77,9 @@ test('premium modal clearly differentiates upgrade and downgrade actions', () =>
 });
 
 test('homepage pricing links point to profile page, not separate upgrade page', () => {
-  assert.match(homePage, /\/profile\?upgradeTier=basic#premium/);
   assert.match(homePage, /\/profile\?upgradeTier=premium#premium/);
   assert.match(homePage, /\/profile\?upgradeTier=pro#premium/);
+  assert.doesNotMatch(homePage, /\/profile\?upgradeTier=basic#premium/);
   assert.doesNotMatch(homePage, /\/upgrade\?tier=/);
 });
 

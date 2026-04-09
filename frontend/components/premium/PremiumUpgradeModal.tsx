@@ -17,39 +17,27 @@ interface PremiumUpgradeModalProps {
 }
 
 const TIER_CONFIG = {
-  basic: {
-    label: 'Basic',
-    price: 'Rp 59.000',
-    blurb: 'Untuk seller yang mulai serius beriklan.',
-    features: [
-      'Maksimal 8 foto per iklan',
-      'Maksimal 8 listing aktif',
-      'Buat & cari via WhatsApp',
-      'Voice note hingga 20 menit per bulan',
-      'Iklan tayang hingga 90 hari',
-    ],
-  },
   premium: {
     label: 'Premium',
-    price: 'Rp 129.000',
+    price: 'Rp 99.000',
     blurb: 'Untuk performa listing yang lebih agresif.',
     features: [
       'Maksimal 15 foto per iklan',
-      'Maksimal 20 listing aktif',
+      'Maksimal 25 listing aktif',
       'Buat & cari via WhatsApp',
-      'Voice note hingga 60 menit per bulan',
+      'Voice note hingga 90 menit per bulan',
       'Iklan tayang hingga 90 hari',
     ],
   },
   pro: {
     label: 'Pro',
-    price: 'Rp 199.000',
+    price: 'Rp 179.000',
     blurb: 'Untuk tim agen dengan volume listing tinggi.',
     features: [
       'Maksimal 25 foto per iklan',
-      'Maksimal 50 listing aktif',
+      'Maksimal 100 listing aktif',
       'Buat & cari via WhatsApp',
-      'Voice note hingga 120 menit per bulan',
+      'Voice note hingga 180 menit per bulan',
       'Iklan tayang hingga 90 hari',
     ],
   },
@@ -58,8 +46,8 @@ const TIER_CONFIG = {
 const TIER_ORDER: Record<SubscriptionTier, number> = {
   free: 0,
   basic: 1,
-  premium: 2,
-  pro: 3,
+  premium: 1,
+  pro: 2,
 };
 
 export function PremiumUpgradeModal({
@@ -72,10 +60,13 @@ export function PremiumUpgradeModal({
 }: PremiumUpgradeModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTier, setActiveTier] = useState<Exclude<SubscriptionTier, 'free'>>(selectedTier);
+  // Normalize 'basic' to 'premium' — Basic is no longer a purchasable tier.
+  const normalizeTier = (t: Exclude<SubscriptionTier, 'free'>): keyof typeof TIER_CONFIG =>
+    t === 'basic' ? 'premium' : t;
+  const [activeTier, setActiveTier] = useState<keyof typeof TIER_CONFIG>(normalizeTier(selectedTier));
 
   useEffect(() => {
-    setActiveTier(selectedTier);
+    setActiveTier(normalizeTier(selectedTier));
   }, [selectedTier, isOpen]);
 
   if (!isOpen) return null;
@@ -154,8 +145,8 @@ export function PremiumUpgradeModal({
           {!isRenewal && (
             <div className="mb-6">
               <p className="text-sm font-semibold text-gray-900 mb-3">Pilih paket</p>
-              <div className="grid gap-3 md:grid-cols-3">
-                {(Object.keys(TIER_CONFIG) as Array<Exclude<SubscriptionTier, 'free'>>).map((tierKey) => {
+              <div className="grid gap-3 md:grid-cols-2">
+                {(Object.keys(TIER_CONFIG) as Array<keyof typeof TIER_CONFIG>).map((tierKey) => {
                   const tierConfig = TIER_CONFIG[tierKey];
                   const isActive = activeTier === tierKey;
                   const tierAction =
@@ -197,7 +188,7 @@ export function PremiumUpgradeModal({
 
           {!isRenewal && (
             <div className="mb-6 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
-              Paket gratis: maksimal 3 foto per iklan, 3 listing aktif, tayang 30 hari.
+              Paket gratis: maksimal 5 foto per iklan, 5 listing aktif, tayang 60 hari.
             </div>
           )}
 
