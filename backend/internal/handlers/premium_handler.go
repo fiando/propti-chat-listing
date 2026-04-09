@@ -47,7 +47,6 @@ type PremiumHandler struct {
 }
 
 var allowedUpgradeTiers = map[models.SubscriptionTier]struct{}{
-	models.SubscriptionBasic:   {},
 	models.SubscriptionPremium: {},
 	models.SubscriptionPro:     {},
 }
