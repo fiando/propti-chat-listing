@@ -83,6 +83,16 @@ test('homepage pricing links point to profile page, not separate upgrade page', 
   assert.doesNotMatch(homePage, /\/upgrade\?tier=/);
 });
 
+test('homepage free tier does not advertise WhatsApp features; paid tiers do', () => {
+  // WA features are a paid differentiator — not listed for free tier
+  assert.doesNotMatch(homePage, /key: 'free'[\s\S]*?Buat listing via WhatsApp/);
+  // Paid tiers show "Buat & cari via WhatsApp"
+  assert.match(homePage, /Buat & cari via WhatsApp/);
+  // Pricing subtitle covers all upgrade reasons, not just listing count
+  assert.match(homePage, /WhatsApp bot/i);
+  assert.doesNotMatch(homePage, /Semakin banyak listing yang perlu kamu kelola aktif sekaligus/i);
+});
+
 test('profile page auto-opens modal from upgradeTier query param', () => {
   assert.match(profilePage, /upgradeTierParam/);
   assert.match(profilePage, /setShowPremiumModal\(true\)/);

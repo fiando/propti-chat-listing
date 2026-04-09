@@ -355,7 +355,7 @@ func TestCreateListingPremiumTierRejectsWhenActiveQuotaIsReached(t *testing.T) {
 			Address: "Jl. Premium No. 15",
 		},
 	})
-	if err == nil || !strings.Contains(err.Error(), "premium tier allows at most 20 active listing") {
+	if err == nil || !strings.Contains(err.Error(), "premium tier allows at most 25 active listing") {
 		t.Fatalf("expected premium quota error, got %v", err)
 	}
 }
@@ -411,8 +411,9 @@ func TestCreateListingPremiumTierSetsNinetyDayExpiry(t *testing.T) {
 func TestCreateListingBasicTierRejectsWhenActiveQuotaIsReached(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now().UTC()
-	activeListings := make(map[string]*models.Listing, 8)
-	for i := 0; i < 8; i++ {
+	// Basic tier is aliased to Premium entitlements (25-listing cap).
+	activeListings := make(map[string]*models.Listing, 25)
+	for i := 0; i < 25; i++ {
 		listingID := fmt.Sprintf("listing-basic-%d", i+1)
 		expiresAt := now.Add(24 * time.Hour)
 		activeListings[listingID] = &models.Listing{
@@ -455,7 +456,7 @@ func TestCreateListingBasicTierRejectsWhenActiveQuotaIsReached(t *testing.T) {
 			Address: "Jl. Basic No. 6",
 		},
 	})
-	if err == nil || !strings.Contains(err.Error(), "basic tier allows at most 8 active listing") {
+	if err == nil || !strings.Contains(err.Error(), "basic tier allows at most 25 active listing") {
 		t.Fatalf("expected basic quota error, got %v", err)
 	}
 }
