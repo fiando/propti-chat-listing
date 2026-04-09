@@ -127,7 +127,6 @@ const PRICING_PLANS = [
     features: [
       '3 listing aktif',
       'Hingga 3 foto per listing',
-      'Buat listing via WhatsApp',
       'Listing tayang 30 hari',
     ],
     cta: 'Mulai Gratis',
@@ -596,7 +595,7 @@ export default async function HomePage() {
             </span>
             <h2 className="section-title">Pilih Paket Sesuai Aktivitas Kerjamu</h2>
             <p className="section-subtitle max-w-2xl mx-auto">
-              Mulai gratis, upgrade kapan saja. Semakin banyak listing yang perlu kamu kelola aktif sekaligus, pilih paket yang lebih tinggi.
+              Mulai gratis, upgrade kapan saja. Paket berbayar membuka lebih banyak listing aktif, lebih banyak foto per iklan, fitur WhatsApp bot, dan pembuatan iklan via pesan suara.
             </p>
           </div>
 
