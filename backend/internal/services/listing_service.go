@@ -116,10 +116,6 @@ func (s *ListingService) CreateListing(ctx context.Context, userID string, req *
 	if err := utils.ValidateCreateListingRequest(req); err != nil {
 		return nil, utils.WrapError(utils.ErrBadRequest, err)
 	}
-	if containsLegacyImagePayload(req.Images) {
-		return nil, utils.NewAppError(400, "base64 image payloads are no longer accepted; use upload sessions")
-	}
-
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil || user == nil {
 		return nil, utils.ErrUnauthorized
@@ -148,6 +144,12 @@ func (s *ListingService) CreateListing(ctx context.Context, userID string, req *
 
 	now := s.now()
 	expiresAt := now.AddDate(0, 0, listingDurationDaysForTier(effectiveTier))
+
+	moderationStatus := models.ModerationStatusPending
+	if req.IsDraft {
+		moderationStatus = models.ModerationStatusDraft
+	}
+
 	listing := &models.Listing{
 		PK:               fmt.Sprintf("%s#%s", userID, listingID),
 		SK:               listingID,
@@ -165,7 +167,7 @@ func (s *ListingService) CreateListing(ctx context.Context, userID string, req *
 		Videos:           req.Videos,
 		ImageCount:       len(images),
 		PremiumFeatures:  models.PremiumFeatures{IsPremium: IsPaidTier(effectiveTier)},
-		ModerationStatus: models.ModerationStatusPending,
+		ModerationStatus: moderationStatus,
 		CreatedAt:        now,
 		UpdatedAt:        now,
 		ExpiresAt:        &expiresAt,
@@ -176,9 +178,11 @@ func (s *ListingService) CreateListing(ctx context.Context, userID string, req *
 		return nil, utils.ErrInternal
 	}
 
-	if err := s.enqueueListingModeration(ctx, listing.ListingID, true, nil); err != nil {
-		utils.LogError("enqueue listing moderation", err, "listingId", listing.ListingID)
-		return nil, utils.ErrInternal
+	if !req.IsDraft {
+		if err := s.enqueueListingModeration(ctx, listing.ListingID, true, nil); err != nil {
+			utils.LogError("enqueue listing moderation", err, "listingId", listing.ListingID)
+			return nil, utils.ErrInternal
+		}
 	}
 
 	return listing, nil
@@ -262,10 +266,6 @@ func (s *ListingService) UpdateListing(ctx context.Context, userID, listingID st
 	if listing.ModerationStatus == models.ModerationStatusRejected {
 		return nil, utils.NewAppError(403, "listing telah ditolak moderasi dan tidak dapat diedit; hapus listing ini dan buat ulang jika diperlukan")
 	}
-	if containsLegacyImagePayload(req.Images) {
-		return nil, utils.NewAppError(400, "base64 image payloads are no longer accepted; use upload sessions")
-	}
-
 	user, _ := s.userRepo.GetByID(ctx, userID)
 	effectiveTier := effectiveTierForUser(user, time.Now())
 	now := s.now()

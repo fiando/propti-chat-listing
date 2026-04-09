@@ -30,6 +30,7 @@ type OTPStore interface {
 	Put(ctx context.Context, challenge *OTPChallenge) error
 	GetByID(ctx context.Context, challengeID string) (*OTPChallenge, error)
 	GetLatestByUser(ctx context.Context, userID string) (*OTPChallenge, error)
+	GetLatestByPhone(ctx context.Context, phone string) (*OTPChallenge, error)
 }
 
 type OTPRepo struct {
@@ -102,6 +103,42 @@ func (r *OTPRepo) GetLatestByUser(ctx context.Context, userID string) (*OTPChall
 	})
 	if err != nil {
 		return nil, fmt.Errorf("scan otp challenges by user: %w", err)
+	}
+	if len(result.Items) == 0 {
+		return nil, nil
+	}
+
+	challenges := make([]OTPChallenge, 0, len(result.Items))
+	for _, item := range result.Items {
+		var challenge OTPChallenge
+		if err := attributevalue.UnmarshalMap(item, &challenge); err != nil {
+			return nil, fmt.Errorf("unmarshal otp challenge: %w", err)
+		}
+		challenges = append(challenges, challenge)
+	}
+
+	sort.Slice(challenges, func(i, j int) bool {
+		return challenges[i].CreatedAt.After(challenges[j].CreatedAt)
+	})
+
+	latest := challenges[0]
+	return &latest, nil
+}
+
+func (r *OTPRepo) GetLatestByPhone(ctx context.Context, phone string) (*OTPChallenge, error) {
+	if phone == "" {
+		return nil, fmt.Errorf("phone is required")
+	}
+
+	result, err := r.db.Client.Scan(ctx, &dynamodb.ScanInput{
+		TableName:        aws.String(r.db.OTPChallengesTable),
+		FilterExpression: aws.String("phone = :phone"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":phone": &types.AttributeValueMemberS{Value: phone},
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("scan otp challenges by phone: %w", err)
 	}
 	if len(result.Items) == 0 {
 		return nil, nil

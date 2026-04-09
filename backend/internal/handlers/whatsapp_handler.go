@@ -17,6 +17,8 @@ import (
 	"github.com/fiando/propti/backend/internal/utils"
 )
 
+const whatsAppLinkConfirmationMessage = "✅ Nomor WhatsApp kamu berhasil terhubung ke Propti!\n\nCara pakainya:\n• Pasang iklan: ketik detail properti langsung di chat atau kirim voice note. Contoh: \"jual rumah 2 lantai di Ciputat harga 750jt\"\n• Cari properti: awali pesan dengan kata \"cari\". Contoh: \"cari rumah 3 kamar di Sleman harga di bawah 500 jt\"\n\nSilakan kirim pesan kapan saja ke chat ini dan Propti akan balas langsung di WhatsApp."
+
 type whatsAppWebhookProvider interface {
 	ParseInboundWebhook(ctx context.Context, request *http.Request) (*models.WhatsAppMessageEnvelope, error)
 	ParseDeliveryStatusWebhook(ctx context.Context, request *http.Request) ([]models.WhatsAppDeliveryStatusEvent, error)
@@ -39,6 +41,18 @@ type whatsAppWebhookPolicy interface {
 	RecordInboundMessage(ctx context.Context, envelope models.WhatsAppMessageEnvelope) error
 }
 
+type whatsAppInboundIdentityVerifier interface {
+	VerifyLinkFromInbound(ctx context.Context, fromPhone, text string) (bool, error)
+}
+
+type whatsAppLinkConfirmSender interface {
+	Send(ctx context.Context, request models.WhatsAppSendRequest) (models.WhatsAppSendResult, error)
+}
+
+type whatsAppCommandReplySender interface {
+	Send(ctx context.Context, request models.WhatsAppSendRequest) (models.WhatsAppSendResult, error)
+}
+
 type whatsAppWebhookStatusSink interface {
 	HandleDeliveryStatus(ctx context.Context, event models.WhatsAppDeliveryStatusEvent) error
 }
@@ -49,6 +63,9 @@ type WhatsAppHandlerDependencies struct {
 	CommandOrchestrator whatsAppWebhookCommandOrchestrator
 	VoiceService        whatsAppWebhookVoiceService
 	Policy              whatsAppWebhookPolicy
+	IdentityVerifier    whatsAppInboundIdentityVerifier
+	ConfirmSender       whatsAppLinkConfirmSender
+	CommandReplySender  whatsAppCommandReplySender
 	StatusSink          whatsAppWebhookStatusSink
 	MetaVerifyToken     string
 }
@@ -59,6 +76,9 @@ type WhatsAppHandler struct {
 	commandOrchestrator whatsAppWebhookCommandOrchestrator
 	voiceService        whatsAppWebhookVoiceService
 	policy              whatsAppWebhookPolicy
+	identityVerifier    whatsAppInboundIdentityVerifier
+	confirmSender       whatsAppLinkConfirmSender
+	commandReplySender  whatsAppCommandReplySender
 	statusSink          whatsAppWebhookStatusSink
 	metaVerifyToken     string
 }
@@ -70,6 +90,9 @@ func NewWhatsAppHandler(deps WhatsAppHandlerDependencies) *WhatsAppHandler {
 		commandOrchestrator: deps.CommandOrchestrator,
 		voiceService:        deps.VoiceService,
 		policy:              deps.Policy,
+		identityVerifier:    deps.IdentityVerifier,
+		confirmSender:       deps.ConfirmSender,
+		commandReplySender:  deps.CommandReplySender,
 		statusSink:          deps.StatusSink,
 		metaVerifyToken:     strings.TrimSpace(deps.MetaVerifyToken),
 	}
@@ -152,6 +175,27 @@ func (h *WhatsAppHandler) processInbound(ctx context.Context, req events.APIGate
 			utils.LogWarn("record whatsapp inbound session", "error", err.Error())
 		}
 	}
+	if h.identityVerifier != nil {
+		verified, err := h.identityVerifier.VerifyLinkFromInbound(ctx, envelope.From, envelope.Text)
+		if err != nil {
+			return appErrorResponse(err), true
+		}
+		if verified {
+			if h.confirmSender != nil {
+				_, sendErr := h.confirmSender.Send(ctx, models.WhatsAppSendRequest{
+					To: envelope.From,
+					Message: models.WhatsAppOutboundMessage{
+						Type: models.WhatsAppMessageTypeText,
+						Text: whatsAppLinkConfirmationMessage,
+					},
+				})
+				if sendErr != nil {
+					utils.LogWarn("send whatsapp link confirmation", "error", sendErr.Error())
+				}
+			}
+			return jsonResponse(http.StatusOK, `{"status":"ok","reason":"whatsapp_link_verified"}`), true
+		}
+	}
 
 	userID, err := h.lookupUserIDByWhatsAppPhone(ctx, envelope.From)
 	if err != nil {
@@ -170,6 +214,18 @@ func (h *WhatsAppHandler) processInbound(ctx context.Context, req events.APIGate
 		if err != nil {
 			return appErrorResponse(err), true
 		}
+		if replyText := voiceReplyText(voiceResp); replyText != "" && h.commandReplySender != nil {
+			_, sendErr := h.commandReplySender.Send(ctx, models.WhatsAppSendRequest{
+				To: envelope.From,
+				Message: models.WhatsAppOutboundMessage{
+					Type: models.WhatsAppMessageTypeText,
+					Text: replyText,
+				},
+			})
+			if sendErr != nil {
+				utils.LogWarn("send whatsapp voice reply", "error", sendErr.Error(), "to", envelope.From, "providerMessageId", envelope.ProviderMessageID)
+			}
+		}
 		body, _ := json.Marshal(voiceResp)
 		return jsonResponse(http.StatusOK, string(body)), true
 	}
@@ -183,6 +239,18 @@ func (h *WhatsAppHandler) processInbound(ctx context.Context, req events.APIGate
 	})
 	if err != nil {
 		return appErrorResponse(err), true
+	}
+	if commandResp.Message != "" && h.commandReplySender != nil {
+		_, sendErr := h.commandReplySender.Send(ctx, models.WhatsAppSendRequest{
+			To: envelope.From,
+			Message: models.WhatsAppOutboundMessage{
+				Type: models.WhatsAppMessageTypeText,
+				Text: commandResp.Message,
+			},
+		})
+		if sendErr != nil {
+			utils.LogWarn("send whatsapp command reply", "error", sendErr.Error(), "to", envelope.From, "providerMessageId", envelope.ProviderMessageID)
+		}
 	}
 	body, _ := json.Marshal(commandResp)
 	return jsonResponse(http.StatusOK, string(body)), true
@@ -251,6 +319,19 @@ func hasAudioMedia(items []models.WhatsAppMediaItem) bool {
 		}
 	}
 	return false
+}
+
+func voiceReplyText(resp *services.WhatsAppVoiceResponse) string {
+	if resp == nil {
+		return ""
+	}
+	if msg := strings.TrimSpace(resp.FallbackMessage); msg != "" {
+		return msg
+	}
+	if resp.CommandResponse != nil {
+		return strings.TrimSpace(resp.CommandResponse.Message)
+	}
+	return ""
 }
 
 func toHTTPRequest(req events.APIGatewayProxyRequest) (*http.Request, error) {

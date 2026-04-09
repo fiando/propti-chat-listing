@@ -24,10 +24,10 @@ func main() {
 	}
 
 	listingRepo := repository.NewListingRepo(db)
+	leadRepo := repository.NewLeadRepo(db)
 	userRepo := repository.NewUserRepo(db)
 	moderationRepo := repository.NewModerationRepo(db)
 	uploadSessionRepo := repository.NewUploadSessionRepo(db)
-	otpRepo := repository.NewOTPRepo(db)
 
 	s3Svc, err := services.NewS3Service(ctx, os.Getenv("S3_MEDIA_BUCKET"))
 	if err != nil {
@@ -49,12 +49,7 @@ func main() {
 		panic(err)
 	}
 	listingSvc := services.NewListingService(listingRepo, userRepo, aiSvc, s3Svc, mapsSvc, locationCatalog)
-	identitySvc, err := services.NewWhatsAppIdentityService(userRepo, otpRepo, services.WhatsAppIdentityOptions{})
-	if err != nil {
-		utils.LogError("init whatsapp identity service", err)
-		panic(err)
-	}
-	listingSvc.SetWriteEligibilityGuard(identitySvc)
+	leadSvc := services.NewLeadService(leadRepo)
 	listingSvc.SetUploadSessionStore(uploadSessionRepo)
 	uploadSessionSvc := services.NewUploadSessionService(uploadSessionRepo, userRepo, listingRepo, s3Svc)
 	searchIntentSvc := services.NewSearchIntentService(aiSvc, locationCatalog)
@@ -67,7 +62,7 @@ func main() {
 		listingSvc.SetModerationEnqueuer(moderationQueue)
 	}
 
-	imageModerator, err := services.NewImageModerator(ctx, os.Getenv("IMAGE_MODERATION_PROVIDER"), openAIAPIKey)
+	imageModerator, err := services.NewImageModerator(openAIAPIKey)
 	if err != nil {
 		utils.LogError("init image moderator", err)
 		panic(err)
@@ -81,6 +76,7 @@ func main() {
 
 	listingHandler := handlers.NewListingHandler(listingSvc, uploadSessionSvc, services.NewListingMediaPresenter(s3Svc))
 	searchHandler := handlers.NewSearchHandler(listingRepo, mapsSvc, locationCatalog, searchIntentSvc)
+	leadHandler := handlers.NewLeadHandler(leadSvc)
 
 	// Route /search/* and /locations/* to searchHandler; all others to listingHandler.
 	lambda.Start(func(ctx context.Context, rawReq json.RawMessage) (interface{}, error) {
@@ -112,6 +108,6 @@ func main() {
 			return nil, err
 		}
 
-		return handlers.CombinedListingHandler(ctx, req, listingHandler, searchHandler)
+		return handlers.CombinedListingHandler(ctx, req, listingHandler, searchHandler, leadHandler)
 	})
 }

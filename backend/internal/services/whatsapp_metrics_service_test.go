@@ -131,7 +131,7 @@ func TestWhatsAppMetricsServiceRecordsUpgradeAndZeroContextSignalsWithTier(t *te
 	if err := service.RecordZeroContextSwitchCompletion(ctx, WhatsAppZeroContextSwitchCompletionMetric{
 		UserID: "user-1",
 		Tier:   models.SubscriptionPro,
-		Intent: string(WhatsAppCommandIntentListingRead),
+		Intent: string(WhatsAppCommandIntentListingCreate),
 	}); err != nil {
 		t.Fatalf("RecordZeroContextSwitchCompletion returned error: %v", err)
 	}

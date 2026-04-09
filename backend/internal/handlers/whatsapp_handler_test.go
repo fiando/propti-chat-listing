@@ -217,12 +217,20 @@ func TestWhatsAppHandlerInboundVoiceRoutesToVoiceService(t *testing.T) {
 		},
 	}
 	voice := &fakeWhatsAppVoiceService{
-		resp: &services.WhatsAppVoiceResponse{Status: services.WhatsAppVoiceStatusProcessed},
+		resp: &services.WhatsAppVoiceResponse{
+			Status: services.WhatsAppVoiceStatusProcessed,
+			CommandResponse: &services.WhatsAppCommandResponse{
+				Intent:  services.WhatsAppCommandIntentListingCreate,
+				Message: "✅ Iklan kamu berhasil dibuat dan sedang menunggu review.",
+			},
+		},
 	}
+	replySender := &fakeLinkConfirmSender{}
 	handler := NewWhatsAppHandler(WhatsAppHandlerDependencies{
-		Provider:     provider,
-		UserStore:    &fakeWhatsAppUserStore{user: &models.User{UserID: "user-1"}},
-		VoiceService: voice,
+		Provider:           provider,
+		UserStore:          &fakeWhatsAppUserStore{user: &models.User{UserID: "user-1"}},
+		VoiceService:       voice,
+		CommandReplySender: replySender,
 	})
 
 	resp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
@@ -244,6 +252,62 @@ func TestWhatsAppHandlerInboundVoiceRoutesToVoiceService(t *testing.T) {
 	}
 	if voice.lastReq.UserID != "user-1" {
 		t.Fatalf("expected voice request userID user-1, got %q", voice.lastReq.UserID)
+	}
+	if len(replySender.sendRequests) != 1 {
+		t.Fatalf("expected 1 voice reply send, got %d", len(replySender.sendRequests))
+	}
+	if !strings.Contains(replySender.sendRequests[0].Message.Text, "berhasil dibuat") {
+		t.Fatalf("expected voice reply text to include listing success, got %q", replySender.sendRequests[0].Message.Text)
+	}
+}
+
+func TestWhatsAppHandlerInboundVoiceSendsFallbackReply(t *testing.T) {
+	provider := &fakeWebhookProvider{
+		inboundEnvelope: &models.WhatsAppMessageEnvelope{
+			Provider:          models.WhatsAppProviderTwilio,
+			ProviderMessageID: "SMVOICE2",
+			From:              "whatsapp:+628123456789",
+			To:                "whatsapp:+14155550000",
+			Type:              models.WhatsAppMessageTypeMedia,
+			Media: []models.WhatsAppMediaItem{
+				{URL: "https://media.example.com/voice.mp3", MimeType: "audio/mpeg"},
+			},
+			ReceivedAt: time.Now().UTC(),
+		},
+	}
+	voice := &fakeWhatsAppVoiceService{
+		resp: &services.WhatsAppVoiceResponse{
+			Status:          services.WhatsAppVoiceStatusFallback,
+			FallbackMessage: "Maaf, voice note belum cukup jelas.",
+		},
+	}
+	replySender := &fakeLinkConfirmSender{}
+	handler := NewWhatsAppHandler(WhatsAppHandlerDependencies{
+		Provider:           provider,
+		UserStore:          &fakeWhatsAppUserStore{user: &models.User{UserID: "user-1"}},
+		VoiceService:       voice,
+		CommandReplySender: replySender,
+	})
+
+	resp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodPost,
+		Path:       "/whatsapp/webhook/inbound",
+		Headers: map[string]string{
+			"Content-Type": "application/json",
+		},
+		Body: `{"entry":[]}`,
+	})
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", resp.StatusCode, resp.Body)
+	}
+	if len(replySender.sendRequests) != 1 {
+		t.Fatalf("expected 1 fallback reply send, got %d", len(replySender.sendRequests))
+	}
+	if replySender.sendRequests[0].Message.Text != "Maaf, voice note belum cukup jelas." {
+		t.Fatalf("expected fallback reply message, got %q", replySender.sendRequests[0].Message.Text)
 	}
 }
 
@@ -304,6 +368,118 @@ func TestWhatsAppHandlerInboundRejectsInvalidSignature(t *testing.T) {
 	}
 }
 
+type fakeIdentityVerifier struct {
+	verified bool
+	err      error
+	lastFrom string
+	lastText string
+}
+
+func (f *fakeIdentityVerifier) VerifyLinkFromInbound(_ context.Context, fromPhone, text string) (bool, error) {
+	f.lastFrom = fromPhone
+	f.lastText = text
+	return f.verified, f.err
+}
+
+func TestWhatsAppHandlerInboundLinkVerificationReturnsVerifiedBeforeUserLookup(t *testing.T) {
+	provider := &fakeWebhookProvider{
+		inboundEnvelope: &models.WhatsAppMessageEnvelope{
+			Provider:          models.WhatsAppProviderTwilio,
+			ProviderMessageID: "SM999",
+			From:              "whatsapp:+628123456789",
+			To:                "whatsapp:+14155550000",
+			Type:              models.WhatsAppMessageTypeText,
+			Text:              "PROPTI LINK 182542",
+			ReceivedAt:        time.Now().UTC(),
+		},
+	}
+	verifier := &fakeIdentityVerifier{verified: true}
+	handler := NewWhatsAppHandler(WhatsAppHandlerDependencies{
+		Provider:         provider,
+		UserStore:        &fakeWhatsAppUserStore{}, // no linked user
+		IdentityVerifier: verifier,
+	})
+
+	resp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodPost,
+		Path:       "/whatsapp/webhook/inbound",
+		Headers:    map[string]string{"Content-Type": "application/json"},
+		Body:       `{"entry":[]}`,
+	})
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", resp.StatusCode, resp.Body)
+	}
+	if !strings.Contains(resp.Body, "whatsapp_link_verified") {
+		t.Fatalf("expected whatsapp_link_verified response, got %s", resp.Body)
+	}
+	if verifier.lastFrom != "whatsapp:+628123456789" {
+		t.Fatalf("expected verifier to receive raw from phone, got %q", verifier.lastFrom)
+	}
+}
+
+type fakeLinkConfirmSender struct {
+	sendRequests []models.WhatsAppSendRequest
+	sendErr      error
+}
+
+func (f *fakeLinkConfirmSender) Send(_ context.Context, req models.WhatsAppSendRequest) (models.WhatsAppSendResult, error) {
+	f.sendRequests = append(f.sendRequests, req)
+	return models.WhatsAppSendResult{}, f.sendErr
+}
+
+func TestWhatsAppHandlerInboundLinkVerificationSendsConfirmationMessage(t *testing.T) {
+	provider := &fakeWebhookProvider{
+		inboundEnvelope: &models.WhatsAppMessageEnvelope{
+			Provider:          models.WhatsAppProviderTwilio,
+			ProviderMessageID: "SM999",
+			From:              "whatsapp:+628123456789",
+			To:                "whatsapp:+14155550000",
+			Type:              models.WhatsAppMessageTypeText,
+			Text:              "PROPTI LINK 182542",
+			ReceivedAt:        time.Now().UTC(),
+		},
+	}
+	verifier := &fakeIdentityVerifier{verified: true}
+	sender := &fakeLinkConfirmSender{}
+	handler := NewWhatsAppHandler(WhatsAppHandlerDependencies{
+		Provider:         provider,
+		UserStore:        &fakeWhatsAppUserStore{},
+		IdentityVerifier: verifier,
+		ConfirmSender:    sender,
+	})
+
+	resp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodPost,
+		Path:       "/whatsapp/webhook/inbound",
+		Headers:    map[string]string{"Content-Type": "application/json"},
+		Body:       `{"entry":[]}`,
+	})
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", resp.StatusCode, resp.Body)
+	}
+	if len(sender.sendRequests) != 1 {
+		t.Fatalf("expected 1 confirmation send, got %d", len(sender.sendRequests))
+	}
+	if sender.sendRequests[0].To != "whatsapp:+628123456789" {
+		t.Fatalf("expected confirmation sent to %q, got %q", "whatsapp:+628123456789", sender.sendRequests[0].To)
+	}
+	if sender.sendRequests[0].Message.Type != models.WhatsAppMessageTypeText {
+		t.Fatalf("expected text message type, got %q", sender.sendRequests[0].Message.Type)
+	}
+	if !strings.Contains(sender.sendRequests[0].Message.Text, "voice note") {
+		t.Fatalf("expected confirmation message to include voice note guidance, got %q", sender.sendRequests[0].Message.Text)
+	}
+	if !strings.Contains(sender.sendRequests[0].Message.Text, "cari rumah 3 kamar") {
+		t.Fatalf("expected confirmation message to include search guidance, got %q", sender.sendRequests[0].Message.Text)
+	}
+}
+
 func TestWhatsAppHandlerTemplateWiresWebhookLambdaRoutes(t *testing.T) {
 	template, err := os.ReadFile("../../template.yaml")
 	if err != nil {
@@ -322,6 +498,24 @@ func TestWhatsAppHandlerTemplateWiresWebhookLambdaRoutes(t *testing.T) {
 	}
 	if !strings.Contains(content, "Path: /whatsapp/webhook/status") {
 		t.Fatal("expected SAM template to expose /whatsapp/webhook/status route")
+	}
+	if !strings.Contains(content, "WhatsAppFunction:") || !strings.Contains(content, "LISTINGS_FUNCTION_NAME: !Sub \"propti-listings-${Stage}\"") {
+		t.Fatal("expected WhatsApp lambda environment to include LISTINGS_FUNCTION_NAME for async moderation")
+	}
+}
+
+func TestWhatsAppBootstrapConfiguresModerationQueue(t *testing.T) {
+	source, err := os.ReadFile("../../cmd/whatsapp/main.go")
+	if err != nil {
+		t.Fatalf("read whatsapp main: %v", err)
+	}
+	content := string(source)
+
+	if !strings.Contains(content, "LISTINGS_FUNCTION_NAME") {
+		t.Fatal("expected whatsapp bootstrap to read LISTINGS_FUNCTION_NAME")
+	}
+	if !strings.Contains(content, "SetModerationEnqueuer") {
+		t.Fatal("expected whatsapp bootstrap to attach moderation enqueuer to listing service")
 	}
 }
 
@@ -363,5 +557,98 @@ func TestToHTTPRequestPrefersHostHeaderOverForwardedHost(t *testing.T) {
 
 	if got, want := httpReq.URL.String(), "https://api.propti.id/whatsapp/webhook"; got != want {
 		t.Fatalf("expected host header URL %q, got %q", want, got)
+	}
+}
+
+func TestWhatsAppHandlerCommandReplySentAfterOrchestration(t *testing.T) {
+	provider := &fakeWebhookProvider{
+		inboundEnvelope: &models.WhatsAppMessageEnvelope{
+			Provider:          models.WhatsAppProviderTwilio,
+			ProviderMessageID: "SM555",
+			From:              "whatsapp:+628123456789",
+			To:                "whatsapp:+14155550000",
+			Type:              models.WhatsAppMessageTypeText,
+			Text:              "jual rumah di bandung harga 1.5M",
+			ReceivedAt:        time.Now().UTC(),
+		},
+	}
+	command := &fakeWhatsAppCommandOrchestrator{
+		resp: &services.WhatsAppCommandResponse{
+			Intent:  services.WhatsAppCommandIntentListingCreate,
+			Message: "✅ Iklan kamu berhasil dibuat dan sedang menunggu review.",
+		},
+	}
+	replySender := &fakeLinkConfirmSender{}
+	handler := NewWhatsAppHandler(WhatsAppHandlerDependencies{
+		Provider:            provider,
+		UserStore:           &fakeWhatsAppUserStore{user: &models.User{UserID: "user-1"}},
+		CommandOrchestrator: command,
+		CommandReplySender:  replySender,
+		Policy:              &fakeWhatsAppPolicy{},
+	})
+
+	resp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodPost,
+		Path:       "/whatsapp/webhook/inbound",
+		Headers:    map[string]string{"Content-Type": "application/json"},
+		Body:       `{"entry":[]}`,
+	})
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", resp.StatusCode, resp.Body)
+	}
+	if len(replySender.sendRequests) != 1 {
+		t.Fatalf("expected 1 command reply send, got %d", len(replySender.sendRequests))
+	}
+	if replySender.sendRequests[0].To != "whatsapp:+628123456789" {
+		t.Fatalf("expected reply sent to %q, got %q", "whatsapp:+628123456789", replySender.sendRequests[0].To)
+	}
+	if replySender.sendRequests[0].Message.Type != models.WhatsAppMessageTypeText {
+		t.Fatalf("expected text message type, got %q", replySender.sendRequests[0].Message.Type)
+	}
+	if !strings.Contains(replySender.sendRequests[0].Message.Text, "berhasil") {
+		t.Fatalf("expected success message text, got %q", replySender.sendRequests[0].Message.Text)
+	}
+}
+
+func TestWhatsAppHandlerNoCommandReplyWhenSenderNil(t *testing.T) {
+	provider := &fakeWebhookProvider{
+		inboundEnvelope: &models.WhatsAppMessageEnvelope{
+			Provider:          models.WhatsAppProviderTwilio,
+			ProviderMessageID: "SM556",
+			From:              "whatsapp:+628123456789",
+			To:                "whatsapp:+14155550000",
+			Type:              models.WhatsAppMessageTypeText,
+			Text:              "cari rumah di sleman",
+			ReceivedAt:        time.Now().UTC(),
+		},
+	}
+	command := &fakeWhatsAppCommandOrchestrator{
+		resp: &services.WhatsAppCommandResponse{
+			Intent:  services.WhatsAppCommandIntentSearch,
+			Message: "Ditemukan 3 properti",
+		},
+	}
+	// CommandReplySender intentionally not set
+	handler := NewWhatsAppHandler(WhatsAppHandlerDependencies{
+		Provider:            provider,
+		UserStore:           &fakeWhatsAppUserStore{user: &models.User{UserID: "user-1"}},
+		CommandOrchestrator: command,
+		Policy:              &fakeWhatsAppPolicy{},
+	})
+
+	resp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodPost,
+		Path:       "/whatsapp/webhook/inbound",
+		Headers:    map[string]string{"Content-Type": "application/json"},
+		Body:       `{"entry":[]}`,
+	})
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", resp.StatusCode, resp.Body)
 	}
 }

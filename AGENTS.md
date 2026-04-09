@@ -85,6 +85,7 @@ Committed backend templates should include:
 - `DOKU_CLIENT_ID`
 - `DOKU_SECRET_KEY`
 - `AWS_ROLE_ARN`
+- `WHATSAPP_MESSAGE_TARGET`
 
 Required GitHub production secrets:
 - `AWS_ROLE_ARN`
@@ -93,6 +94,7 @@ Required GitHub production secrets:
 - `GOOGLE_MAPS_API_KEY`
 - `DOKU_CLIENT_ID`
 - `DOKU_SECRET_KEY`
+- `WHATSAPP_MESSAGE_TARGET`
 
 SAM injects these runtime values during deploy, so they do not need to be authored in committed env templates unless local tooling specifically needs them:
 - `DYNAMODB_LISTINGS_TABLE`

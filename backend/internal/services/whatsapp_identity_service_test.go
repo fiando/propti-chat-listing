@@ -36,7 +36,14 @@ func (f *fakeWhatsAppIdentityUserStore) Put(_ context.Context, user *models.User
 	}
 	copy := *user
 	f.usersByID[user.UserID] = &copy
-	if copy.WhatsAppLinkedPhone != "" {
+	if f.userByWhatsAppPhone != nil {
+		for phone, existing := range f.userByWhatsAppPhone {
+			if existing != nil && existing.UserID == copy.UserID {
+				delete(f.userByWhatsAppPhone, phone)
+			}
+		}
+	}
+	if copy.WhatsAppLinkedPhone != "" && copy.WhatsAppVerifiedAt != nil {
 		if f.userByWhatsAppPhone == nil {
 			f.userByWhatsAppPhone = map[string]*models.User{}
 		}
@@ -50,7 +57,7 @@ func (f *fakeWhatsAppIdentityUserStore) GetByWhatsAppPhone(_ context.Context, ph
 		return nil, nil
 	}
 	user := f.userByWhatsAppPhone[phone]
-	if user == nil {
+	if user == nil || user.WhatsAppVerifiedAt == nil {
 		return nil, nil
 	}
 	copy := *user
@@ -109,6 +116,20 @@ func (f *fakeWhatsAppOTPStore) GetLatestByUser(_ context.Context, userID string)
 	return latest, nil
 }
 
+func (f *fakeWhatsAppOTPStore) GetLatestByPhone(_ context.Context, phone string) (*repository.OTPChallenge, error) {
+	var latest *repository.OTPChallenge
+	for _, item := range f.challenges {
+		if item.Phone != phone {
+			continue
+		}
+		if latest == nil || item.CreatedAt.After(latest.CreatedAt) {
+			copy := *item
+			latest = &copy
+		}
+	}
+	return latest, nil
+}
+
 func TestWhatsAppIdentityStartLinkCreatesChallengeWithExpiry(t *testing.T) {
 	now := time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)
 	users := &fakeWhatsAppIdentityUserStore{usersByID: map[string]*models.User{"user-1": {UserID: "user-1"}}}
@@ -147,56 +168,132 @@ func TestWhatsAppIdentityStartLinkCreatesChallengeWithExpiry(t *testing.T) {
 	if stored.RetryCount != 1 {
 		t.Fatalf("expected retry count 1, got %d", stored.RetryCount)
 	}
+	if users.putCalls != 0 {
+		t.Fatalf("expected start link to avoid mutating user before verification, got %d put calls", users.putCalls)
+	}
+	if users.usersByID["user-1"].WhatsAppLinkedPhone != "" {
+		t.Fatalf("expected whatsapp phone to stay unset before verification, got %q", users.usersByID["user-1"].WhatsAppLinkedPhone)
+	}
 }
 
-func TestWhatsAppIdentityStartLinkSendsOTPWhenSenderConfigured(t *testing.T) {
+func TestWhatsAppIdentityStartLinkReturnsInboundChallengeMessageAndLink(t *testing.T) {
 	now := time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)
 	users := &fakeWhatsAppIdentityUserStore{usersByID: map[string]*models.User{"user-1": {UserID: "user-1"}}}
 	otpStore := &fakeWhatsAppOTPStore{}
-	sender := &fakeWhatsAppOTPSender{}
 
 	svc, err := NewWhatsAppIdentityService(users, otpStore, WhatsAppIdentityOptions{
-		Now:          func() time.Time { return now },
-		OTPGenerator: func() (string, error) { return "123456", nil },
-		SendOTP:      sender.Send,
+		Now:                   func() time.Time { return now },
+		OTPGenerator:          func() (string, error) { return "123456", nil },
+		WhatsAppMessageTarget: "whatsapp:+14155238886",
 	})
 	if err != nil {
 		t.Fatalf("NewWhatsAppIdentityService returned error: %v", err)
 	}
 
-	_, err = svc.StartLink(context.Background(), "user-1", "+628123456789")
+	challenge, err := svc.StartLink(context.Background(), "user-1", "+628123456789")
 	if err != nil {
 		t.Fatalf("StartLink returned error: %v", err)
 	}
-	if len(sender.calls) != 1 {
-		t.Fatalf("expected 1 otp send call, got %d", len(sender.calls))
+	if challenge.MessageText != "PROPTI LINK 123456" {
+		t.Fatalf("expected challenge message text, got %q", challenge.MessageText)
 	}
-	if sender.calls[0].phone != "+628123456789" || sender.calls[0].code != "123456" {
-		t.Fatalf("unexpected otp send payload: %#v", sender.calls[0])
+	if challenge.MessageLink == "" {
+		t.Fatal("expected challenge message link to be present")
 	}
 }
 
-func TestWhatsAppIdentityStartLinkReturns502WhenOTPSendFails(t *testing.T) {
+func TestWhatsAppIdentityVerifyLinkFromInboundSetsVerifiedIdentity(t *testing.T) {
 	now := time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)
 	users := &fakeWhatsAppIdentityUserStore{usersByID: map[string]*models.User{"user-1": {UserID: "user-1"}}}
-	otpStore := &fakeWhatsAppOTPStore{}
-	sender := &fakeWhatsAppOTPSender{err: errors.New("twilio down")}
-
-	svc, err := NewWhatsAppIdentityService(users, otpStore, WhatsAppIdentityOptions{
-		Now:          func() time.Time { return now },
-		OTPGenerator: func() (string, error) { return "123456", nil },
-		SendOTP:      sender.Send,
-	})
+	otpStore := &fakeWhatsAppOTPStore{
+		challenges: map[string]*repository.OTPChallenge{
+			"challenge-1": {
+				ChallengeID: "challenge-1",
+				UserID:      "user-1",
+				Phone:       "+628123456789",
+				OTPCode:     "123456",
+				ExpiresAt:   now.Add(5 * time.Minute),
+				CreatedAt:   now,
+			},
+		},
+	}
+	svc, err := NewWhatsAppIdentityService(users, otpStore, WhatsAppIdentityOptions{Now: func() time.Time { return now }})
 	if err != nil {
 		t.Fatalf("NewWhatsAppIdentityService returned error: %v", err)
 	}
 
-	_, err = svc.StartLink(context.Background(), "user-1", "+628123456789")
-	if err == nil {
-		t.Fatal("expected send otp failure")
+	verified, err := svc.VerifyLinkFromInbound(context.Background(), "+628123456789", "PROPTI LINK 123456")
+	if err != nil {
+		t.Fatalf("VerifyLinkFromInbound returned error: %v", err)
 	}
-	if appCode(t, err) != 502 {
-		t.Fatalf("expected 502, got %d (%v)", appCode(t, err), err)
+	if !verified {
+		t.Fatal("expected inbound verification to succeed")
+	}
+	user := users.usersByID["user-1"]
+	if user.WhatsAppLinkedPhone != "+628123456789" || user.WhatsAppVerifiedAt == nil {
+		t.Fatalf("expected user whatsapp identity to be linked+verified, got %#v", user)
+	}
+}
+
+func TestWhatsAppIdentityVerifyLinkFromInboundAcceptsNormalizedChallengeMessage(t *testing.T) {
+	now := time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)
+	users := &fakeWhatsAppIdentityUserStore{usersByID: map[string]*models.User{"user-1": {UserID: "user-1"}}}
+	otpStore := &fakeWhatsAppOTPStore{
+		challenges: map[string]*repository.OTPChallenge{
+			"challenge-1": {
+				ChallengeID: "challenge-1",
+				UserID:      "user-1",
+				Phone:       "+628123456789",
+				OTPCode:     "123456",
+				ExpiresAt:   now.Add(5 * time.Minute),
+				CreatedAt:   now,
+			},
+		},
+	}
+	svc, err := NewWhatsAppIdentityService(users, otpStore, WhatsAppIdentityOptions{Now: func() time.Time { return now }})
+	if err != nil {
+		t.Fatalf("NewWhatsAppIdentityService returned error: %v", err)
+	}
+
+	verified, err := svc.VerifyLinkFromInbound(context.Background(), "+628123456789", "  propti   link 123456 \n")
+	if err != nil {
+		t.Fatalf("VerifyLinkFromInbound returned error: %v", err)
+	}
+	if !verified {
+		t.Fatal("expected normalized inbound verification to succeed")
+	}
+}
+
+func TestWhatsAppIdentityVerifyLinkFromInboundStripsWhatsAppPrefix(t *testing.T) {
+	now := time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)
+	users := &fakeWhatsAppIdentityUserStore{usersByID: map[string]*models.User{"user-1": {UserID: "user-1"}}}
+	otpStore := &fakeWhatsAppOTPStore{
+		challenges: map[string]*repository.OTPChallenge{
+			"challenge-1": {
+				ChallengeID: "challenge-1",
+				UserID:      "user-1",
+				Phone:       "+628123456789",
+				OTPCode:     "182542",
+				ExpiresAt:   now.Add(5 * time.Minute),
+				CreatedAt:   now,
+			},
+		},
+	}
+	svc, err := NewWhatsAppIdentityService(users, otpStore, WhatsAppIdentityOptions{Now: func() time.Time { return now }})
+	if err != nil {
+		t.Fatalf("NewWhatsAppIdentityService returned error: %v", err)
+	}
+
+	verified, err := svc.VerifyLinkFromInbound(context.Background(), "whatsapp:+628123456789", "PROPTI LINK 182542")
+	if err != nil {
+		t.Fatalf("VerifyLinkFromInbound returned error: %v", err)
+	}
+	if !verified {
+		t.Fatal("expected inbound verification with whatsapp: prefix to succeed")
+	}
+	user := users.usersByID["user-1"]
+	if user.WhatsAppLinkedPhone != "+628123456789" || user.WhatsAppVerifiedAt == nil {
+		t.Fatalf("expected user whatsapp identity to be linked+verified, got %#v", user)
 	}
 }
 
@@ -225,6 +322,32 @@ func TestWhatsAppIdentityStartLinkRejectsAlreadyVerifiedPhoneByAnotherUser(t *te
 	}
 	if appCode(t, err) != 409 {
 		t.Fatalf("expected status 409, got %d (%v)", appCode(t, err), err)
+	}
+}
+
+func TestWhatsAppIdentityStartLinkAllowsPhoneHeldOnlyByUnverifiedUser(t *testing.T) {
+	now := time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)
+	users := &fakeWhatsAppIdentityUserStore{
+		usersByID: map[string]*models.User{"user-1": {UserID: "user-1"}},
+		userByWhatsAppPhone: map[string]*models.User{
+			"+628123456789": {
+				UserID:              "user-2",
+				WhatsAppLinkedPhone: "+628123456789",
+			},
+		},
+	}
+
+	svc, err := NewWhatsAppIdentityService(users, &fakeWhatsAppOTPStore{}, WhatsAppIdentityOptions{Now: func() time.Time { return now }})
+	if err != nil {
+		t.Fatalf("NewWhatsAppIdentityService returned error: %v", err)
+	}
+
+	challenge, err := svc.StartLink(context.Background(), "user-1", "+628123456789")
+	if err != nil {
+		t.Fatalf("expected unverified linked phone to remain reusable, got %v", err)
+	}
+	if challenge == nil {
+		t.Fatal("expected challenge to be created")
 	}
 }
 

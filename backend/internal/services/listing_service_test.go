@@ -1552,44 +1552,6 @@ func newTestCatalog() (*LocationCatalog, error) {
 	return NewLocationCatalogFromReader(strings.NewReader(data))
 }
 
-func TestCreateListingRejectsLegacyBase64Payloads(t *testing.T) {
-	ctx := context.Background()
-
-	service := NewListingService(
-		&fakeListingStore{},
-		&fakeUserStore{
-			user: &models.User{
-				UserID: "user-1",
-				Subscription: models.Subscription{
-					Tier: models.SubscriptionPremium, RenewDate: func() *time.Time { t := time.Now().UTC().Add(30 * 24 * time.Hour); return &t }(),
-				},
-			},
-		},
-		nil,
-		nil,
-		nil,
-		nil,
-	)
-
-	_, err := service.CreateListing(ctx, "user-1", &models.CreateListingRequest{
-		Title:       "Rumah siap huni",
-		Description: "Dekat tol",
-		Price:       900000000,
-		PriceUnit:   "total",
-		ListingType: models.ListingTypeSell,
-		Location: models.Location{
-			Address: "Jl. Margonda Raya",
-		},
-		Images: []string{"data:image/jpeg;base64,ZmFrZQ=="},
-	})
-	if err == nil {
-		t.Fatal("expected base64 payload to be rejected")
-	}
-	if appErr, ok := err.(*utils.AppError); !ok || appErr.Code != 400 {
-		t.Fatalf("expected 400 app error, got %T %v", err, err)
-	}
-}
-
 func TestCreateListingPromotesUploadedImagesIntoStructuredMedia(t *testing.T) {
 	ctx := context.Background()
 	media := &fakeMediaService{
@@ -2047,4 +2009,68 @@ func containsString(values []string, needle string) bool {
 		}
 	}
 	return false
+}
+
+func TestCreateListingWithIsDraftSetsDraftStatusAndSkipsModeration(t *testing.T) {
+	ctx := context.Background()
+	store := &fakeListingStore{}
+	queue := &fakeModerationEnqueuer{}
+
+	service := NewListingService(
+		store,
+		&fakeUserStore{user: &models.User{UserID: "user-1", Subscription: models.Subscription{Tier: models.SubscriptionFree}}},
+		nil, nil, nil, nil,
+	)
+	service.SetModerationEnqueuer(queue)
+
+	listing, err := service.CreateListing(ctx, "user-1", &models.CreateListingRequest{
+		Title:       "Rumah Minimalis",
+		Description: "Bagus",
+		Price:       1200000000,
+		PriceUnit:   "total",
+		ListingType: models.ListingTypeSell,
+		Location:    models.Location{Address: "Jl. Contoh"},
+		IsDraft:     true,
+	})
+	if err != nil {
+		t.Fatalf("CreateListing returned error: %v", err)
+	}
+	if listing.ModerationStatus != models.ModerationStatusDraft {
+		t.Fatalf("expected ModerationStatus=draft, got %q", listing.ModerationStatus)
+	}
+	if len(queue.listingIDs) != 0 {
+		t.Fatalf("expected moderation queue not to be called for draft, got %d calls", len(queue.listingIDs))
+	}
+}
+
+func TestCreateListingWithoutIsDraftSetsPendingAndEnqueuesModeration(t *testing.T) {
+	ctx := context.Background()
+	store := &fakeListingStore{}
+	queue := &fakeModerationEnqueuer{}
+
+	service := NewListingService(
+		store,
+		&fakeUserStore{user: &models.User{UserID: "user-1", Subscription: models.Subscription{Tier: models.SubscriptionFree}}},
+		nil, nil, nil, nil,
+	)
+	service.SetModerationEnqueuer(queue)
+
+	listing, err := service.CreateListing(ctx, "user-1", &models.CreateListingRequest{
+		Title:       "Rumah Minimalis",
+		Description: "Bagus",
+		Price:       1200000000,
+		PriceUnit:   "total",
+		ListingType: models.ListingTypeSell,
+		Location:    models.Location{Address: "Jl. Contoh"},
+		IsDraft:     false,
+	})
+	if err != nil {
+		t.Fatalf("CreateListing returned error: %v", err)
+	}
+	if listing.ModerationStatus != models.ModerationStatusPending {
+		t.Fatalf("expected ModerationStatus=pending, got %q", listing.ModerationStatus)
+	}
+	if len(queue.listingIDs) != 1 || queue.listingIDs[0] != listing.ListingID {
+		t.Fatalf("expected moderation queue to be called once with listing ID, got %v", queue.listingIDs)
+	}
 }

@@ -1,0 +1,84 @@
+package repository
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/fiando/propti/backend/internal/models"
+)
+
+type LeadRepo struct {
+	db *DynamoDB
+}
+
+func NewLeadRepo(db *DynamoDB) *LeadRepo {
+	return &LeadRepo{db: db}
+}
+
+func (r *LeadRepo) Put(ctx context.Context, lead *models.Lead) error {
+	item, err := attributevalue.MarshalMap(lead)
+	if err != nil {
+		return fmt.Errorf("marshal lead: %w", err)
+	}
+	_, err = r.db.Client.PutItem(ctx, &dynamodb.PutItemInput{
+		TableName: aws.String(r.db.LeadsTable),
+		Item:      item,
+	})
+	return err
+}
+
+func (r *LeadRepo) GetByID(ctx context.Context, ownerUserID, leadID string) (*models.Lead, error) {
+	pk := fmt.Sprintf("%s#%s", ownerUserID, leadID)
+	result, err := r.db.Client.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName: aws.String(r.db.LeadsTable),
+		Key: map[string]types.AttributeValue{
+			"PK": &types.AttributeValueMemberS{Value: pk},
+			"SK": &types.AttributeValueMemberS{Value: leadID},
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("get lead: %w", err)
+	}
+	if result.Item == nil {
+		return nil, nil
+	}
+
+	var lead models.Lead
+	if err := attributevalue.UnmarshalMap(result.Item, &lead); err != nil {
+		return nil, fmt.Errorf("unmarshal lead: %w", err)
+	}
+	return &lead, nil
+}
+
+func (r *LeadRepo) ListByOwner(ctx context.Context, ownerUserID string, limit int32) ([]models.Lead, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	result, err := r.db.Client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(r.db.LeadsTable),
+		IndexName:              aws.String("ownerUserId-createdAt-index"),
+		KeyConditionExpression: aws.String("ownerUserId = :uid"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":uid": &types.AttributeValueMemberS{Value: ownerUserID},
+		},
+		ScanIndexForward: aws.Bool(false),
+		Limit:            aws.Int32(limit),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list leads by owner: %w", err)
+	}
+
+	leads := make([]models.Lead, 0, len(result.Items))
+	for _, item := range result.Items {
+		var lead models.Lead
+		if err := attributevalue.UnmarshalMap(item, &lead); err != nil {
+			continue
+		}
+		leads = append(leads, lead)
+	}
+	return leads, nil
+}

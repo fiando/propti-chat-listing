@@ -11,6 +11,8 @@ export type WhatsAppLinkChallengeResponse = {
   phone: string;
   expiresAt: string;
   retryCount: number;
+  messageText?: string;
+  messageLink?: string;
 };
 
 function digitsOnly(value: string) {
@@ -56,14 +58,14 @@ export function getWhatsAppWriteEligibilityCopy(
   if (status.isLinked) {
     return {
       tone: 'warning',
-      title: 'Nomor sudah terhubung, tinggal verifikasi OTP',
-      description: 'Masukkan kode OTP agar akun kamu bisa pakai fitur WhatsApp write.',
+      title: 'Nomor sudah terhubung, tinggal kirim pesan verifikasi WhatsApp',
+      description: 'Kirim pesan challenge dari WhatsApp yang sama agar akun kamu bisa pakai fitur WhatsApp write.',
     };
   }
 
   return {
     tone: 'warning',
     title: 'WhatsApp belum terhubung',
-    description: 'Hubungkan nomor WhatsApp kamu dulu, lalu minta OTP untuk verifikasi.',
+    description: 'Hubungkan nomor WhatsApp kamu lalu kirim pesan challenge untuk verifikasi.',
   };
 }

@@ -42,10 +42,6 @@ const savedPage = readFileSync(
   new URL('../app/(app)/saved/page.tsx', import.meta.url),
   'utf8'
 );
-const settingsPage = readFileSync(
-  new URL('../app/(app)/settings/page.tsx', import.meta.url),
-  'utf8'
-);
 const typesFile = readFileSync(
   new URL('../types/index.ts', import.meta.url),
   'utf8'
@@ -163,6 +159,12 @@ test('guest users still see saved/profile in mobile nav and are redirected to lo
   assert.match(mobileNav, /encodeURIComponent\(href\)/);
 });
 
+test('mobile nav exposes pasang as a right floating action button above the menubar', () => {
+  assert.doesNotMatch(mobileNav, /isPrimary:\s*true/);
+  assert.match(mobileNav, /fixed bottom-20 right-4 z-50/);
+  assert.match(mobileNav, /href=\{getHref\('\/listings\/create'\)\}/);
+});
+
 test('search CTA copy is consistent and parser CTA points to create listing', () => {
   assert.match(homePage, /Cari Properti/);
   assert.doesNotMatch(homePage, /Jelajahi Properti/);
@@ -172,6 +174,8 @@ test('search CTA copy is consistent and parser CTA points to create listing', ()
   assert.match(homePage, /Paste listing saya/);
 });
 
-test('settings save button is full-width block', () => {
-  assert.match(settingsPage, /className="btn-primary w-full inline-flex items-center justify-center gap-2 disabled:opacity-60"/);
+test('profile includes account settings form with full-width save button', () => {
+  assert.match(profileClient, /Kelola data profil dan preferensi akun Propti kamu\./);
+  assert.match(profileClient, /Simpan Pengaturan/);
+  assert.match(profileClient, /className="btn-primary w-full inline-flex items-center justify-center gap-2 disabled:opacity-60"/);
 });

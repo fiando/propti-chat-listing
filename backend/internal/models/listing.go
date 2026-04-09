@@ -17,6 +17,7 @@ const (
 	ModerationStatusApproved ModerationStatus = "approved"
 	ModerationStatusPending  ModerationStatus = "pending"
 	ModerationStatusRejected ModerationStatus = "rejected"
+	ModerationStatusDraft    ModerationStatus = "draft"
 )
 
 type PropertyDetails struct {
@@ -91,6 +92,7 @@ type CreateListingRequest struct {
 	Videos                   []string        `json:"videos"`
 	NewImageUploadSessionIDs []string        `json:"newImageUploadSessionIds,omitempty"`
 	FeaturedUploadSessionID  string          `json:"featuredUploadSessionId,omitempty"`
+	IsDraft                  bool            `json:"isDraft,omitempty"`
 }
 
 type UpdateListingRequest struct {

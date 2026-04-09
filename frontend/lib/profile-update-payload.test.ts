@@ -12,6 +12,7 @@ const basePreferences: UserPreferences = {
 test('buildProfileUpdatePayload omits role when no account role is selected', () => {
   assert.deepEqual(
     buildProfileUpdatePayload({
+      phone: '081234567890',
       role: '',
       notifications: false,
       preferences: basePreferences,
@@ -21,6 +22,7 @@ test('buildProfileUpdatePayload omits role when no account role is selected', ()
         ...basePreferences,
         notifications: false,
       },
+      phone: '081234567890',
     },
   );
 });
@@ -28,12 +30,14 @@ test('buildProfileUpdatePayload omits role when no account role is selected', ()
 test('buildProfileUpdatePayload includes role when account role is selected', () => {
   assert.deepEqual(
     buildProfileUpdatePayload({
+      phone: '081234567890',
       role: 'buyer',
       notifications: true,
       preferences: basePreferences,
     }),
     {
       role: 'buyer',
+      phone: '081234567890',
       preferences: basePreferences,
     },
   );

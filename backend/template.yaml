@@ -15,6 +15,7 @@ Globals:
         DYNAMODB_USERS_TABLE: !Ref UsersTable
         DYNAMODB_TRANSACTIONS_TABLE: !Ref TransactionsTable
         DYNAMODB_MODERATIONS_TABLE: !Ref ModerationsTable
+        DYNAMODB_LEADS_TABLE: !Ref LeadsTable
         DYNAMODB_UPLOAD_SESSIONS_TABLE: !Ref UploadSessionsTable
         DYNAMODB_WHATSAPP_SESSIONS_TABLE: !Ref WhatsAppSessionsTable
         DYNAMODB_WHATSAPP_OTP_TABLE: !Ref WhatsAppOTPTable
@@ -22,13 +23,14 @@ Globals:
         S3_MEDIA_BUCKET: !Ref MediaBucket
         JWT_SECRET: !Ref JWTSecret
         OPENAI_API_KEY: !Ref OpenAIAPIKey
-        IMAGE_MODERATION_PROVIDER: !Ref ImageModerationProvider
         GOOGLE_MAPS_API_KEY: !Ref GoogleMapsAPIKey
         DOKU_CLIENT_ID: !Ref DOKUClientID
         DOKU_SECRET_KEY: !Ref DOKUSecretKey
         TWILIO_ACCOUNT_SID: !Ref TwilioAccountSID
         TWILIO_AUTH_TOKEN: !Ref TwilioAuthToken
         TWILIO_WHATSAPP_FROM: !Ref TwilioWhatsAppFrom
+        WHATSAPP_MESSAGE_TARGET: !Ref WhatsAppMessageTarget
+        TWILIO_VERIFY_SERVICE_SID: !Ref TwilioVerifyServiceSID
         META_WHATSAPP_ACCESS_TOKEN: ""
         META_WHATSAPP_PHONE_NUMBER_ID: ""
         META_WHATSAPP_VERIFY_TOKEN: ""
@@ -73,10 +75,6 @@ Parameters:
   OpenAIAPIKey:
     Type: String
     NoEcho: true
-  ImageModerationProvider:
-    Type: String
-    Default: openai
-    AllowedValues: [openai, rekognition]
   GoogleMapsAPIKey:
     Type: String
     NoEcho: true
@@ -99,6 +97,12 @@ Parameters:
     Default: ""
     NoEcho: true
   TwilioWhatsAppFrom:
+    Type: String
+    Default: ""
+  WhatsAppMessageTarget:
+    Type: String
+    Default: ""
+  TwilioVerifyServiceSID:
     Type: String
     Default: ""
 
@@ -251,6 +255,48 @@ Resources:
             RestApiId: !Ref ProptiApi
             Path: /listings/parse-text
             Method: POST
+        CreateLead:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /leads
+            Method: POST
+        ListLeads:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /leads
+            Method: GET
+        GetLead:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /leads/{id}
+            Method: GET
+        UpdateLeadStage:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /leads/{id}/stage
+            Method: POST
+        AddLeadNote:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /leads/{id}/notes
+            Method: POST
+        CompleteLeadFollowUp:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /leads/{id}/followups/{taskId}/complete
+            Method: POST
+        LeadAnalytics:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /leads/analytics
+            Method: GET
         UploadURL:
           Type: Api
           Properties:
@@ -382,6 +428,9 @@ Resources:
       Handler: bootstrap
       Description: Handles WhatsApp inbound messages, status callbacks, and provider verification handshakes
       Role: !GetAtt LambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          LISTINGS_FUNCTION_NAME: !Sub "propti-listings-${Stage}"
       Events:
         WhatsAppWebhookVerify:
           Type: Api
@@ -446,6 +495,8 @@ Resources:
                   - !Sub "${TransactionsTable.Arn}/index/*"
                   - !GetAtt ModerationsTable.Arn
                   - !Sub "${ModerationsTable.Arn}/index/*"
+                  - !GetAtt LeadsTable.Arn
+                  - !Sub "${LeadsTable.Arn}/index/*"
                   - !GetAtt UploadSessionsTable.Arn
                   - !GetAtt WhatsAppSessionsTable.Arn
                   - !GetAtt WhatsAppOTPTable.Arn
@@ -471,11 +522,6 @@ Resources:
                   - lambda:InvokeFunction
                 Resource:
                   - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:propti-listings-${Stage}"
-              - Effect: Allow
-                Action:
-                  - rekognition:DetectLabels
-                  - rekognition:DetectModerationLabels
-                Resource: "*"
   # ──────────────────────────────────────────────────────────────
   # DynamoDB Tables
   # ──────────────────────────────────────────────────────────────
@@ -530,6 +576,8 @@ Resources:
           AttributeType: S
         - AttributeName: googleId
           AttributeType: S
+        - AttributeName: whatsAppLinkedPhone
+          AttributeType: S
       KeySchema:
         - AttributeName: PK
           KeyType: HASH
@@ -539,6 +587,12 @@ Resources:
         - IndexName: googleId-index
           KeySchema:
             - AttributeName: googleId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: whatsAppLinkedPhone-index
+          KeySchema:
+            - AttributeName: whatsAppLinkedPhone
               KeyType: HASH
           Projection:
             ProjectionType: ALL
@@ -608,6 +662,37 @@ Resources:
           KeySchema:
             - AttributeName: listingId
               KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  LeadsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "propti-leads-${Stage}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: ownerUserId
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: ownerUserId-createdAt-index
+          KeySchema:
+            - AttributeName: ownerUserId
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
           Projection:
             ProjectionType: ALL
       PointInTimeRecoverySpecification:
@@ -738,6 +823,10 @@ Outputs:
   ModerationsTableName:
     Description: DynamoDB moderations table name
     Value: !Ref ModerationsTable
+
+  LeadsTableName:
+    Description: DynamoDB leads table name
+    Value: !Ref LeadsTable
 
   UploadSessionsTableName:
     Description: DynamoDB upload session table name

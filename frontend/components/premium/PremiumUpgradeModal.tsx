@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Crown, X, Check, Loader2, RefreshCw } from 'lucide-react';
 import { upgradePremium } from '@/lib/api';
 import type { SubscriptionTier } from '@/types';
@@ -12,6 +12,7 @@ interface PremiumUpgradeModalProps {
   onClose: () => void;
   mode?: PremiumModalMode;
   currentRenewDate?: string;
+  currentTier?: SubscriptionTier;
   selectedTier?: Exclude<SubscriptionTier, 'free'>;
 }
 
@@ -21,11 +22,11 @@ const TIER_CONFIG = {
     price: 'Rp 59.000',
     blurb: 'Untuk seller yang mulai serius beriklan.',
     features: [
-      'Basic: maksimal 8 foto per iklan',
-      'Basic: maksimal 6 listing aktif',
-      'WA text read + create (tanpa edit/hapus)',
-      'Voice hingga 20 menit per bulan',
-      'Masa tayang sampai 90 hari',
+      'Maksimal 8 foto per iklan',
+      'Maksimal 6 listing aktif',
+      'WA baca + buat listing (tanpa edit/hapus)',
+      'Voice note hingga 20 menit per bulan',
+      'Iklan tayang hingga 90 hari',
     ],
   },
   premium: {
@@ -33,11 +34,11 @@ const TIER_CONFIG = {
     price: 'Rp 129.000',
     blurb: 'Untuk performa listing yang lebih agresif.',
     features: [
-      'Premium: maksimal 15 foto per iklan',
-      'Premium: maksimal 20 listing aktif',
-      'WA full read/write',
-      'Voice hingga 60 menit per bulan',
-      'Premium: tayang sampai 90 hari',
+      'Maksimal 15 foto per iklan',
+      'Maksimal 20 listing aktif',
+      'WA baca, buat, edit & hapus listing',
+      'Voice note hingga 60 menit per bulan',
+      'Iklan tayang hingga 90 hari',
     ],
   },
   pro: {
@@ -45,29 +46,55 @@ const TIER_CONFIG = {
     price: 'Rp 199.000',
     blurb: 'Untuk tim agen dengan volume listing tinggi.',
     features: [
-      'Pro: maksimal 20 foto per iklan',
-      'Pro: maksimal 50 listing aktif',
-      'WA full read/write',
-      'Voice hingga 120 menit per bulan',
-      'Masa tayang sampai 90 hari',
+      'Maksimal 20 foto per iklan',
+      'Maksimal 50 listing aktif',
+      'WA baca, buat, edit & hapus listing',
+      'Voice note hingga 120 menit per bulan',
+      'Iklan tayang hingga 90 hari',
     ],
   },
 } as const;
+
+const TIER_ORDER: Record<SubscriptionTier, number> = {
+  free: 0,
+  basic: 1,
+  premium: 2,
+  pro: 3,
+};
 
 export function PremiumUpgradeModal({
   isOpen,
   onClose,
   mode = 'upgrade',
   currentRenewDate,
+  currentTier = 'free',
   selectedTier = 'premium',
 }: PremiumUpgradeModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeTier, setActiveTier] = useState<Exclude<SubscriptionTier, 'free'>>(selectedTier);
+
+  useEffect(() => {
+    setActiveTier(selectedTier);
+  }, [selectedTier, isOpen]);
 
   if (!isOpen) return null;
 
   const isRenewal = mode === 'renew';
-  const config = TIER_CONFIG[selectedTier];
+  const config = TIER_CONFIG[activeTier];
+
+  const selectedTierRank = TIER_ORDER[activeTier];
+  const currentTierRank = TIER_ORDER[currentTier];
+  const isDowngrade = !isRenewal && currentTierRank > 0 && selectedTierRank < currentTierRank;
+  const isSameTier = !isRenewal && currentTierRank > 0 && selectedTierRank === currentTierRank;
+
+  const actionLabel = isRenewal
+    ? 'Perpanjang Paket'
+    : isDowngrade
+      ? `Downgrade ke ${config.label}`
+      : isSameTier
+        ? `Lanjutkan ${config.label}`
+        : `Upgrade ke ${config.label}`;
 
   const expiryDateStr = currentRenewDate
     ? new Date(currentRenewDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -77,7 +104,7 @@ export function PremiumUpgradeModal({
     setLoading(true);
     setError(null);
     try {
-      const result = await upgradePremium(selectedTier);
+      const result = await upgradePremium(activeTier);
       window.location.href = result.paymentUrl;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal memproses pembayaran.');
@@ -95,7 +122,7 @@ export function PremiumUpgradeModal({
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-r from-brand-gold to-amber-500 p-6 text-white text-center">
           <button
@@ -124,6 +151,39 @@ export function PremiumUpgradeModal({
 
         {/* Features */}
         <div className="p-6">
+          {!isRenewal && (
+            <div className="mb-6">
+              <p className="text-sm font-semibold text-gray-900 mb-3">Pilih paket</p>
+              <div className="grid gap-3 md:grid-cols-3">
+                {(Object.keys(TIER_CONFIG) as Array<Exclude<SubscriptionTier, 'free'>>).map((tierKey) => {
+                  const tierConfig = TIER_CONFIG[tierKey];
+                  const isActive = activeTier === tierKey;
+                  const tierAction =
+                    TIER_ORDER[tierKey] < currentTierRank && currentTierRank > 0
+                      ? `Downgrade ke ${tierConfig.label}`
+                      : `Upgrade ke ${tierConfig.label}`;
+
+                  return (
+                    <button
+                      key={tierKey}
+                      type="button"
+                      onClick={() => setActiveTier(tierKey)}
+                      className={`rounded-2xl border p-3 text-left transition ${
+                        isActive
+                          ? 'border-brand-primary bg-brand-light/30 shadow-sm'
+                          : 'border-gray-200 hover:border-brand-primary/40'
+                      }`}
+                    >
+                      <p className="font-bold text-gray-900">{tierConfig.label}</p>
+                      <p className="text-sm text-gray-600">{tierConfig.price}/bulan</p>
+                      <p className="mt-2 text-xs font-medium text-gray-500">{tierAction}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <ul className="space-y-3 mb-6">
             {config.features.map((feature) => (
               <li key={feature} className="flex items-start gap-3">
@@ -161,12 +221,12 @@ export function PremiumUpgradeModal({
             ) : isRenewal ? (
               <>
                 <RefreshCw className="w-5 h-5" />
-                Perpanjang Paket
+                {actionLabel}
               </>
             ) : (
               <>
                 <Crown className="w-5 h-5" />
-                Upgrade Paket
+                {actionLabel}
               </>
             )}
           </button>

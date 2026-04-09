@@ -126,16 +126,18 @@ func (r *UserRepo) GetByWhatsAppPhone(ctx context.Context, phone string) (*model
 		return nil, fmt.Errorf("phone is required")
 	}
 
-	result, err := r.db.Client.Scan(ctx, &dynamodb.ScanInput{
-		TableName:        aws.String(r.db.UsersTable),
-		FilterExpression: aws.String("whatsAppLinkedPhone = :phone"),
+	result, err := r.db.Client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(r.db.UsersTable),
+		IndexName:              aws.String("whatsAppLinkedPhone-index"),
+		KeyConditionExpression: aws.String("whatsAppLinkedPhone = :phone"),
+		FilterExpression:       aws.String("attribute_exists(whatsAppVerifiedAt)"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":phone": &types.AttributeValueMemberS{Value: phone},
 		},
 		Limit: aws.Int32(1),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("scan user by whatsapp phone: %w", err)
+		return nil, fmt.Errorf("query user by whatsapp phone: %w", err)
 	}
 	if len(result.Items) == 0 {
 		return nil, nil

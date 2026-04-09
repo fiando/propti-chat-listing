@@ -18,6 +18,13 @@ import type {
   UpdateProfileRequest,
   UploadPrepareRequest,
   UploadPrepareResponse,
+  Lead,
+  LeadListResponse,
+  CreateLeadRequest,
+  UpdateLeadStageRequest,
+  AddLeadNoteRequest,
+  CompleteFollowUpTaskRequest,
+  AgentAnalytics,
 } from '@/types';
 import { getBackendAuthHeader, getBackendProfilePath } from '@/lib/backend-auth';
 import { getApiErrorMessage } from '@/lib/api-error';
@@ -287,6 +294,45 @@ export async function verifyWhatsAppLink(
 
 export async function disconnectWhatsAppLink(): Promise<WhatsAppWriteEligibilityResponse> {
   const response = await apiClient.delete<WhatsAppWriteEligibilityResponse>('/auth/whatsapp/link');
+  return response.data;
+}
+
+export async function getLeads(params?: { stage?: string; dueOnly?: boolean }): Promise<LeadListResponse> {
+  const response = await apiClient.get<LeadListResponse>('/leads', { params });
+  return response.data;
+}
+
+export async function getLead(leadId: string): Promise<Lead> {
+  const response = await apiClient.get<Lead>(`/leads/${leadId}`);
+  return response.data;
+}
+
+export async function createLead(data: CreateLeadRequest): Promise<Lead> {
+  const response = await apiClient.post<Lead>('/leads', data);
+  return response.data;
+}
+
+export async function updateLeadStage(leadId: string, data: UpdateLeadStageRequest): Promise<Lead> {
+  const response = await apiClient.post<Lead>(`/leads/${leadId}/stage`, data);
+  return response.data;
+}
+
+export async function addLeadNote(leadId: string, data: AddLeadNoteRequest): Promise<Lead> {
+  const response = await apiClient.post<Lead>(`/leads/${leadId}/notes`, data);
+  return response.data;
+}
+
+export async function completeFollowUpTask(
+  leadId: string,
+  taskId: string,
+  data: CompleteFollowUpTaskRequest
+): Promise<Lead> {
+  const response = await apiClient.post<Lead>(`/leads/${leadId}/followups/${taskId}/complete`, data);
+  return response.data;
+}
+
+export async function getLeadAnalytics(): Promise<AgentAnalytics> {
+  const response = await apiClient.get<AgentAnalytics>('/leads/analytics');
   return response.data;
 }
 

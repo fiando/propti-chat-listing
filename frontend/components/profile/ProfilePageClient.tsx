@@ -18,6 +18,8 @@ import {
   MessageCircle,
   ShieldCheck,
   Unplug,
+  Plus,
+  Search,
 } from 'lucide-react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { PremiumUpgradeModal } from '@/components/premium/PremiumUpgradeModal';
@@ -26,17 +28,19 @@ import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
 import { getSubscriptionStatus } from '@/lib/subscription-status';
 import { shouldShowRenewalCTA } from '@/lib/premium-renewal';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
+  updateProfile,
   createWhatsAppLinkChallenge,
   disconnectWhatsAppLink,
   getWhatsAppLinkStatus,
-  verifyWhatsAppLink,
 } from '@/lib/api';
 import {
   getWhatsAppWriteEligibilityCopy,
   normalizeWhatsAppLinkPhone,
 } from '@/lib/whatsapp-linking';
-import type { User as UserProfile } from '@/types';
+import { buildProfileUpdatePayload } from '@/lib/profile-update-payload';
+import type { UpdateProfileRequest, User as UserProfile, UserPreferences } from '@/types';
 
 type ProfilePageClientProps = {
   profile: UserProfile;
@@ -48,11 +52,27 @@ type ProfilePageClientProps = {
 };
 
 export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const [selectedUpgradeTier, setSelectedUpgradeTier] = useState<'basic' | 'premium' | 'pro'>('premium');
+  const [role, setRole] = useState<'buyer' | 'seller' | 'both' | ''>(profile.role ?? '');
+  const [notifications, setNotifications] = useState(profile.preferences?.notifications ?? true);
+  const [saved, setSaved] = useState(false);
+  const [profilePhoneInput, setProfilePhoneInput] = useState(profile.phone ?? '');
+  const [savedProfilePhone, setSavedProfilePhone] = useState(profile.phone ?? '');
   const [waPhoneInput, setWaPhoneInput] = useState(profile.phone ?? '');
-  const [otpCode, setOtpCode] = useState('');
   const [challengeId, setChallengeId] = useState('');
+  const [waChallengeMessage, setWaChallengeMessage] = useState('');
+  const [waChallengeLink, setWaChallengeLink] = useState('');
+  const [isAutoCheckingVerification, setIsAutoCheckingVerification] = useState(false);
   const [waSuccessMessage, setWaSuccessMessage] = useState<string | null>(null);
+  const returnTo = searchParams.get('returnTo');
+  const DEFAULT_PREFERENCES: UserPreferences = {
+    favoriteLocations: [],
+    searchHistory: [],
+    notifications: true,
+  };
 
   const subscriptionStatus = getSubscriptionStatus({ authStatus: 'authenticated', profile });
   const tier = profile.subscription.tier;
@@ -73,22 +93,56 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
     queryFn: () => getWhatsAppLinkStatus(),
   });
 
+  const runAutoVerificationCheck = async (expectedPhone: string) => {
+    setIsAutoCheckingVerification(true);
+    for (let attempt = 0; attempt < 30; attempt++) {
+      try {
+        const status = await getWhatsAppLinkStatus();
+        if (status.eligible && status.linkedPhone === expectedPhone) {
+          await waStatusQuery.refetch();
+          setChallengeId('');
+          setWaChallengeMessage('');
+          setWaChallengeLink('');
+          setWaSuccessMessage('WhatsApp listing berhasil aktif.');
+          setIsAutoCheckingVerification(false);
+          return;
+        }
+      } catch {
+        // keep polling; manual check remains available.
+      }
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+    setIsAutoCheckingVerification(false);
+    setWaSuccessMessage('Belum terverifikasi otomatis. Kirim pesan challenge persis seperti yang ditampilkan, lalu tekan cek status.');
+  };
+
   const linkChallengeMutation = useMutation({
     mutationFn: (phone: string) => createWhatsAppLinkChallenge(phone),
     onSuccess: (result) => {
       setChallengeId(result.challengeId);
       setWaPhoneInput(result.phone);
-      setWaSuccessMessage(`OTP dikirim. Berlaku sampai ${new Date(result.expiresAt).toLocaleTimeString('id-ID')}.`);
+      setWaChallengeMessage(result.messageText ?? '');
+      setWaChallengeLink(result.messageLink ?? '');
+      setWaSuccessMessage(`Challenge siap dikirim. Berlaku sampai ${new Date(result.expiresAt).toLocaleTimeString('id-ID')}.`);
+      if (result.messageLink) {
+        window.open(result.messageLink, '_blank', 'noopener,noreferrer');
+      }
+      void runAutoVerificationCheck(result.phone);
     },
   });
 
-  const verifyLinkMutation = useMutation({
-    mutationFn: () => verifyWhatsAppLink(challengeId, otpCode),
+  const refreshWaStatusMutation = useMutation({
+    mutationFn: () => getWhatsAppLinkStatus(),
     onSuccess: async () => {
-      setOtpCode('');
-      setChallengeId('');
-      setWaSuccessMessage('WhatsApp berhasil terverifikasi.');
-      await waStatusQuery.refetch();
+      const latest = await waStatusQuery.refetch();
+      if (latest.data?.eligible) {
+        setChallengeId('');
+        setWaChallengeMessage('');
+        setWaChallengeLink('');
+        setWaSuccessMessage('WhatsApp listing berhasil aktif.');
+      } else {
+        setWaSuccessMessage('Belum terverifikasi. Kirim pesan challenge persis seperti yang ditampilkan, lalu cek status lagi.');
+      }
     },
   });
 
@@ -96,9 +150,28 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
     mutationFn: () => disconnectWhatsAppLink(),
     onSuccess: async () => {
       setChallengeId('');
-      setOtpCode('');
+      setWaChallengeMessage('');
+      setWaChallengeLink('');
       setWaSuccessMessage('Koneksi WhatsApp berhasil diputus.');
       await waStatusQuery.refetch();
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (payload: UpdateProfileRequest) => updateProfile(payload),
+    onSuccess: (updatedProfile) => {
+      const nextPhone = updatedProfile.phone ?? '';
+      const previousSavedPhone = savedProfilePhone;
+
+      setSavedProfilePhone(nextPhone);
+      setProfilePhoneInput(nextPhone);
+      if (waPhoneInput === previousSavedPhone) {
+        setWaPhoneInput(nextPhone);
+      }
+      setSaved(true);
+      if (returnTo) {
+        router.push(returnTo);
+      }
     },
   });
 
@@ -112,24 +185,36 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
   const isWaBusy =
     waStatusQuery.isLoading ||
     linkChallengeMutation.isPending ||
-    verifyLinkMutation.isPending ||
-    disconnectLinkMutation.isPending;
-  const canVerify = challengeId.trim() !== '' && otpCode.trim().length === 6;
+    refreshWaStatusMutation.isPending ||
+    disconnectLinkMutation.isPending ||
+    isAutoCheckingVerification;
 
-  const handleRequestOtp = async () => {
+  const handleActivateWhatsAppListing = async () => {
     setWaSuccessMessage(null);
     const normalizedPhone = normalizeWhatsAppLinkPhone(waPhoneInput);
     await linkChallengeMutation.mutateAsync(normalizedPhone);
   };
 
-  const handleVerifyOtp = async () => {
+  const handleRefreshVerification = async () => {
     setWaSuccessMessage(null);
-    await verifyLinkMutation.mutateAsync();
+    await refreshWaStatusMutation.mutateAsync();
   };
 
   const handleDisconnect = async () => {
     setWaSuccessMessage(null);
     await disconnectLinkMutation.mutateAsync();
+  };
+
+  const handleSubmitSettings = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSaved(false);
+    const payload: UpdateProfileRequest = buildProfileUpdatePayload({
+      phone: profilePhoneInput,
+      role,
+      notifications,
+      preferences: profile.preferences ?? DEFAULT_PREFERENCES,
+    });
+    await updateMutation.mutateAsync(payload);
   };
 
   return (
@@ -248,14 +333,40 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
                 ))}
               </ul>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowPremiumModal(true)}
-              className="w-full btn-gold flex items-center justify-center gap-2"
-            >
-              <Crown className="w-4 h-4" />
-              Upgrade ke Basic/Premium/Pro
-            </button>
+
+            <p className="text-sm font-semibold text-gray-700 mb-3">Pilih paket upgrade:</p>
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              {(
+                [
+                  { key: 'basic', label: 'Basic', price: 'Rp 59rb/bln', highlight: false },
+                  { key: 'premium', label: 'Premium', price: 'Rp 129rb/bln', highlight: true },
+                  { key: 'pro', label: 'Pro', price: 'Rp 199rb/bln', highlight: false },
+                ] as const
+              ).map((plan) => (
+                <button
+                  key={plan.key}
+                  type="button"
+                  onClick={() => {
+                    setSelectedUpgradeTier(plan.key);
+                    setShowPremiumModal(true);
+                  }}
+                  className={`flex flex-col items-center p-3 rounded-2xl border-2 transition-all text-center ${
+                    plan.highlight
+                      ? 'border-brand-gold bg-amber-50 text-amber-700'
+                      : 'border-gray-200 bg-white text-gray-700 hover:border-brand-gold hover:bg-amber-50'
+                  }`}
+                >
+                  <Crown className={`w-5 h-5 mb-1 ${plan.highlight ? 'text-brand-gold' : 'text-gray-400'}`} />
+                  <span className="text-xs font-bold">{plan.label}</span>
+                  <span className="text-xs text-gray-500 mt-0.5">{plan.price}</span>
+                  {plan.highlight && (
+                    <span className="mt-1 text-[10px] font-semibold bg-brand-gold text-white px-1.5 py-0.5 rounded-full">
+                      Populer
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -264,7 +375,6 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
         {[
           { icon: Home, label: 'Iklan Saya', href: '/listings' },
           { icon: Star, label: 'Properti Tersimpan', href: '/saved' },
-          { icon: Settings, label: 'Pengaturan', href: '/settings' },
         ].map((item) => (
           <Link
             key={item.href}
@@ -283,12 +393,106 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
       </div>
 
       <div className="card p-6 mb-4">
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-2">
+            <Settings className="w-5 h-5 text-brand-primary" />
+            <h2 className="font-bold text-gray-900">Pengaturan Akun</h2>
+          </div>
+          <p className="text-gray-500 text-sm">Kelola data profil dan preferensi akun Propti kamu.</p>
+        </div>
+
+        {returnTo && (
+          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            Kamu bisa lanjut pasang iklan web seperti biasa. Aktivasi WhatsApp listing bersifat opsional
+            dan butuh challenge verifikasi nomor.
+          </div>
+        )}
+
+        <form onSubmit={handleSubmitSettings} className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700">Nama</span>
+              <input value={displayName} disabled className="input-field mt-1 bg-gray-50 text-gray-500" />
+            </label>
+
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700">Email</span>
+              <input value={displayEmail} disabled className="input-field mt-1 bg-gray-50 text-gray-500" />
+            </label>
+
+            <label className="block md:col-span-2">
+              <span className="text-sm font-medium text-gray-700">Nomor Telepon</span>
+              <input
+                value={profilePhoneInput}
+                onChange={(event) => setProfilePhoneInput(event.target.value)}
+                placeholder="Contoh: 081234567890"
+                className="input-field mt-1"
+              />
+              <span className="mt-1 block text-xs text-gray-500">
+                Simpan nomor ini untuk kontak listing web. Aktivasi WhatsApp listing tetap opsional di bagian bawah.
+              </span>
+            </label>
+
+            <label className="block md:col-span-2">
+              <span className="text-sm font-medium text-gray-700">Peran Akun</span>
+              <select
+                value={role}
+                onChange={(event) => setRole(event.target.value as 'buyer' | 'seller' | 'both' | '')}
+                className="input-field mt-1"
+              >
+                {role === '' && <option value="">Pilih peran akun (opsional)</option>}
+                <option value="buyer">Pencari Properti</option>
+                <option value="seller">Penjual / Agen</option>
+                <option value="both">Keduanya</option>
+              </select>
+            </label>
+          </div>
+
+          <label className="flex items-start gap-3 rounded-2xl border border-gray-100 p-4">
+            <input
+              type="checkbox"
+              checked={notifications}
+              onChange={(event) => setNotifications(event.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-gray-300 text-brand-primary focus:ring-brand-primary"
+            />
+            <span>
+              <span className="block font-semibold text-gray-900">Aktifkan notifikasi</span>
+              <span className="text-sm text-gray-500">
+                Dapatkan pembaruan penting untuk aktivitas akun dan listing.
+              </span>
+            </span>
+          </label>
+
+          {updateMutation.isError && (
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+              {(updateMutation.error as Error).message || 'Gagal menyimpan pengaturan.'}
+            </div>
+          )}
+
+          {saved && !updateMutation.isPending && (
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+              Pengaturan berhasil diperbarui.
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={updateMutation.isPending}
+            className="btn-primary w-full inline-flex items-center justify-center gap-2 disabled:opacity-60"
+          >
+            {updateMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+            Simpan Pengaturan
+          </button>
+        </form>
+      </div>
+
+      <div className="card p-6 mb-4">
         <div className="flex items-center gap-2 mb-4">
           <MessageCircle className="w-5 h-5 text-brand-primary" />
           <h3 className="font-bold text-gray-900">Hubungkan WhatsApp</h3>
         </div>
         <div className={`rounded-2xl border px-4 py-3 mb-4 ${waCopy.tone === 'success' ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
-          <p className={`text-sm font-semibold ${waCopy.tone === 'success' ? 'text-emerald-700' : 'text-amber-700'}`}>Status WA Write</p>
+          <p className={`text-sm font-semibold ${waCopy.tone === 'success' ? 'text-emerald-700' : 'text-amber-700'}`}>Status WhatsApp</p>
           <p className={`mt-1 text-sm ${waCopy.tone === 'success' ? 'text-emerald-700' : 'text-amber-700'}`}>{waCopy.title}</p>
           <p className={`mt-1 text-xs ${waCopy.tone === 'success' ? 'text-emerald-700' : 'text-amber-700'}`}>{waCopy.description}</p>
           {waStatus.linkedPhone && (
@@ -310,12 +514,12 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <button
             type="button"
-            onClick={() => void handleRequestOtp()}
+            onClick={() => void handleActivateWhatsAppListing()}
             disabled={isWaBusy || normalizeWhatsAppLinkPhone(waPhoneInput) === ''}
             className="btn-primary inline-flex items-center justify-center gap-2 disabled:opacity-60"
           >
             {linkChallengeMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-            Minta OTP
+            Aktifkan WhatsApp Listing
           </button>
 
           <button
@@ -329,32 +533,40 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
           </button>
         </div>
 
-        <div className="mt-4 p-4 rounded-2xl border border-gray-100 bg-gray-50">
-          <p className="text-sm font-semibold text-gray-900 mb-2">Verifikasi OTP</p>
-          <input
-            value={otpCode}
-            onChange={(event) => setOtpCode(event.target.value.replace(/\D+/g, '').slice(0, 6))}
-            inputMode="numeric"
-            placeholder="Masukkan 6 digit OTP"
-            className="input-field mb-3"
-            disabled={isWaBusy}
-          />
-          <button
-            type="button"
-            onClick={() => void handleVerifyOtp()}
-            disabled={isWaBusy || !canVerify}
-            className="w-full btn-primary inline-flex items-center justify-center gap-2 disabled:opacity-60"
-          >
-            {verifyLinkMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-            Verifikasi OTP
-          </button>
-        </div>
+        {challengeId && (
+          <div className="mt-4 p-4 rounded-2xl border border-gray-100 bg-gray-50">
+            <p className="text-sm font-semibold text-gray-900 mb-2">Verifikasi lewat WhatsApp</p>
+            <p className="text-xs text-gray-600 mb-2">Kirim pesan ini tanpa diubah dari nomor WhatsApp yang kamu daftarkan:</p>
+            <div className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900 mb-3">
+              {waChallengeMessage}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <a
+                href={waChallengeLink || '#'}
+                target="_blank"
+                rel="noreferrer"
+                className={`btn-primary inline-flex items-center justify-center gap-2 ${waChallengeLink ? '' : 'pointer-events-none opacity-60'}`}
+              >
+                Kirim Pesan di WhatsApp
+              </a>
+              <button
+                type="button"
+                onClick={() => void handleRefreshVerification()}
+                disabled={isWaBusy}
+                className="w-full btn-primary inline-flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                {refreshWaStatusMutation.isPending || isAutoCheckingVerification ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                Cek Status Verifikasi
+              </button>
+            </div>
+          </div>
+        )}
 
-        {(waStatusQuery.isError || linkChallengeMutation.isError || verifyLinkMutation.isError || disconnectLinkMutation.isError) && (
+        {(waStatusQuery.isError || linkChallengeMutation.isError || refreshWaStatusMutation.isError || disconnectLinkMutation.isError) && (
           <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
             {(waStatusQuery.error as Error)?.message ||
               (linkChallengeMutation.error as Error)?.message ||
-              (verifyLinkMutation.error as Error)?.message ||
+              (refreshWaStatusMutation.error as Error)?.message ||
               (disconnectLinkMutation.error as Error)?.message ||
               'Terjadi kendala saat mengelola koneksi WhatsApp.'}
           </div>
@@ -363,6 +575,45 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
         {waSuccessMessage && (
           <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
             {waSuccessMessage}
+          </div>
+        )}
+
+        {waStatus.eligible && (
+          <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-4">
+            <p className="text-sm font-bold text-blue-800 mb-3">Cara pakai fitur WhatsApp</p>
+            <div className="space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center">
+                  <Plus className="w-3.5 h-3.5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-blue-800">Pasang Iklan</p>
+                  <p className="text-xs text-blue-600 mt-0.5">Ketik atau kirim voice note deskripsi propertimu langsung ke WhatsApp Propti. AI kami otomatis buatkan draftnya.</p>
+                  <p className="text-xs font-mono bg-blue-100 text-blue-700 rounded-lg px-2 py-1 mt-1 inline-block">Contoh: &quot;jual rumah 2 lantai di Ciputat harga 750jt&quot;</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center">
+                  <Search className="w-3.5 h-3.5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-blue-800">Cari Properti</p>
+                  <p className="text-xs text-blue-600 mt-0.5">Awali pesan dengan <span className="font-semibold">cari</span> lalu tuliskan kebutuhanmu. Bisa pakai teks atau voice note.</p>
+                  <p className="text-xs font-mono bg-blue-100 text-blue-700 rounded-lg px-2 py-1 mt-1 inline-block">Contoh: &quot;cari rumah 3 kamar dekat sekolah di Depok&quot;</p>
+                </div>
+              </div>
+            </div>
+            {process.env.NEXT_PUBLIC_WHATSAPP_NUMBER && (
+              <a
+                href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}`}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-4 inline-flex items-center gap-2 text-xs font-semibold text-blue-700 hover:text-blue-900"
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+                Buka WhatsApp Propti
+              </a>
+            )}
           </div>
         )}
       </div>
@@ -381,7 +632,8 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
         onClose={() => setShowPremiumModal(false)}
         mode={showRenewalCTA ? 'renew' : 'upgrade'}
         currentRenewDate={profile.subscription.renewDate}
-        selectedTier={tier === 'free' ? 'basic' : tier}
+        currentTier={tier}
+        selectedTier={showRenewalCTA ? (tier === 'free' ? 'basic' : tier) : selectedUpgradeTier}
       />
     </div>
   );

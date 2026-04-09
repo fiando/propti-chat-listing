@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -56,14 +55,8 @@ func NewAuthHandler(db *repository.DynamoDB) *AuthHandler {
 				userRepo,
 				repository.NewOTPRepo(db),
 				services.WhatsAppIdentityOptions{
-					SendOTP: newWhatsAppOTPSender(
-						services.NewTwilioWhatsAppProvider(services.TwilioWhatsAppProviderConfig{
-							AccountSID: strings.TrimSpace(os.Getenv("TWILIO_ACCOUNT_SID")),
-							AuthToken:  strings.TrimSpace(os.Getenv("TWILIO_AUTH_TOKEN")),
-							From:       strings.TrimSpace(os.Getenv("TWILIO_WHATSAPP_FROM")),
-							APIBaseURL: strings.TrimSpace(os.Getenv("TWILIO_API_BASE_URL")),
-						}),
-					),
+					OTPExpiry:             10 * time.Minute,
+					WhatsAppMessageTarget: resolveWhatsAppMessageTarget(),
 				},
 			),
 		)),
@@ -93,20 +86,8 @@ func mustWhatsAppIdentityService(service *services.WhatsAppIdentityService, err 
 	return service
 }
 
-func newWhatsAppOTPSender(provider services.WhatsAppProvider) func(ctx context.Context, phone, otpCode string) error {
-	if provider == nil {
-		return nil
-	}
-	return func(ctx context.Context, phone, otpCode string) error {
-		_, err := provider.Send(ctx, models.WhatsAppSendRequest{
-			To: phone,
-			Message: models.WhatsAppOutboundMessage{
-				Type: models.WhatsAppMessageTypeText,
-				Text: fmt.Sprintf("Kode OTP Propti kamu: %s. Berlaku 5 menit. Jangan bagikan kode ini.", otpCode),
-			},
-		})
-		return err
-	}
+func resolveWhatsAppMessageTarget() string {
+	return strings.TrimSpace(os.Getenv("WHATSAPP_MESSAGE_TARGET"))
 }
 
 // googleLogin verifies a Google ID token and upserts the user, returning a JWT.
@@ -252,6 +233,20 @@ func (h *AuthHandler) updateUser(ctx context.Context, req events.APIGatewayProxy
 		return jsonResponse(http.StatusNotFound, utils.MarshalErrorResponse(utils.ErrNotFound)), nil
 	}
 
+	applyUserProfileUpdate(user, updateReq)
+
+	if err := h.userRepo.Put(ctx, user); err != nil {
+		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
+	}
+
+	body, _ := json.Marshal(user)
+	return jsonResponse(http.StatusOK, string(body)), nil
+}
+
+func applyUserProfileUpdate(user *models.User, updateReq models.UpdateUserRequest) {
+	if user == nil {
+		return
+	}
 	if updateReq.Phone != nil {
 		user.Phone = *updateReq.Phone
 	}
@@ -261,13 +256,6 @@ func (h *AuthHandler) updateUser(ctx context.Context, req events.APIGatewayProxy
 	if updateReq.Preferences != nil {
 		user.Preferences = *updateReq.Preferences
 	}
-
-	if err := h.userRepo.Put(ctx, user); err != nil {
-		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
-	}
-
-	body, _ := json.Marshal(user)
-	return jsonResponse(http.StatusOK, string(body)), nil
 }
 
 // --- helpers ---

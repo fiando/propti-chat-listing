@@ -58,6 +58,24 @@ jobs:
       - name: Deploy
         working-directory: backend
         run: |
+          PARAM_OVERRIDES=(
+            Stage=production
+            ApiCustomDomainName=api.propti.id
+            ApiCustomDomainCertificateArn=arn:aws:acm:ap-southeast-1:260317865867:certificate/a6625ab7-0527-4dbf-aa1e-f22a39a33e98
+            JWTSecret=${{ secrets.JWT_SECRET }}
+            OpenAIAPIKey=${{ secrets.OPENAI_API_KEY }}
+            GoogleMapsAPIKey=${{ secrets.GOOGLE_MAPS_API_KEY }}
+            DOKUClientID=${{ secrets.DOKU_CLIENT_ID }}
+            DOKUSecretKey=${{ secrets.DOKU_SECRET_KEY }}
+            WhatsAppProvider=${{ secrets.WHATSAPP_PROVIDER }}
+            TwilioAccountSID=${{ secrets.TWILIO_ACCOUNT_SID }}
+            TwilioAuthToken=${{ secrets.TWILIO_AUTH_TOKEN }}
+            TwilioWhatsAppFrom=${{ secrets.TWILIO_WHATSAPP_FROM }}
+          )
+          if [ -n "${{ secrets.WHATSAPP_MESSAGE_TARGET }}" ]; then
+            PARAM_OVERRIDES+=(WhatsAppMessageTarget=${{ secrets.WHATSAPP_MESSAGE_TARGET }})
+          fi
+
           sam deploy \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
@@ -65,16 +83,4 @@ jobs:
             --stack-name propti-backend \
             --region ap-southeast-1 \
             --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
-            --parameter-overrides \
-              Stage=production \
-              ApiCustomDomainName=api.propti.id \
-              ApiCustomDomainCertificateArn=arn:aws:acm:ap-southeast-1:260317865867:certificate/a6625ab7-0527-4dbf-aa1e-f22a39a33e98 \
-              JWTSecret=${{ secrets.JWT_SECRET }} \
-              OpenAIAPIKey=${{ secrets.OPENAI_API_KEY }} \
-              GoogleMapsAPIKey=${{ secrets.GOOGLE_MAPS_API_KEY }} \
-              DOKUClientID=${{ secrets.DOKU_CLIENT_ID }} \
-              DOKUSecretKey=${{ secrets.DOKU_SECRET_KEY }} \
-              WhatsAppProvider=${{ secrets.WHATSAPP_PROVIDER }} \
-              TwilioAccountSID=${{ secrets.TWILIO_ACCOUNT_SID }} \
-              TwilioAuthToken=${{ secrets.TWILIO_AUTH_TOKEN }} \
-              TwilioWhatsAppFrom=${{ secrets.TWILIO_WHATSAPP_FROM }}
+            --parameter-overrides "${PARAM_OVERRIDES[@]}"

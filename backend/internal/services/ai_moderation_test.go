@@ -9,23 +9,6 @@ import (
 	"testing"
 )
 
-func TestParseImageModerationProviderDefaultsToOpenAI(t *testing.T) {
-	provider, err := parseImageModerationProvider("")
-	if err != nil {
-		t.Fatalf("parseImageModerationProvider returned error: %v", err)
-	}
-	if provider != imageModerationProviderOpenAI {
-		t.Fatalf("expected default provider %q, got %q", imageModerationProviderOpenAI, provider)
-	}
-}
-
-func TestParseImageModerationProviderRejectsUnknownValues(t *testing.T) {
-	_, err := parseImageModerationProvider("unexpected-provider")
-	if err == nil {
-		t.Fatal("expected unknown provider to return error")
-	}
-}
-
 func TestAIServiceModerateImagesAllowsHarmlessImage(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/moderations" {

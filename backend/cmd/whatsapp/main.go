@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-lambda-go/lambda"
 
@@ -108,7 +109,10 @@ func main() {
 	sessionRepo := repository.NewWhatsAppSessionRepo(db)
 	otpRepo := repository.NewOTPRepo(db)
 
-	identitySvc, err := services.NewWhatsAppIdentityService(userRepo, otpRepo, services.WhatsAppIdentityOptions{})
+	identitySvc, err := services.NewWhatsAppIdentityService(userRepo, otpRepo, services.WhatsAppIdentityOptions{
+		OTPExpiry:             10 * time.Minute,
+		WhatsAppMessageTarget: resolveWhatsAppMessageTarget(),
+	})
 	if err != nil {
 		utils.LogError("init whatsapp identity service", err)
 		panic(err)
@@ -142,6 +146,14 @@ func main() {
 	}
 
 	listingSvc := services.NewListingService(listingRepo, userRepo, aiSvc, s3Svc, mapsSvc, locationCatalog)
+	moderationQueue, err := services.NewLambdaModerationEnqueuer(ctx, strings.TrimSpace(os.Getenv("LISTINGS_FUNCTION_NAME")))
+	if err != nil {
+		utils.LogError("init moderation queue", err)
+		panic(err)
+	}
+	if moderationQueue != nil {
+		listingSvc.SetModerationEnqueuer(moderationQueue)
+	}
 	listingSvc.SetWriteEligibilityGuard(identitySvc)
 	searchIntentSvc := services.NewSearchIntentService(aiSvc, locationCatalog)
 	metricsSvc, err := services.NewWhatsAppMetricsService(&whatsAppMetricsLogger{}, services.WhatsAppMetricsServiceOptions{})
@@ -155,7 +167,10 @@ func main() {
 		searchIntentSvc,
 		userRepo,
 		identitySvc,
-		services.WhatsAppCommandOrchestratorOptions{MetricsSink: metricsSvc},
+		services.WhatsAppCommandOrchestratorOptions{
+			MetricsSink: metricsSvc,
+			WebBaseURL:  strings.TrimSpace(os.Getenv("WEB_BASE_URL")),
+		},
 	)
 	if err != nil {
 		utils.LogError("init whatsapp command orchestrator", err)
@@ -193,6 +208,9 @@ func main() {
 		CommandOrchestrator: commandOrchestrator,
 		VoiceService:        voiceSvc,
 		Policy:              policy,
+		IdentityVerifier:    identitySvc,
+		ConfirmSender:       provider,
+		CommandReplySender:  provider,
 		StatusSink:          &whatsAppDeliveryStatusLogger{},
 		MetaVerifyToken:     metaVerifyToken,
 	})
@@ -223,4 +241,8 @@ func buildWhatsAppProvider() (services.WhatsAppProvider, string, error) {
 	default:
 		return nil, "", fmt.Errorf("unsupported WHATSAPP_PROVIDER value %q", rawProvider)
 	}
+}
+
+func resolveWhatsAppMessageTarget() string {
+	return strings.TrimSpace(os.Getenv("WHATSAPP_MESSAGE_TARGET"))
 }

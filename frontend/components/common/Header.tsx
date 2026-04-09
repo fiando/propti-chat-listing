@@ -10,7 +10,7 @@ import {
   Plus,
   Heart,
   User,
-  Settings,
+  BriefcaseBusiness,
   LogOut,
   ChevronDown,
   Crown,
@@ -186,12 +186,12 @@ export function Header() {
                     Tersimpan
                   </Link>
                   <Link
-                    href="/settings"
+                    href="/agent"
                     className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                     onClick={() => setProfileOpen(false)}
                   >
-                    <Settings className="w-4 h-4" />
-                    Pengaturan
+                    <BriefcaseBusiness className="w-4 h-4" />
+                    Agent Tool
                   </Link>
                   {isSubscriptionLoading ? (
                     <div className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400">
@@ -316,12 +316,12 @@ export function Header() {
                 Iklan Saya
               </Link>
               <Link
-                href="/settings"
+                href="/agent"
                 className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 hover:bg-gray-50 font-medium text-sm"
                 onClick={() => setMenuOpen(false)}
               >
-                <Settings className="w-4 h-4" />
-                Pengaturan
+                <BriefcaseBusiness className="w-4 h-4" />
+                Agent Tool
               </Link>
               <button
                 type="button"
