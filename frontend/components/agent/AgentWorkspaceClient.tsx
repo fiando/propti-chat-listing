@@ -2,9 +2,13 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { BarChart3, Clock3, Filter, Plus, CheckCircle2 } from 'lucide-react';
+import { BarChart3, Clock3, Filter, Plus, CheckCircle2, MessageCircle, ExternalLink } from 'lucide-react';
 import { useAddLeadNote, useCompleteFollowUpTask, useCreateLead, useLeadAnalytics, useLeads, useUpdateLeadStage } from '@/hooks/useLeads';
 import type { Lead, LeadStage } from '@/types';
+
+function waLink(phone: string): string {
+  return `https://wa.me/${phone.replace(/\D/g, '')}`;
+}
 
 const STAGES: Array<{ key: LeadStage; label: string }> = [
   { key: 'new', label: 'Lead baru' },
@@ -20,7 +24,9 @@ export function AgentWorkspaceClient() {
   const [newLeadName, setNewLeadName] = useState('');
   const [newLeadPhone, setNewLeadPhone] = useState('');
   const [newLeadSource, setNewLeadSource] = useState('whatsapp');
+  const [newLeadListingId, setNewLeadListingId] = useState('');
   const [noteByLead, setNoteByLead] = useState<Record<string, string>>({});
+  const [noteErrorByLead, setNoteErrorByLead] = useState<Record<string, string>>({});
 
   const leadQuery = useLeads(selectedStage ? { stage: selectedStage } : undefined);
   const analyticsQuery = useLeadAnalytics();
@@ -46,9 +52,11 @@ export function AgentWorkspaceClient() {
       name: newLeadName.trim(),
       phone: newLeadPhone.trim() || undefined,
       source: newLeadSource.trim() || 'manual',
+      listingId: newLeadListingId.trim() || undefined,
     });
     setNewLeadName('');
     setNewLeadPhone('');
+    setNewLeadListingId('');
   };
 
   return (
@@ -74,7 +82,8 @@ export function AgentWorkspaceClient() {
           <input value={newLeadName} onChange={(e) => setNewLeadName(e.target.value)} placeholder="Nama lead" className="input-field text-sm" />
           <input value={newLeadPhone} onChange={(e) => setNewLeadPhone(e.target.value)} placeholder="Nomor WhatsApp/Telepon" className="input-field text-sm" />
           <input value={newLeadSource} onChange={(e) => setNewLeadSource(e.target.value)} placeholder="Sumber (mis. whatsapp)" className="input-field text-sm" />
-          <button type="button" onClick={submitCreateLead} className="btn-primary flex items-center justify-center gap-2 text-sm">
+          <input value={newLeadListingId} onChange={(e) => setNewLeadListingId(e.target.value)} placeholder="ID Iklan (opsional)" className="input-field text-sm" />
+          <button type="button" onClick={submitCreateLead} className="btn-primary flex items-center justify-center gap-2 text-sm md:col-span-4">
             <Plus className="h-4 w-4" /> Tambah Lead
           </button>
         </div>
@@ -97,14 +106,39 @@ export function AgentWorkspaceClient() {
               {(grouped.get(stage.key) ?? []).map((lead) => (
                 <article key={lead.leadId} className="rounded-xl border border-gray-100 bg-gray-50 p-3">
                   <div className="mb-2 flex items-start justify-between gap-2">
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-sm font-semibold text-gray-900">{lead.name}</p>
-                      <p className="text-xs text-gray-500">{lead.phone || '-'} • {lead.source || 'manual'}</p>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-gray-500">
+                        <span className="truncate">{lead.phone || 'Tidak ada nomor'}</span>
+                        {lead.phone && (
+                          <a
+                            href={waLink(lead.phone)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex flex-shrink-0 items-center gap-0.5 rounded-full bg-[#25D366] px-1.5 py-0.5 text-[10px] font-semibold text-white hover:bg-[#1ebe5d]"
+                            title="Chat via WhatsApp"
+                          >
+                            <MessageCircle className="h-2.5 w-2.5" />
+                            WA
+                          </a>
+                        )}
+                        <span>•</span>
+                        <span>{lead.source || 'manual'}</span>
+                      </div>
+                      {lead.listingId && (
+                        <Link
+                          href={`/listings/${lead.listingId}`}
+                          className="mt-1 inline-flex items-center gap-1 rounded-full bg-brand-light px-2 py-0.5 text-[10px] font-medium text-brand-primary transition-colors hover:bg-brand-primary hover:text-white"
+                        >
+                          <ExternalLink className="h-2.5 w-2.5" />
+                          Lihat Iklan
+                        </Link>
+                      )}
                     </div>
                     <select
                       value={lead.stage}
                       onChange={(e) => updateStageMutation.mutate({ leadId: lead.leadId, stage: e.target.value as LeadStage })}
-                      className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs"
+                      className="flex-shrink-0 rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs"
                     >
                       {STAGES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
                     </select>
@@ -125,10 +159,23 @@ export function AgentWorkspaceClient() {
                     ))}
                   </div>
 
+                  {(lead.notes ?? []).length > 0 && (
+                    <div className="mb-2 max-h-24 space-y-1 overflow-y-auto">
+                      {(lead.notes ?? []).slice().reverse().map((note, idx) => (
+                        <p key={idx} className="rounded-lg bg-white px-2 py-1 text-xs text-gray-600">
+                          {note}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+
                   <div className="flex gap-2">
                     <input
                       value={noteByLead[lead.leadId] ?? ''}
-                      onChange={(e) => setNoteByLead((prev) => ({ ...prev, [lead.leadId]: e.target.value }))}
+                      onChange={(e) => {
+                        setNoteByLead((prev) => ({ ...prev, [lead.leadId]: e.target.value }));
+                        if (noteErrorByLead[lead.leadId]) setNoteErrorByLead((prev) => ({ ...prev, [lead.leadId]: '' }));
+                      }}
                       placeholder="Tambahkan catatan follow-up"
                       className="input-field h-9 text-xs"
                     />
@@ -138,13 +185,21 @@ export function AgentWorkspaceClient() {
                       onClick={async () => {
                         const note = (noteByLead[lead.leadId] ?? '').trim();
                         if (!note) return;
-                        await addNoteMutation.mutateAsync({ leadId: lead.leadId, note });
-                        setNoteByLead((prev) => ({ ...prev, [lead.leadId]: '' }));
+                        try {
+                          await addNoteMutation.mutateAsync({ leadId: lead.leadId, note });
+                          setNoteByLead((prev) => ({ ...prev, [lead.leadId]: '' }));
+                          setNoteErrorByLead((prev) => ({ ...prev, [lead.leadId]: '' }));
+                        } catch {
+                          setNoteErrorByLead((prev) => ({ ...prev, [lead.leadId]: 'Gagal menyimpan catatan.' }));
+                        }
                       }}
                     >
                       Simpan
                     </button>
                   </div>
+                  {noteErrorByLead[lead.leadId] && (
+                    <p className="mt-1 text-[10px] text-red-500">{noteErrorByLead[lead.leadId]}</p>
+                  )}
                 </article>
               ))}
               {(grouped.get(stage.key) ?? []).length === 0 && (
