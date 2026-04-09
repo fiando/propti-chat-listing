@@ -84,7 +84,13 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
   const showRenewalCTA = shouldShowRenewalCTA(subscriptionStatus);
   const activeListingsCount = profile.subscription.activeListingsCount ?? 0;
   const currentPriceLabel =
-    tier === 'basic' || tier === 'premium' ? 'Rp 99rb/bulan' : tier === 'pro' ? 'Rp 179rb/bulan' : 'Rp 0';
+    tier === 'basic'
+      ? 'Rp 99rb/bulan (setara Premium)'
+      : tier === 'premium'
+        ? 'Rp 99rb/bulan'
+        : tier === 'pro'
+          ? 'Rp 179rb/bulan'
+          : 'Rp 0';
 
   const TIER_ORDER: Record<SubscriptionTier, number> = { free: 0, basic: 1, premium: 2, pro: 3 };
 
@@ -253,7 +259,7 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
               {isPaidTier && (
                 <span className="flex items-center gap-1 bg-amber-50 text-amber-600 text-xs font-semibold px-2 py-0.5 rounded-full border border-amber-200">
                   <Crown className="w-3 h-3" />
-                  {tier === 'basic' ? 'Basic (legacy)' : tier === 'premium' ? 'Premium' : 'Pro'}
+                  {tier === 'basic' ? 'Basic (legacy, setara Premium)' : tier === 'premium' ? 'Premium' : 'Pro'}
                 </span>
               )}
             </div>
@@ -274,7 +280,7 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
             {
               icon: User,
               label: 'Tipe Akun',
-              value: tier === 'free' ? 'Gratis' : tier === 'basic' ? 'Basic (legacy)' : tier === 'premium' ? 'Premium' : 'Pro',
+              value: tier === 'free' ? 'Gratis' : tier === 'basic' ? 'Basic (legacy, setara Premium)' : tier === 'premium' ? 'Premium' : 'Pro',
             },
             {
               icon: TrendingUp,
@@ -305,7 +311,7 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
             </div>
             <div className="flex-1">
               <p className="font-bold text-amber-700">
-                Propti {tier === 'basic' ? 'Basic (legacy)' : tier === 'premium' ? 'Premium' : tier === 'pro' ? 'Pro' : 'Premium'}
+                Propti {tier === 'basic' ? 'Basic (legacy, setara Premium)' : tier === 'premium' ? 'Premium' : tier === 'pro' ? 'Pro' : 'Premium'}
               </p>
               <SubscriptionStatusBadge
                 status={subscriptionStatus}

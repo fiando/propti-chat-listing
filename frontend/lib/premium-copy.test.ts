@@ -22,6 +22,7 @@ test('premium modal copy reflects current paid caps and free starter limits', ()
   assert.match(premiumModal, /Paket gratis: maksimal 5 foto/i);
   assert.match(premiumModal, /5 listing aktif/i);
   assert.match(premiumModal, /tayang 60 hari/i);
+  assert.match(premiumModal, /maksimal 5 foto per listing, 5 listing aktif, tayang 60 hari/i);
   assert.match(premiumModal, /Limit dihitung dari listing aktif yang sedang berjalan/i);
   assert.doesNotMatch(premiumModal, /foto tidak terbatas/i);
   assert.doesNotMatch(premiumModal, /gratis hanya 1/i);
@@ -48,6 +49,7 @@ test('premium modal WA copy says create and search only, no edit or delete', () 
   assert.doesNotMatch(premiumModal, /edit & hapus/i);
   assert.doesNotMatch(premiumModal, /tanpa edit\/hapus/i);
   assert.match(premiumModal, /Voice note hingga 90 menit/i);
+  assert.match(premiumModal, /Voice note hingga 180 menit/i);
   assert.doesNotMatch(premiumModal, /penjual terverifikasi/i);
   assert.doesNotMatch(premiumModal, /prioritas dukungan pelanggan/i);
 });

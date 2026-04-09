@@ -1,4 +1,5 @@
 export const FREE_TIER_LISTING_LIMIT = 5;
+// Basic is no longer sold; legacy Basic users keep Premium-equivalent capacity (25 active listings).
 export const BASIC_TIER_LISTING_LIMIT = 25;
 export const PREMIUM_TIER_LISTING_LIMIT = 25;
 export const PRO_TIER_LISTING_LIMIT = 100;

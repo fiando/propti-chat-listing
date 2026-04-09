@@ -629,7 +629,7 @@ export default async function HomePage() {
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid gap-6 md:grid-cols-3">
             {PRICING_PLANS.map((plan) => (
               <div
                 key={plan.key}
