@@ -49,7 +49,7 @@ export default function KprPage() {
           <div className="card p-5">
             <h3 className="font-bold text-gray-900 mb-2">Tips untuk Pembeli</h3>
             <ul className="space-y-1.5 text-sm text-gray-600">
-              <li>• Suku bunga KPR bank Indonesia rata-rata 9–12% per tahun</li>
+              <li>• Suku bunga KPR bank Indonesia bervariasi — cek langsung ke bank untuk rate terkini</li>
               <li>• Tenor lebih panjang = angsuran lebih kecil, tapi bunga total lebih besar</li>
               <li>• Angsuran ideal tidak lebih dari 30% dari penghasilan bulanan</li>
               <li>• Siapkan juga biaya notaris, BPHTB, dan KPR (3–5% dari harga)</li>

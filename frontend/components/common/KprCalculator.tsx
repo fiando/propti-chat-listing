@@ -5,24 +5,14 @@ import { Calculator, Info } from 'lucide-react';
 
 function formatRupiah(value: number): string {
   if (value >= 1_000_000_000) {
-    const m = value / 1_000_000_000;
-    return `Rp ${m % 1 === 0 ? m.toFixed(0) : m.toFixed(2)} M`;
+    const b = value / 1_000_000_000;
+    return `Rp ${b % 1 === 0 ? b.toFixed(0) : b.toFixed(2)} Miliar`;
   }
   if (value >= 1_000_000) {
     const jt = value / 1_000_000;
     return `Rp ${jt % 1 === 0 ? jt.toFixed(0) : jt.toFixed(1)} Jt`;
   }
   return `Rp ${value.toLocaleString('id-ID')}`;
-}
-
-function parseRupiahInput(raw: string): number {
-  const digits = raw.replace(/\D/g, '');
-  return digits ? parseInt(digits, 10) : 0;
-}
-
-function displayRupiahInput(value: number): string {
-  if (value === 0) return '';
-  return value.toLocaleString('id-ID');
 }
 
 interface KprResult {
@@ -54,12 +44,12 @@ function calculateKpr(
 }
 
 export function KprCalculator() {
-  const [priceInput, setPriceInput] = useState('750000000');
+  const [priceRaw, setPriceRaw] = useState('750000000');
   const [dpPercent, setDpPercent] = useState(20);
   const [annualRate, setAnnualRate] = useState(10.5);
   const [tenorYears, setTenorYears] = useState(15);
 
-  const propertyPrice = useMemo(() => parseRupiahInput(priceInput), [priceInput]);
+  const propertyPrice = useMemo(() => (priceRaw ? parseInt(priceRaw, 10) : 0), [priceRaw]);
 
   const result = useMemo(
     () => calculateKpr(propertyPrice, dpPercent, annualRate, tenorYears),
@@ -67,10 +57,11 @@ export function KprCalculator() {
   );
 
   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value.replace(/\D/g, '');
-    const num = raw ? parseInt(raw, 10) : 0;
-    setPriceInput(displayRupiahInput(num));
+    const digits = e.target.value.replace(/\D/g, '');
+    setPriceRaw(digits);
   };
+
+  const priceDisplayValue = priceRaw ? parseInt(priceRaw, 10).toLocaleString('id-ID') : '';
 
   return (
     <div className="card p-6 md:p-8">
@@ -96,7 +87,7 @@ export function KprCalculator() {
               <input
                 type="text"
                 inputMode="numeric"
-                value={priceInput}
+                value={priceDisplayValue}
                 onChange={handlePriceChange}
                 placeholder="750.000.000"
                 className="input-field pl-9 text-sm"

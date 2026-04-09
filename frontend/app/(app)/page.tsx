@@ -210,7 +210,7 @@ export default async function HomePage() {
         <div className="relative max-w-6xl mx-auto px-4 pt-16 pb-24 md:pt-24 md:pb-32 text-center">
           <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm border border-white/20 text-white text-sm font-medium px-4 py-2 rounded-full mb-6">
             <span className="w-2 h-2 bg-[#25D366] rounded-full animate-pulse" />
-            Alat kerja properti untuk agen &amp; pemilik
+            Alat kerja properti untuk agen & pemilik
           </div>
 
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-white leading-tight mb-4 text-balance">
