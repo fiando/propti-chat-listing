@@ -25,9 +25,9 @@ import { getAuthenticatedHomeRedirectPath } from '@/lib/home-redirect';
 import { getServerAuthProfile } from '@/lib/server-profile';
 
 export const metadata: Metadata = {
-  title: 'Propti — Workspace Properti untuk Penjual & Pembeli di Indonesia',
+  title: 'Propti — Workspace Follow-up Properti untuk Penjual & Pembeli di Indonesia',
   description:
-    'Propti membantu penjual merapikan listing dan menindaklanjuti pembeli, sambil membantu pembeli mencari, menyimpan, dan menilai kecocokan properti dari satu tempat.',
+    'Propti membantu penjual merapikan listing dan menindaklanjuti pembeli, sambil membantu pembeli mencari, menyimpan, dan kembali ke properti yang relevan dari satu tempat.',
 };
 
 const HERO_PROOF_POINTS = [
@@ -40,8 +40,8 @@ const HERO_PROOF_POINTS = [
     desc: 'Cari properti dengan filter atau kalimat, simpan shortlist favorit, lalu cek kecocokan budget atau kesiapan beli sebelum lanjut survei.',
   },
   {
-    title: 'Bukan portal listing massal — ini workspace transaksi',
-    desc: 'Propti membantu setelah ada minat: listing tetap rapi, pembeli tetap bisa kembali, dan penjual tetap bisa follow-up sampai deal.',
+    title: 'Bayar untuk workflow aktif, bukan sekadar upload massal',
+    desc: 'Yang dibatasi adalah listing aktif yang sedang dikerjakan, supaya agen solo dan tim kecil tetap bisa mulai gratis lalu upgrade saat follow-up dan volume kerja benar-benar naik.',
   },
 ];
 
@@ -94,9 +94,9 @@ const PRODUCT_PROOF = [
   {
     icon: <Users className="w-6 h-6 text-brand-primary" />,
     bg: 'bg-brand-light',
-    title: 'Pembeli dan penjual lanjut dari minat ke keputusan',
-    desc: 'Pembeli bisa cek kecocokan budget dan detail penting lebih awal, penjual bisa catat lead dan status follow-up supaya percakapan tidak hilang setelah klik pertama.',
-    tag: 'Untuk closing',
+    title: 'Monetisasi masuk saat workload sudah nyata',
+    desc: 'Mulai gratis untuk validasi demand. Upgrade saat kamu butuh lebih banyak listing aktif, foto lebih banyak, voice note, dan pencarian WhatsApp untuk kerja harian.',
+    tag: 'Model revenue',
   },
 ];
 
@@ -170,7 +170,7 @@ const PRICING_PLANS = [
     label: 'Gratis',
     price: 'Rp 0',
     period: '',
-    blurb: 'Coba dulu, tanpa biaya.',
+    blurb: 'Mulai gratis untuk validasi demand.',
     highlight: false,
     features: [
       '5 listing aktif',
@@ -186,7 +186,7 @@ const PRICING_PLANS = [
     label: 'Premium',
     price: 'Rp 99.000',
     period: '/bulan',
-    blurb: 'Agen aktif dengan listing rutin.',
+    blurb: 'Untuk agen solo yang butuh follow-up rapi.',
     highlight: true,
     features: [
       'Kelola 25 listing aktif sekaligus',
@@ -203,7 +203,7 @@ const PRICING_PLANS = [
     label: 'Pro',
     price: 'Rp 179.000',
     period: '/bulan',
-    blurb: 'Tim agen profesional.',
+    blurb: 'Untuk tim kecil dengan volume aktif tinggi.',
     highlight: false,
     features: [
       'Kelola 100 listing aktif sekaligus',
@@ -451,11 +451,11 @@ export default async function HomePage() {
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-6">
               <div className="flex-1">
                 <h3 className="text-xl font-bold text-gray-900 mb-2">
-                  MVP yang seimbang untuk dua sisi transaksi
+                  Sudut menang Propti: bantu closing, bukan tambah portal
                 </h3>
                 <p className="text-gray-500 text-sm leading-relaxed">
-                  Penjual butuh listing cepat dan follow-up rapi. Pembeli butuh pencarian, shortlist,
-                  dan alat bantu keputusan. Itu sebabnya Propti tidak berhenti di halaman iklan.
+                  Portal besar menang di traffic. Propti menang di kecepatan publish, follow-up, dan
+                  shortlist pembeli yang bisa dibuka lagi saat mereka siap lanjut.
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-3 flex-shrink-0">
@@ -467,11 +467,11 @@ export default async function HomePage() {
                   Jelajahi Properti
                 </Link>
                 <Link
-                  href="/agent"
+                  href="/profile"
                   className="flex items-center justify-center gap-2 border-2 border-brand-primary text-brand-primary font-bold px-6 py-3 rounded-xl hover:bg-brand-light transition-colors text-sm"
                 >
                   <LayoutDashboard className="w-4 h-4" />
-                  Lihat Dasbor Penjual
+                  Lihat Workflow Saya
                 </Link>
               </div>
             </div>
@@ -621,15 +621,15 @@ export default async function HomePage() {
             <span className="inline-block bg-amber-50 text-amber-700 text-sm font-semibold px-4 py-1.5 rounded-full mb-4 border border-amber-200">
               Harga Paket
             </span>
-            <h2 className="section-title">Pilih Paket Sesuai Aktivitas Kerjamu</h2>
+            <h2 className="section-title">Gratis untuk mulai, bayar saat workflow sudah padat</h2>
             <p className="section-subtitle max-w-2xl mx-auto">
               Fitur pembeli seperti cari, simpan, dan alat bantu keputusan tetap bisa dipakai gratis.
-              Mulai gratis, upgrade kapan saja saat kamu butuh lebih banyak listing aktif, lebih banyak
-              foto per iklan, fitur WhatsApp bot, dan pembuatan iklan via pesan suara.
+              Paket berbayar dipakai saat kamu butuh lebih banyak listing aktif, lebih banyak foto per
+              listing, fitur WhatsApp, dan voice note untuk operasional harian.
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {PRICING_PLANS.map((plan) => (
               <div
                 key={plan.key}
@@ -682,6 +682,11 @@ export default async function HomePage() {
               </div>
             ))}
           </div>
+          <p className="text-center text-sm text-gray-500 mt-6 max-w-3xl mx-auto">
+            Limit dihitung dari listing aktif yang sedang berjalan, bukan jumlah properti yang pernah
+            kamu input. Jadi tetap fair untuk mulai gratis, lalu naik paket hanya saat beban kerja dan
+            kebutuhan follow-up memang bertambah.
+          </p>
         </div>
       </section>
 

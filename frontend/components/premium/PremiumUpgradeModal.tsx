@@ -6,6 +6,7 @@ import { upgradePremium } from '@/lib/api';
 import type { SubscriptionTier } from '@/types';
 
 type PremiumModalMode = 'upgrade' | 'renew';
+type SellableTier = Exclude<SubscriptionTier, 'free' | 'basic'>;
 
 interface PremiumUpgradeModalProps {
   isOpen: boolean;
@@ -13,43 +14,31 @@ interface PremiumUpgradeModalProps {
   mode?: PremiumModalMode;
   currentRenewDate?: string;
   currentTier?: SubscriptionTier;
-  selectedTier?: Exclude<SubscriptionTier, 'free'>;
+  selectedTier?: SellableTier;
 }
 
 const TIER_CONFIG = {
-  basic: {
-    label: 'Basic',
-    price: 'Rp 59.000',
-    blurb: 'Untuk seller yang mulai serius beriklan.',
-    features: [
-      'Maksimal 8 foto per iklan',
-      'Maksimal 8 listing aktif',
-      'Buat & cari via WhatsApp',
-      'Voice note hingga 20 menit per bulan',
-      'Iklan tayang hingga 90 hari',
-    ],
-  },
   premium: {
     label: 'Premium',
-    price: 'Rp 129.000',
-    blurb: 'Untuk performa listing yang lebih agresif.',
+    price: 'Rp 99.000',
+    blurb: 'Untuk agen solo yang butuh workflow lebih rapi.',
     features: [
       'Maksimal 15 foto per iklan',
-      'Maksimal 20 listing aktif',
+      'Maksimal 25 listing aktif',
       'Buat & cari via WhatsApp',
-      'Voice note hingga 60 menit per bulan',
+      'Voice note hingga 90 menit per bulan',
       'Iklan tayang hingga 90 hari',
     ],
   },
   pro: {
     label: 'Pro',
-    price: 'Rp 199.000',
-    blurb: 'Untuk tim agen dengan volume listing tinggi.',
+    price: 'Rp 179.000',
+    blurb: 'Untuk tim kecil dengan workload listing aktif lebih tinggi.',
     features: [
       'Maksimal 25 foto per iklan',
-      'Maksimal 50 listing aktif',
+      'Maksimal 100 listing aktif',
       'Buat & cari via WhatsApp',
-      'Voice note hingga 120 menit per bulan',
+      'Voice note hingga 180 menit per bulan',
       'Iklan tayang hingga 90 hari',
     ],
   },
@@ -72,7 +61,7 @@ export function PremiumUpgradeModal({
 }: PremiumUpgradeModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTier, setActiveTier] = useState<Exclude<SubscriptionTier, 'free'>>(selectedTier);
+  const [activeTier, setActiveTier] = useState<SellableTier>(selectedTier);
 
   useEffect(() => {
     setActiveTier(selectedTier);
@@ -154,8 +143,8 @@ export function PremiumUpgradeModal({
           {!isRenewal && (
             <div className="mb-6">
               <p className="text-sm font-semibold text-gray-900 mb-3">Pilih paket</p>
-              <div className="grid gap-3 md:grid-cols-3">
-                {(Object.keys(TIER_CONFIG) as Array<Exclude<SubscriptionTier, 'free'>>).map((tierKey) => {
+              <div className="grid gap-3 md:grid-cols-2">
+                {(Object.keys(TIER_CONFIG) as SellableTier[]).map((tierKey) => {
                   const tierConfig = TIER_CONFIG[tierKey];
                   const isActive = activeTier === tierKey;
                   const tierAction =
@@ -197,7 +186,14 @@ export function PremiumUpgradeModal({
 
           {!isRenewal && (
             <div className="mb-6 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
-              Paket gratis: maksimal 3 foto per iklan, 3 listing aktif, tayang 30 hari.
+              Paket gratis: maksimal 5 foto per listing, 5 listing aktif, tayang 60 hari.
+            </div>
+          )}
+
+          {!isRenewal && (
+            <div className="mb-6 rounded-2xl border border-brand-primary/10 bg-brand-light/20 px-4 py-3 text-sm text-gray-600">
+              Limit dihitung dari listing aktif yang sedang berjalan, bukan total properti yang pernah
+              kamu input.
             </div>
           )}
 

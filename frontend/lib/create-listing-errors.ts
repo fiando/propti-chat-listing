@@ -1,7 +1,7 @@
-export const FREE_TIER_LISTING_LIMIT = 3;
-export const BASIC_TIER_LISTING_LIMIT = 8;
-export const PREMIUM_TIER_LISTING_LIMIT = 20;
-export const PRO_TIER_LISTING_LIMIT = 50;
+export const FREE_TIER_LISTING_LIMIT = 5;
+export const BASIC_TIER_LISTING_LIMIT = 25;
+export const PREMIUM_TIER_LISTING_LIMIT = 25;
+export const PRO_TIER_LISTING_LIMIT = 100;
 export const LISTING_ACCESS_CHECK_PAGE_SIZE = 100;
 export const FREE_TIER_LISTING_LIMIT_MESSAGE =
   `Paket gratis hanya bisa memiliki ${FREE_TIER_LISTING_LIMIT} listing aktif. Upgrade paket untuk memasang iklan baru.`;
@@ -102,6 +102,8 @@ export function getCreateListingErrorMessage(error: unknown): string {
   const normalizedMessage = message.trim().toLowerCase();
 
   if (
+    normalizedMessage.includes('free tier allows at most 5 listing') ||
+    normalizedMessage.includes('free tier allows at most 5 active listing') ||
     normalizedMessage.includes('free tier allows at most 3 listing') ||
     normalizedMessage.includes('free tier allows at most 3 active listing')
   ) {
@@ -109,6 +111,8 @@ export function getCreateListingErrorMessage(error: unknown): string {
   }
 
   if (
+    normalizedMessage.includes('basic tier allows at most 25 listing') ||
+    normalizedMessage.includes('basic tier allows at most 25 active listing') ||
     normalizedMessage.includes('basic tier allows at most 8 listing') ||
     normalizedMessage.includes('basic tier allows at most 8 active listing')
   ) {
@@ -116,6 +120,8 @@ export function getCreateListingErrorMessage(error: unknown): string {
   }
 
   if (
+    normalizedMessage.includes('premium tier allows at most 25 listing') ||
+    normalizedMessage.includes('premium tier allows at most 25 active listing') ||
     normalizedMessage.includes('premium tier allows at most 20 listing') ||
     normalizedMessage.includes('premium tier allows at most 20 active listing')
   ) {
@@ -123,6 +129,8 @@ export function getCreateListingErrorMessage(error: unknown): string {
   }
 
   if (
+    normalizedMessage.includes('pro tier allows at most 100 listing') ||
+    normalizedMessage.includes('pro tier allows at most 100 active listing') ||
     normalizedMessage.includes('pro tier allows at most 50 listing') ||
     normalizedMessage.includes('pro tier allows at most 50 active listing')
   ) {

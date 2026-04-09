@@ -51,11 +51,13 @@ type ProfilePageClientProps = {
   } | null;
 };
 
+type SellableTier = 'premium' | 'pro';
+
 export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [showPremiumModal, setShowPremiumModal] = useState(false);
-  const [selectedUpgradeTier, setSelectedUpgradeTier] = useState<'basic' | 'premium' | 'pro'>('premium');
+  const [selectedUpgradeTier, setSelectedUpgradeTier] = useState<SellableTier>('premium');
   const [role, setRole] = useState<'buyer' | 'seller' | 'both' | ''>(profile.role ?? '');
   const [notifications, setNotifications] = useState(profile.preferences?.notifications ?? true);
   const [saved, setSaved] = useState(false);
@@ -82,13 +84,13 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
   const showRenewalCTA = shouldShowRenewalCTA(subscriptionStatus);
   const activeListingsCount = profile.subscription.activeListingsCount ?? 0;
   const currentPriceLabel =
-    tier === 'basic' ? 'Rp 59rb/bulan' : tier === 'premium' ? 'Rp 129rb/bulan' : tier === 'pro' ? 'Rp 199rb/bulan' : 'Rp 0';
+    tier === 'basic' || tier === 'premium' ? 'Rp 99rb/bulan' : tier === 'pro' ? 'Rp 179rb/bulan' : 'Rp 0';
 
   const TIER_ORDER: Record<SubscriptionTier, number> = { free: 0, basic: 1, premium: 2, pro: 3 };
 
   useEffect(() => {
-    if (upgradeTierParam && ['basic', 'premium', 'pro'].includes(upgradeTierParam)) {
-      setSelectedUpgradeTier(upgradeTierParam as 'basic' | 'premium' | 'pro');
+    if (upgradeTierParam && ['premium', 'pro'].includes(upgradeTierParam)) {
+      setSelectedUpgradeTier(upgradeTierParam as SellableTier);
       setShowPremiumModal(true);
     }
   }, [upgradeTierParam]);
@@ -251,7 +253,7 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
               {isPaidTier && (
                 <span className="flex items-center gap-1 bg-amber-50 text-amber-600 text-xs font-semibold px-2 py-0.5 rounded-full border border-amber-200">
                   <Crown className="w-3 h-3" />
-                  {tier === 'basic' ? 'Basic' : tier === 'premium' ? 'Premium' : 'Pro'}
+                  {tier === 'basic' ? 'Basic (legacy)' : tier === 'premium' ? 'Premium' : 'Pro'}
                 </span>
               )}
             </div>
@@ -272,7 +274,7 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
             {
               icon: User,
               label: 'Tipe Akun',
-              value: tier === 'free' ? 'Gratis' : tier === 'basic' ? 'Basic' : tier === 'premium' ? 'Premium' : 'Pro',
+              value: tier === 'free' ? 'Gratis' : tier === 'basic' ? 'Basic (legacy)' : tier === 'premium' ? 'Premium' : 'Pro',
             },
             {
               icon: TrendingUp,
@@ -303,7 +305,7 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
             </div>
             <div className="flex-1">
               <p className="font-bold text-amber-700">
-                Propti {tier === 'basic' ? 'Basic' : tier === 'premium' ? 'Premium' : tier === 'pro' ? 'Pro' : 'Premium'}
+                Propti {tier === 'basic' ? 'Basic (legacy)' : tier === 'premium' ? 'Premium' : tier === 'pro' ? 'Pro' : 'Premium'}
               </p>
               <SubscriptionStatusBadge
                 status={subscriptionStatus}
@@ -321,7 +323,7 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
               <span className="badge bg-gray-100 text-gray-500">Aktif</span>
             </div>
             <ul className="space-y-2 text-sm text-gray-600">
-             {['3 iklan pertama gratis', 'Maksimal 3 foto per iklan', 'Iklan tayang 30 hari'].map((f) => (
+             {['5 listing aktif gratis', 'Maksimal 5 foto per listing', 'Iklan tayang 60 hari'].map((f) => (
                 <li key={f} className="flex items-center gap-2">
                   <Check className="w-3.5 h-3.5 text-gray-400" />
                   {f}
@@ -334,12 +336,11 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
         <p className="text-sm font-semibold text-gray-700 mb-3">
           {isPaidTier ? 'Ganti atau perpanjang paket:' : 'Pilih paket upgrade:'}
         </p>
-        <div className="grid grid-cols-3 gap-3 mb-4">
+        <div className="grid grid-cols-2 gap-3 mb-4">
           {(
             [
-              { key: 'basic', label: 'Basic', price: 'Rp 59rb/bln', highlight: false },
-              { key: 'premium', label: 'Premium', price: 'Rp 129rb/bln', highlight: true },
-              { key: 'pro', label: 'Pro', price: 'Rp 199rb/bln', highlight: false },
+              { key: 'premium', label: 'Premium', price: 'Rp 99rb/bln', highlight: true },
+              { key: 'pro', label: 'Pro', price: 'Rp 179rb/bln', highlight: false },
             ] as const
           ).map((plan) => {
             const isCurrent = tier === plan.key;

@@ -14,28 +14,28 @@ const createPageSource = readFileSync(
 
 test('maps free tier listing limit errors to a clear blocking message', () => {
   assert.equal(
-    getCreateListingErrorMessage(new Error('free tier allows at most 3 listing(s)')),
-    'Paket gratis hanya bisa memiliki 3 listing aktif. Upgrade paket untuk memasang iklan baru.'
+    getCreateListingErrorMessage(new Error('free tier allows at most 5 listing(s)')),
+    'Paket gratis hanya bisa memiliki 5 listing aktif. Upgrade paket untuk memasang iklan baru.'
   );
   assert.equal(
-    getCreateListingErrorMessage(new Error('free tier allows at most 3 active listing(s)')),
-    'Paket gratis hanya bisa memiliki 3 listing aktif. Upgrade paket untuk memasang iklan baru.'
+    getCreateListingErrorMessage(new Error('free tier allows at most 5 active listing(s)')),
+    'Paket gratis hanya bisa memiliki 5 listing aktif. Upgrade paket untuk memasang iklan baru.'
   );
   assert.match(
     getCreateListingErrorMessage(new Error('free tier allows at most 3 listing(s)')),
-    /3 listing/i
+    /5 listing/i
   );
   assert.equal(
-    getCreateListingErrorMessage(new Error('basic tier allows at most 8 active listing(s)')),
-    'Paket Basic maksimal 8 listing aktif. Arsipkan salah satu listing untuk memasang iklan baru.'
+    getCreateListingErrorMessage(new Error('basic tier allows at most 25 active listing(s)')),
+    'Paket Basic maksimal 25 listing aktif. Arsipkan salah satu listing untuk memasang iklan baru.'
   );
   assert.equal(
-    getCreateListingErrorMessage(new Error('premium tier allows at most 20 active listing(s)')),
-    'Paket Premium maksimal 20 listing aktif. Arsipkan salah satu listing untuk memasang iklan baru.'
+    getCreateListingErrorMessage(new Error('premium tier allows at most 25 active listing(s)')),
+    'Paket Premium maksimal 25 listing aktif. Arsipkan salah satu listing untuk memasang iklan baru.'
   );
   assert.equal(
-    getCreateListingErrorMessage(new Error('pro tier allows at most 50 active listing(s)')),
-    'Paket Pro maksimal 50 listing aktif. Arsipkan salah satu listing untuk memasang iklan baru.'
+    getCreateListingErrorMessage(new Error('pro tier allows at most 100 active listing(s)')),
+    'Paket Pro maksimal 100 listing aktif. Arsipkan salah satu listing untuk memasang iklan baru.'
   );
 });
 
@@ -165,17 +165,17 @@ test('surfaces a retryable access error when the quota request fails or returns 
   );
 });
 
-test('blocks premium users after 20 active listings', () => {
+test('blocks premium users after 25 active listings', () => {
   assert.deepEqual(
     getCreateListingAccessState({
       isAuthenticated: true,
       tier: 'premium',
-      activeListingsCount: 20,
+      activeListingsCount: 25,
     }),
     {
       status: 'blocked',
-      activeListingsCount: 20,
-      message: 'Paket Premium maksimal 20 listing aktif. Arsipkan salah satu listing untuk memasang iklan baru.',
+      activeListingsCount: 25,
+      message: 'Paket Premium maksimal 25 listing aktif. Arsipkan salah satu listing untuk memasang iklan baru.',
     }
   );
 
@@ -183,11 +183,11 @@ test('blocks premium users after 20 active listings', () => {
     getCreateListingAccessState({
       isAuthenticated: true,
       tier: 'premium',
-      activeListingsCount: 19,
+      activeListingsCount: 24,
     }),
     {
       status: 'ready',
-      activeListingsCount: 19,
+      activeListingsCount: 24,
     }
   );
 });
@@ -197,12 +197,12 @@ test('blocks basic and pro users at their respective caps', () => {
     getCreateListingAccessState({
       isAuthenticated: true,
       tier: 'basic',
-      activeListingsCount: 8,
+      activeListingsCount: 25,
     }),
     {
       status: 'blocked',
-      activeListingsCount: 8,
-      message: 'Paket Basic maksimal 8 listing aktif. Arsipkan salah satu listing untuk memasang iklan baru.',
+      activeListingsCount: 25,
+      message: 'Paket Basic maksimal 25 listing aktif. Arsipkan salah satu listing untuk memasang iklan baru.',
     }
   );
 
@@ -210,12 +210,12 @@ test('blocks basic and pro users at their respective caps', () => {
     getCreateListingAccessState({
       isAuthenticated: true,
       tier: 'pro',
-      activeListingsCount: 50,
+      activeListingsCount: 100,
     }),
     {
       status: 'blocked',
-      activeListingsCount: 50,
-      message: 'Paket Pro maksimal 50 listing aktif. Arsipkan salah satu listing untuk memasang iklan baru.',
+      activeListingsCount: 100,
+      message: 'Paket Pro maksimal 100 listing aktif. Arsipkan salah satu listing untuk memasang iklan baru.',
     }
   );
 });
