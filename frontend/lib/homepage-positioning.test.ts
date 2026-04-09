@@ -15,6 +15,7 @@ test('homepage hero sells Propti as a balanced buyer and seller workspace', () =
 test('homepage proof section reinforces must-have buyer and seller MVP value', () => {
   assert.match(homePage, /Cari, simpan, dan shortlist properti yang relevan/i);
   assert.match(homePage, /MVP yang seimbang untuk dua sisi transaksi/i);
-  assert.match(homePage, /Fitur buyer seperti cari, simpan, dan kalkulator KPR tetap bisa dipakai gratis/i);
+  assert.match(homePage, /workspace transaksi properti/i);
+  assert.match(homePage, /Fitur pembeli seperti cari, simpan, dan kalkulator KPR tetap bisa dipakai gratis/i);
   assert.doesNotMatch(homePage, /OLX|Rumah123/i);
 });

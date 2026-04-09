@@ -27,21 +27,21 @@ import { getServerAuthProfile } from '@/lib/server-profile';
 export const metadata: Metadata = {
   title: 'Propti — Workspace Properti untuk Penjual & Pembeli di Indonesia',
   description:
-    'Propti membantu penjual merapikan listing dan follow-up buyer, sambil membantu pembeli mencari, menyimpan, dan menghitung KPR dari satu tempat.',
+    'Propti membantu penjual merapikan listing dan menindaklanjuti pembeli, sambil membantu pembeli mencari, menyimpan, dan menghitung KPR dari satu tempat.',
 };
 
 const HERO_PROOF_POINTS = [
   {
-    title: 'Seller bisa mulai dari teks WhatsApp yang sudah ada',
+    title: 'Penjual bisa mulai dari teks WhatsApp yang sudah ada',
     desc: 'Paste teks iklan yang sudah kamu punya — AI langsung baca dan rapikan detail penting supaya listing lebih cepat tayang.',
   },
   {
-    title: 'Buyer bisa cari, simpan, lalu cek kesiapan beli',
+    title: 'Pembeli bisa cari, simpan, lalu cek kesiapan beli',
     desc: 'Cari properti dengan filter atau kalimat, simpan shortlist favorit, lalu hitung estimasi KPR sebelum lanjut survei.',
   },
   {
     title: 'Bukan portal listing massal — ini workspace transaksi',
-    desc: 'Propti membantu setelah ada minat: listing tetap rapi, buyer tetap bisa kembali, dan seller tetap bisa follow-up sampai deal.',
+    desc: 'Propti membantu setelah ada minat: listing tetap rapi, pembeli tetap bisa kembali, dan penjual tetap bisa follow-up sampai deal.',
   },
 ];
 
@@ -75,14 +75,14 @@ const PRODUCT_PROOF = [
     bg: 'bg-[#25D366]/10',
     title: 'Mulai dari teks iklan yang sudah kamu punya',
     desc: 'Paste teks WhatsApp untuk membuat draft lebih cepat, lalu jadikan Propti sebagai pusat listing yang lebih rapi, lebih dipercaya, dan siap kamu bagikan.',
-    tag: 'Untuk seller',
+    tag: 'Untuk penjual',
   },
   {
     icon: <Search className="w-6 h-6 text-brand-primary" />,
     bg: 'bg-brand-light',
     title: 'Cari, simpan, dan shortlist properti yang relevan',
-    desc: 'Buyer bisa pakai search biasa atau cari dengan kalimat, lalu simpan properti yang cocok supaya mudah dibandingkan lagi nanti.',
-    tag: 'Untuk buyer',
+    desc: 'Pembeli bisa pakai search biasa atau cari dengan kalimat, lalu simpan properti yang cocok supaya mudah dibandingkan lagi nanti.',
+    tag: 'Untuk pembeli',
   },
   {
     icon: <ShieldIcon className="w-6 h-6 text-blue-600" />,
@@ -94,8 +94,8 @@ const PRODUCT_PROOF = [
   {
     icon: <Users className="w-6 h-6 text-brand-primary" />,
     bg: 'bg-brand-light',
-    title: 'Buyer dan seller lanjut dari minat ke keputusan',
-    desc: 'Buyer bisa hitung KPR lebih awal, seller bisa catat lead dan status follow-up supaya percakapan tidak hilang setelah klik pertama.',
+    title: 'Pembeli dan penjual lanjut dari minat ke keputusan',
+    desc: 'Pembeli bisa hitung KPR lebih awal, penjual bisa catat lead dan status follow-up supaya percakapan tidak hilang setelah klik pertama.',
     tag: 'Untuk closing',
   },
 ];
@@ -123,31 +123,31 @@ const TRANSACTION_WORKSPACE = [
     icon: <Search className="w-6 h-6 text-brand-primary" />,
     bg: 'bg-brand-light',
     title: 'Cari dengan filter atau kalimat natural',
-    desc: 'Buyer tidak harus paham format filter. Cukup tulis kebutuhan, lalu rapikan hasilnya dengan filter lanjutan jika perlu.',
+    desc: 'Pembeli tidak harus paham format filter. Cukup tulis kebutuhan, lalu rapikan hasilnya dengan filter lanjutan jika perlu.',
   },
   {
     icon: <TrendingUp className="w-6 h-6 text-brand-secondary" />,
     bg: 'bg-brand-light',
     title: 'Shortlist yang bisa dibuka lagi kapan saja',
-    desc: 'Listing tersimpan membantu buyer kembali ke properti yang menarik tanpa perlu mengulang pencarian dari awal.',
+    desc: 'Listing tersimpan membantu pembeli kembali ke properti yang menarik tanpa perlu mengulang pencarian dari awal.',
   },
   {
     icon: <Calculator className="w-6 h-6 text-brand-primary" />,
     bg: 'bg-amber-50',
     title: 'Kalkulator KPR sebelum survei',
-    desc: 'Buyer bisa cek estimasi angsuran lebih awal, jadi percakapan dengan seller lebih siap dan realistis.',
+    desc: 'Pembeli bisa cek estimasi angsuran lebih awal, jadi percakapan dengan penjual lebih siap dan realistis.',
   },
   {
     icon: <Users className="w-6 h-6 text-brand-primary" />,
     bg: 'bg-brand-light',
     title: 'Follow-up calon pembeli tetap rapi',
-    desc: 'Seller dan agen bisa lihat siapa yang baru masuk, siapa yang siap survei, sampai siapa yang sudah deal.',
+    desc: 'Penjual dan agen bisa lihat siapa yang baru masuk, siapa yang siap survei, sampai siapa yang sudah deal.',
   },
 ] as const;
 
 const BALANCED_MVP_LANES = [
   {
-    title: 'Untuk seller / agen',
+    title: 'Untuk penjual / agen',
     points: [
       'Buat listing cepat dari teks atau voice note WhatsApp',
       'Bagikan satu link listing yang lebih rapi dan lebih meyakinkan',
@@ -155,11 +155,11 @@ const BALANCED_MVP_LANES = [
     ],
   },
   {
-    title: 'Untuk buyer',
+    title: 'Untuk pembeli',
     points: [
       'Cari properti dengan filter atau kalimat natural',
       'Simpan shortlist properti yang menarik untuk dibandingkan lagi',
-      'Hitung estimasi KPR lalu hubungi seller dari halaman listing',
+      'Hitung estimasi KPR lalu hubungi penjual dari halaman listing',
     ],
   },
 ] as const;
@@ -268,7 +268,7 @@ export default async function HomePage() {
           </h1>
 
           <p className="text-lg md:text-xl text-white/80 max-w-3xl mx-auto mb-10 text-balance">
-            Untuk seller, Propti membantu merapikan listing, membagikannya ke mana saja, dan menindaklanjuti buyer. Untuk buyer, Propti membantu mencari, menyimpan, dan menghitung kesiapan beli dari satu tempat. Bukan portal listing massal — ini workspace transaksi properti.
+            Untuk penjual, Propti membantu merapikan listing, membagikannya ke mana saja, dan menindaklanjuti pembeli. Untuk pembeli, Propti membantu mencari, menyimpan, dan menghitung kesiapan beli dari satu tempat. Bukan portal listing massal — ini workspace transaksi properti.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
@@ -314,9 +314,9 @@ export default async function HomePage() {
           <span className="inline-block bg-brand-light text-brand-primary text-sm font-semibold px-4 py-1.5 rounded-full mb-4">
             Cara Kerja
           </span>
-          <h2 className="section-title">Seller bisa tayang cepat, buyer bisa cek detail lebih cepat</h2>
+          <h2 className="section-title">Penjual bisa tayang cepat, pembeli bisa cek detail lebih cepat</h2>
           <p className="section-subtitle max-w-xl mx-auto">
-            Penjual bisa mulai dari teks WhatsApp yang sudah ada. Setelah tayang, buyer tinggal buka
+            Penjual bisa mulai dari teks WhatsApp yang sudah ada. Setelah tayang, pembeli tinggal buka
             listing yang lebih rapi, simpan properti yang cocok, lalu lanjut hitung KPR.
           </p>
         </div>
@@ -408,7 +408,7 @@ export default async function HomePage() {
                 Fitur WhatsApp
               </span>
               <h2 className="text-xl font-bold text-gray-900 mb-2 leading-snug">
-                WhatsApp tetap jadi jalur cepat untuk seller & buyer
+                WhatsApp tetap jadi jalur cepat untuk penjual & pembeli
               </h2>
               <p className="text-sm text-gray-500 leading-relaxed">
                 Buat listing, kirim voice note, atau cari properti langsung dari chat saat kamu belum
@@ -448,7 +448,7 @@ export default async function HomePage() {
             <h2 className="section-title">Kenapa Propti bukan sekadar portal listing</h2>
             <p className="section-subtitle max-w-2xl mx-auto">
               Portal listing berhenti di impresi. Propti fokus pada langkah setelah orang tertarik:
-              buyer bisa shortlist dan cek kesiapan beli, seller bisa follow-up sampai deal.
+              pembeli bisa shortlist dan cek kesiapan beli, penjual bisa follow-up sampai deal.
             </p>
           </div>
 
@@ -471,7 +471,7 @@ export default async function HomePage() {
                   MVP yang seimbang untuk dua sisi transaksi
                 </h3>
                 <p className="text-gray-500 text-sm leading-relaxed">
-                  Seller butuh listing cepat dan follow-up rapi. Buyer butuh pencarian, shortlist,
+                  Penjual butuh listing cepat dan follow-up rapi. Pembeli butuh pencarian, shortlist,
                   dan hitung affordability. Itu sebabnya Propti tidak berhenti di halaman iklan.
                 </p>
               </div>
@@ -488,7 +488,7 @@ export default async function HomePage() {
                   className="flex items-center justify-center gap-2 border-2 border-brand-primary text-brand-primary font-bold px-6 py-3 rounded-xl hover:bg-brand-light transition-colors text-sm"
                 >
                   <LayoutDashboard className="w-4 h-4" />
-                  Lihat Dasbor Seller
+                  Lihat Dasbor Penjual
                 </Link>
               </div>
             </div>
@@ -553,9 +553,9 @@ export default async function HomePage() {
           <span className="inline-block bg-brand-light text-brand-primary text-sm font-semibold px-4 py-1.5 rounded-full mb-4">
             Fitur MVP
           </span>
-          <h2 className="section-title">Fitur yang harus ada untuk buyer & seller sejak launch</h2>
+          <h2 className="section-title">Fitur yang harus ada untuk pembeli & penjual sejak launch</h2>
           <p className="section-subtitle max-w-2xl mx-auto">
-            Seller butuh listing yang rapi dan follow-up yang jelas. Buyer butuh pencarian, shortlist,
+            Penjual butuh listing yang rapi dan follow-up yang jelas. Pembeli butuh pencarian, shortlist,
             dan alat bantu keputusan. Semua ini jadi inti produk Propti.
           </p>
         </div>
@@ -640,7 +640,7 @@ export default async function HomePage() {
             </span>
             <h2 className="section-title">Pilih Paket Sesuai Aktivitas Kerjamu</h2>
             <p className="section-subtitle max-w-2xl mx-auto">
-              Fitur buyer seperti cari, simpan, dan kalkulator KPR tetap bisa dipakai gratis. Paket
+              Fitur pembeli seperti cari, simpan, dan kalkulator KPR tetap bisa dipakai gratis. Paket
               berbayar dipakai saat kamu aktif pasang dan kelola listing dalam jumlah lebih besar.
             </p>
           </div>
@@ -712,7 +712,7 @@ export default async function HomePage() {
           </h2>
           <p className="text-white/80 text-lg mb-8 max-w-2xl mx-auto">
             Cari properti, simpan shortlist, hitung KPR, atau mulai dari listing yang sudah kamu punya.
-            Propti membantu buyer dan seller bertemu di workflow yang lebih rapi.
+            Propti membantu pembeli dan penjual bertemu di workflow yang lebih rapi.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
