@@ -43,6 +43,7 @@ Globals:
           - !Sub "https://${ApiCustomDomainName}"
           - !Sub "https://${ProptiApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}"
         LOG_LEVEL: info
+        ADMIN_SECRET: !Ref AdminSecret
   Api:
     Cors:
       AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
@@ -105,6 +106,10 @@ Parameters:
   TwilioVerifyServiceSID:
     Type: String
     Default: ""
+  AdminSecret:
+    Type: String
+    Default: ""
+    NoEcho: true
 
 Conditions:
   HasApiCustomDomain: !And
@@ -417,6 +422,12 @@ Resources:
             RestApiId: !Ref ProptiApi
             Path: /premium/{proxy+}
             Method: OPTIONS
+        AdminGrantTrial:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ProptiApi
+            Path: /admin/grant-trial
+            Method: POST
 
   WhatsAppFunction:
     Type: AWS::Serverless::Function

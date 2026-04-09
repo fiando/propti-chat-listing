@@ -675,3 +675,192 @@ func TestPremiumHandlerUpgradeSupportsBasicTierPricing(t *testing.T) {
 		t.Fatalf("expected basic tier metadata in transaction, got %#v", txStore.items)
 	}
 }
+
+func newGrantTrialHandler(users map[string]*models.User) *PremiumHandler {
+	return NewPremiumHandler(
+		&fakePremiumUserStore{byID: users},
+		&fakePremiumTransactionStore{},
+		&fakePremiumListingService{},
+		&fakePaymentProvider{},
+	)
+}
+
+func TestGrantTrialUpgradesUserToBasicFor3Months(t *testing.T) {
+	t.Setenv("ADMIN_SECRET", "supersecret")
+
+	users := map[string]*models.User{
+		"user-1": {UserID: "user-1", Email: "user@example.com", Subscription: models.Subscription{Tier: models.SubscriptionFree}},
+	}
+	handler := newGrantTrialHandler(users)
+
+	before := time.Now().UTC()
+	resp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodPost,
+		Path:       "/admin/grant-trial",
+		Headers:    map[string]string{"Authorization": "Bearer supersecret"},
+		Body:       `{"userId":"user-1"}`,
+	})
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", resp.StatusCode, resp.Body)
+	}
+
+	var body models.GrantTrialResponse
+	if err := json.Unmarshal([]byte(resp.Body), &body); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if body.UserID != "user-1" {
+		t.Fatalf("expected userId user-1, got %q", body.UserID)
+	}
+	if body.Tier != "basic" {
+		t.Fatalf("expected tier basic, got %q", body.Tier)
+	}
+	renewDate, err := time.Parse(time.RFC3339, body.RenewDate)
+	if err != nil {
+		t.Fatalf("renewDate not parseable: %v", err)
+	}
+	expectedRenew := before.AddDate(0, 3, 0)
+	if renewDate.Before(expectedRenew.Add(-2*time.Second)) || renewDate.After(expectedRenew.Add(5*time.Second)) {
+		t.Fatalf("expected renewDate ~3 months from now, got %v", renewDate)
+	}
+
+	// Verify user was actually updated in the store.
+	updated := users["user-1"]
+	if updated.Subscription.Tier != models.SubscriptionBasic {
+		t.Fatalf("expected stored tier basic, got %q", updated.Subscription.Tier)
+	}
+}
+
+func TestGrantTrialAcceptsExplicitTierAndDuration(t *testing.T) {
+	t.Setenv("ADMIN_SECRET", "supersecret")
+
+	users := map[string]*models.User{
+		"user-2": {UserID: "user-2", Email: "user2@example.com", Subscription: models.Subscription{Tier: models.SubscriptionFree}},
+	}
+	handler := newGrantTrialHandler(users)
+
+	before := time.Now().UTC()
+	resp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodPost,
+		Path:       "/admin/grant-trial",
+		Headers:    map[string]string{"Authorization": "Bearer supersecret"},
+		Body:       `{"userId":"user-2","tier":"premium","durationMonths":6}`,
+	})
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", resp.StatusCode, resp.Body)
+	}
+
+	var body models.GrantTrialResponse
+	if err := json.Unmarshal([]byte(resp.Body), &body); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if body.Tier != "premium" {
+		t.Fatalf("expected tier premium, got %q", body.Tier)
+	}
+	renewDate, _ := time.Parse(time.RFC3339, body.RenewDate)
+	expectedRenew := before.AddDate(0, 6, 0)
+	if renewDate.Before(expectedRenew.Add(-2*time.Second)) || renewDate.After(expectedRenew.Add(5*time.Second)) {
+		t.Fatalf("expected renewDate ~6 months from now, got %v", renewDate)
+	}
+}
+
+func TestGrantTrialRejectsWrongSecret(t *testing.T) {
+	t.Setenv("ADMIN_SECRET", "supersecret")
+
+	handler := newGrantTrialHandler(map[string]*models.User{})
+
+	resp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodPost,
+		Path:       "/admin/grant-trial",
+		Headers:    map[string]string{"Authorization": "Bearer wrongsecret"},
+		Body:       `{"userId":"user-1"}`,
+	})
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", resp.StatusCode)
+	}
+}
+
+func TestGrantTrialRejectsMissingSecret(t *testing.T) {
+	t.Setenv("ADMIN_SECRET", "supersecret")
+
+	handler := newGrantTrialHandler(map[string]*models.User{})
+
+	resp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodPost,
+		Path:       "/admin/grant-trial",
+		Headers:    map[string]string{},
+		Body:       `{"userId":"user-1"}`,
+	})
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", resp.StatusCode)
+	}
+}
+
+func TestGrantTrialReturnsForbiddenWhenAdminSecretNotConfigured(t *testing.T) {
+	t.Setenv("ADMIN_SECRET", "")
+
+	handler := newGrantTrialHandler(map[string]*models.User{})
+
+	resp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodPost,
+		Path:       "/admin/grant-trial",
+		Headers:    map[string]string{"Authorization": "Bearer anything"},
+		Body:       `{"userId":"user-1"}`,
+	})
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected 403 when ADMIN_SECRET not set, got %d", resp.StatusCode)
+	}
+}
+
+func TestGrantTrialReturnsNotFoundForUnknownUser(t *testing.T) {
+	t.Setenv("ADMIN_SECRET", "supersecret")
+
+	handler := newGrantTrialHandler(map[string]*models.User{})
+
+	resp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodPost,
+		Path:       "/admin/grant-trial",
+		Headers:    map[string]string{"Authorization": "Bearer supersecret"},
+		Body:       `{"userId":"nonexistent"}`,
+	})
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", resp.StatusCode)
+	}
+}
+
+func TestGrantTrialRejectsBadRequest(t *testing.T) {
+	t.Setenv("ADMIN_SECRET", "supersecret")
+
+	handler := newGrantTrialHandler(map[string]*models.User{})
+
+	// Missing userId
+	resp, err := handler.Handle(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodPost,
+		Path:       "/admin/grant-trial",
+		Headers:    map[string]string{"Authorization": "Bearer supersecret"},
+		Body:       `{}`,
+	})
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected 400 for missing userId, got %d", resp.StatusCode)
+	}
+}

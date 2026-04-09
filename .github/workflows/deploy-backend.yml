@@ -75,6 +75,9 @@ jobs:
           if [ -n "${{ secrets.WHATSAPP_MESSAGE_TARGET }}" ]; then
             PARAM_OVERRIDES+=(WhatsAppMessageTarget=${{ secrets.WHATSAPP_MESSAGE_TARGET }})
           fi
+          if [ -n "${{ secrets.ADMIN_SECRET }}" ]; then
+            PARAM_OVERRIDES+=(AdminSecret=${{ secrets.ADMIN_SECRET }})
+          fi
 
           sam deploy \
             --no-confirm-changeset \

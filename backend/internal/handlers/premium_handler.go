@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -78,6 +79,8 @@ func (h *PremiumHandler) Handle(ctx context.Context, req events.APIGatewayProxyR
 		return h.featureListing(ctx, req)
 	case req.HTTPMethod == http.MethodPost && req.Path == "/premium/callback":
 		return h.paymentCallback(ctx, req)
+	case req.HTTPMethod == http.MethodPost && req.Path == "/admin/grant-trial":
+		return h.grantTrial(ctx, req)
 	default:
 		return jsonResponse(http.StatusNotFound, utils.MarshalErrorResponse(utils.ErrNotFound)), nil
 	}
@@ -200,6 +203,69 @@ func (h *PremiumHandler) upgradeToPremium(ctx context.Context, req events.APIGat
 		PaymentURL:    paymentResult.PaymentURL,
 		OrderID:       paymentResult.OrderID,
 		Amount:        amount,
+	}
+	body, _ := json.Marshal(resp)
+	return jsonResponse(http.StatusOK, string(body)), nil
+}
+
+// grantTrial is an admin endpoint that upgrades a user to a paid tier for a fixed
+// number of months without requiring payment. It is protected by a static secret
+// read from the ADMIN_SECRET environment variable.
+func (h *PremiumHandler) grantTrial(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	secret := strings.TrimSpace(os.Getenv("ADMIN_SECRET"))
+	if secret == "" {
+		return jsonResponse(http.StatusForbidden, utils.MarshalErrorResponse(utils.ErrForbidden)), nil
+	}
+
+	authHeader := req.Headers["Authorization"]
+	if authHeader == "" {
+		authHeader = req.Headers["authorization"]
+	}
+	if !strings.HasPrefix(authHeader, "Bearer ") || subtle.ConstantTimeCompare([]byte(strings.TrimPrefix(authHeader, "Bearer ")), []byte(secret)) != 1 {
+		return jsonResponse(http.StatusUnauthorized, utils.MarshalErrorResponse(utils.ErrUnauthorized)), nil
+	}
+
+	var grantReq models.GrantTrialRequest
+	if err := json.Unmarshal([]byte(req.Body), &grantReq); err != nil {
+		return jsonResponse(http.StatusBadRequest, utils.MarshalErrorResponse(utils.ErrBadRequest)), nil
+	}
+
+	userID := strings.TrimSpace(grantReq.UserID)
+	if userID == "" {
+		return jsonResponse(http.StatusBadRequest, utils.MarshalErrorResponse(utils.NewAppError(400, "userId is required"))), nil
+	}
+
+	tier := models.SubscriptionTier(strings.ToLower(strings.TrimSpace(grantReq.Tier)))
+	if tier == "" {
+		tier = models.SubscriptionBasic
+	}
+	if _, ok := allowedUpgradeTiers[tier]; !ok {
+		return jsonResponse(http.StatusBadRequest, utils.MarshalErrorResponse(utils.NewAppError(400, "unsupported subscription tier"))), nil
+	}
+
+	durationMonths := grantReq.DurationMonths
+	if durationMonths <= 0 {
+		durationMonths = 3
+	}
+
+	user, err := h.userRepo.GetByID(ctx, userID)
+	if err != nil || user == nil {
+		return jsonResponse(http.StatusNotFound, utils.MarshalErrorResponse(utils.ErrNotFound)), nil
+	}
+
+	renewDate := time.Now().UTC().AddDate(0, durationMonths, 0)
+	user.Subscription.Tier = tier
+	user.Subscription.RenewDate = &renewDate
+
+	if err := h.userRepo.Put(ctx, user); err != nil {
+		utils.LogError("grant trial put user", err, "userId", userID)
+		return jsonResponse(http.StatusInternalServerError, utils.MarshalErrorResponse(utils.ErrInternal)), nil
+	}
+
+	resp := models.GrantTrialResponse{
+		UserID:    userID,
+		Tier:      string(tier),
+		RenewDate: renewDate.Format(time.RFC3339),
 	}
 	body, _ := json.Marshal(resp)
 	return jsonResponse(http.StatusOK, string(body)), nil

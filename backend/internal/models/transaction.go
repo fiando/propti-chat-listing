@@ -50,6 +50,20 @@ type PremiumUpgradeRequest struct {
 	Tier string `json:"tier"`
 }
 
+// GrantTrialRequest is the body for POST /admin/grant-trial.
+type GrantTrialRequest struct {
+	UserID         string `json:"userId"`
+	Tier           string `json:"tier"`           // optional, defaults to "basic"
+	DurationMonths int    `json:"durationMonths"` // optional, defaults to 3
+}
+
+// GrantTrialResponse is returned on a successful trial grant.
+type GrantTrialResponse struct {
+	UserID    string `json:"userId"`
+	Tier      string `json:"tier"`
+	RenewDate string `json:"renewDate"`
+}
+
 type PaymentResponse struct {
 	TransactionID string  `json:"transactionId"`
 	PaymentURL    string  `json:"paymentUrl"`
