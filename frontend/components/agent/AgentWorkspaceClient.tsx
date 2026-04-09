@@ -45,7 +45,7 @@ export function AgentWorkspaceClient() {
   const [noteErrorByLead, setNoteErrorByLead] = useState<Record<string, string>>({});
   const [expandedStages, setExpandedStages] = useState<Set<LeadStage>>(new Set());
 
-  const leadQuery = useLeads(selectedStage ? { stage: selectedStage } : undefined);
+  const leadQuery = useLeads(selectedStage ? { stage: selectedStage, limit: 50 } : { limit: 50 });
   const analyticsQuery = useLeadAnalytics();
   const myListingsQuery = useMyListings({ pageSize: 100 });
   const createLeadMutation = useCreateLead();

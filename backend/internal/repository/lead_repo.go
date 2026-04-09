@@ -118,7 +118,10 @@ func encodeCursor(key map[string]types.AttributeValue) string {
 			raw[k] = sv.Value
 		}
 	}
-	b, _ := json.Marshal(raw)
+	b, err := json.Marshal(raw)
+	if err != nil {
+		return ""
+	}
 	return base64.URLEncoding.EncodeToString(b)
 }
 

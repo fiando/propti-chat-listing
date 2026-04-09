@@ -244,5 +244,6 @@ func parseLimit(s string) (int32, error) {
 	if v > 200 {
 		v = 200
 	}
-	return int32(v), nil
+	// Safe: v is bounded to [1, 200] which fits in int32.
+	return int32(v), nil //nolint:gosec
 }
