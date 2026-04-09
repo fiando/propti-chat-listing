@@ -365,6 +365,7 @@ export interface Lead {
 export interface LeadListResponse {
   leads: Lead[];
   total: number;
+  nextCursor?: string;
 }
 
 export interface CreateLeadRequest {
@@ -391,7 +392,6 @@ export interface CompleteFollowUpTaskRequest {
 
 export interface AgentAnalytics {
   leadCount: number;
-  medianResponseMinutes: number;
   leadToViewingRate: number;
   viewingToDealRate: number;
   overdueFollowUpRate: number;

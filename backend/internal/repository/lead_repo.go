@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -54,11 +56,25 @@ func (r *LeadRepo) GetByID(ctx context.Context, ownerUserID, leadID string) (*mo
 	return &lead, nil
 }
 
+// LeadPage holds a page of leads and an optional cursor for the next page.
+type LeadPage struct {
+	Leads      []models.Lead
+	NextCursor string
+}
+
 func (r *LeadRepo) ListByOwner(ctx context.Context, ownerUserID string, limit int32) ([]models.Lead, error) {
+	page, err := r.ListByOwnerPaged(ctx, ownerUserID, limit, "")
+	if err != nil {
+		return nil, err
+	}
+	return page.Leads, nil
+}
+
+func (r *LeadRepo) ListByOwnerPaged(ctx context.Context, ownerUserID string, limit int32, cursor string) (*LeadPage, error) {
 	if limit <= 0 {
 		limit = 100
 	}
-	result, err := r.db.Client.Query(ctx, &dynamodb.QueryInput{
+	input := &dynamodb.QueryInput{
 		TableName:              aws.String(r.db.LeadsTable),
 		IndexName:              aws.String("ownerUserId-createdAt-index"),
 		KeyConditionExpression: aws.String("ownerUserId = :uid"),
@@ -67,7 +83,14 @@ func (r *LeadRepo) ListByOwner(ctx context.Context, ownerUserID string, limit in
 		},
 		ScanIndexForward: aws.Bool(false),
 		Limit:            aws.Int32(limit),
-	})
+	}
+	if cursor != "" {
+		startKey, err := decodeCursor(cursor)
+		if err == nil && len(startKey) > 0 {
+			input.ExclusiveStartKey = startKey
+		}
+	}
+	result, err := r.db.Client.Query(ctx, input)
 	if err != nil {
 		return nil, fmt.Errorf("list leads by owner: %w", err)
 	}
@@ -80,5 +103,37 @@ func (r *LeadRepo) ListByOwner(ctx context.Context, ownerUserID string, limit in
 		}
 		leads = append(leads, lead)
 	}
-	return leads, nil
+
+	page := &LeadPage{Leads: leads}
+	if result.LastEvaluatedKey != nil {
+		page.NextCursor = encodeCursor(result.LastEvaluatedKey)
+	}
+	return page, nil
+}
+
+func encodeCursor(key map[string]types.AttributeValue) string {
+	raw := make(map[string]string, len(key))
+	for k, v := range key {
+		if sv, ok := v.(*types.AttributeValueMemberS); ok {
+			raw[k] = sv.Value
+		}
+	}
+	b, _ := json.Marshal(raw)
+	return base64.URLEncoding.EncodeToString(b)
+}
+
+func decodeCursor(cursor string) (map[string]types.AttributeValue, error) {
+	b, err := base64.URLEncoding.DecodeString(cursor)
+	if err != nil {
+		return nil, err
+	}
+	var raw map[string]string
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return nil, err
+	}
+	result := make(map[string]types.AttributeValue, len(raw))
+	for k, v := range raw {
+		result[k] = &types.AttributeValueMemberS{Value: v}
+	}
+	return result, nil
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/fiando/propti/backend/internal/models"
+	"github.com/fiando/propti/backend/internal/repository"
 	"github.com/fiando/propti/backend/internal/utils"
 )
 
@@ -17,6 +18,7 @@ type LeadStore interface {
 	Put(ctx context.Context, lead *models.Lead) error
 	GetByID(ctx context.Context, ownerUserID, leadID string) (*models.Lead, error)
 	ListByOwner(ctx context.Context, ownerUserID string, limit int32) ([]models.Lead, error)
+	ListByOwnerPaged(ctx context.Context, ownerUserID string, limit int32, cursor string) (*repository.LeadPage, error)
 }
 
 type LeadService struct {
@@ -73,15 +75,26 @@ func (s *LeadService) CreateLead(ctx context.Context, ownerUserID string, req *m
 }
 
 func (s *LeadService) ListLeads(ctx context.Context, ownerUserID string, stage string, dueOnly bool) ([]models.Lead, error) {
-	leads, err := s.leadRepo.ListByOwner(ctx, ownerUserID, 200)
+	page, err := s.ListLeadsPaged(ctx, ownerUserID, stage, dueOnly, 200, "")
+	if err != nil {
+		return nil, err
+	}
+	return page.Leads, nil
+}
+
+func (s *LeadService) ListLeadsPaged(ctx context.Context, ownerUserID string, stage string, dueOnly bool, limit int32, cursor string) (*models.LeadListResponse, error) {
+	if limit <= 0 || limit > 200 {
+		limit = 200
+	}
+	page, err := s.leadRepo.ListByOwnerPaged(ctx, ownerUserID, limit, cursor)
 	if err != nil {
 		return nil, utils.ErrInternal
 	}
 	now := s.now()
 	stageFilter := models.LeadStage(strings.TrimSpace(stage))
 
-	filtered := make([]models.Lead, 0, len(leads))
-	for _, lead := range leads {
+	filtered := make([]models.Lead, 0, len(page.Leads))
+	for _, lead := range page.Leads {
 		lead.FollowUpTasks = s.ensureFollowUpTasks(lead.FollowUpTasks, lead.CreatedAt, lead.LeadID)
 		if stageFilter != "" && lead.Stage != stageFilter {
 			continue
@@ -94,7 +107,11 @@ func (s *LeadService) ListLeads(ctx context.Context, ownerUserID string, stage s
 	sort.SliceStable(filtered, func(i, j int) bool {
 		return filtered[i].UpdatedAt.After(filtered[j].UpdatedAt)
 	})
-	return filtered, nil
+	return &models.LeadListResponse{
+		Leads:      filtered,
+		Total:      len(filtered),
+		NextCursor: page.NextCursor,
+	}, nil
 }
 
 func (s *LeadService) GetLead(ctx context.Context, ownerUserID, leadID string) (*models.Lead, error) {
@@ -239,17 +256,14 @@ func (s *LeadService) Analytics(ctx context.Context, ownerUserID string) (*model
 		return out, nil
 	}
 
-	responseMinutes := make([]int, 0, len(leads))
 	viewingCount := 0
 	dealCount := 0
 	overdue := 0
 	pending := 0
 
 	for _, lead := range leads {
-		if lead.FirstResponseAt != nil {
-			responseMinutes = append(responseMinutes, int(lead.FirstResponseAt.Sub(lead.CreatedAt).Minutes()))
-		}
-		if lead.ViewedAt != nil || lead.Stage == models.LeadStageViewing || lead.Stage == models.LeadStageNegotiation || lead.Stage == models.LeadStageDeal {
+		switch lead.Stage {
+		case models.LeadStageViewing, models.LeadStageNegotiation, models.LeadStageDeal:
 			viewingCount++
 		}
 		if lead.Stage == models.LeadStageDeal {
@@ -274,10 +288,6 @@ func (s *LeadService) Analytics(ctx context.Context, ownerUserID string) (*model
 	}
 	if pending > 0 {
 		out.OverdueFollowUpRate = ratio(overdue, pending)
-	}
-	if len(responseMinutes) > 0 {
-		sort.Ints(responseMinutes)
-		out.MedianResponseMinutes = responseMinutes[len(responseMinutes)/2]
 	}
 	return out, nil
 }

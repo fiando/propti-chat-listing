@@ -78,16 +78,16 @@ type CompleteFollowUpTaskRequest struct {
 }
 
 type LeadListResponse struct {
-	Leads []Lead `json:"leads"`
-	Total int    `json:"total"`
+	Leads      []Lead `json:"leads"`
+	Total      int    `json:"total"`
+	NextCursor string `json:"nextCursor,omitempty"`
 }
 
 type AgentAnalyticsResponse struct {
-	LeadCount             int     `json:"leadCount"`
-	MedianResponseMinutes int     `json:"medianResponseMinutes"`
-	LeadToViewingRate     float64 `json:"leadToViewingRate"`
-	ViewingToDealRate     float64 `json:"viewingToDealRate"`
-	OverdueFollowUpRate   float64 `json:"overdueFollowUpRate"`
-	PendingFollowUpCount  int     `json:"pendingFollowUpCount"`
-	OverdueFollowUpCount  int     `json:"overdueFollowUpCount"`
+	LeadCount            int     `json:"leadCount"`
+	LeadToViewingRate    float64 `json:"leadToViewingRate"`
+	ViewingToDealRate    float64 `json:"viewingToDealRate"`
+	OverdueFollowUpRate  float64 `json:"overdueFollowUpRate"`
+	PendingFollowUpCount int     `json:"pendingFollowUpCount"`
+	OverdueFollowUpCount int     `json:"overdueFollowUpCount"`
 }

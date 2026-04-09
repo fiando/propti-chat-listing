@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -15,6 +16,7 @@ import (
 type leadService interface {
 	CreateLead(ctx context.Context, ownerUserID string, req *models.CreateLeadRequest) (*models.Lead, error)
 	ListLeads(ctx context.Context, ownerUserID string, stage string, dueOnly bool) ([]models.Lead, error)
+	ListLeadsPaged(ctx context.Context, ownerUserID string, stage string, dueOnly bool, limit int32, cursor string) (*models.LeadListResponse, error)
 	GetLead(ctx context.Context, ownerUserID, leadID string) (*models.Lead, error)
 	UpdateLeadStage(ctx context.Context, ownerUserID, leadID string, req *models.UpdateLeadStageRequest) (*models.Lead, error)
 	AddLeadNote(ctx context.Context, ownerUserID, leadID string, req *models.AddLeadNoteRequest) (*models.Lead, error)
@@ -80,11 +82,18 @@ func (h *LeadHandler) listLeads(ctx context.Context, req events.APIGatewayProxyR
 	}
 	stage := strings.TrimSpace(req.QueryStringParameters["stage"])
 	dueOnly := strings.EqualFold(strings.TrimSpace(req.QueryStringParameters["dueOnly"]), "true")
-	leads, err := h.leadService.ListLeads(ctx, userID, stage, dueOnly)
+	cursor := strings.TrimSpace(req.QueryStringParameters["cursor"])
+	var limit int32 = 50
+	if l := strings.TrimSpace(req.QueryStringParameters["limit"]); l != "" {
+		if parsed, err := parseLimit(l); err == nil {
+			limit = parsed
+		}
+	}
+	result, err := h.leadService.ListLeadsPaged(ctx, userID, stage, dueOnly, limit, cursor)
 	if err != nil {
 		return appErrorResponse(err), nil
 	}
-	body, _ := json.Marshal(models.LeadListResponse{Leads: leads, Total: len(leads)})
+	body, _ := json.Marshal(result)
 	return jsonResponse(http.StatusOK, string(body)), nil
 }
 
@@ -222,4 +231,18 @@ func extractTaskID(req events.APIGatewayProxyRequest) string {
 		return parts[3]
 	}
 	return ""
+}
+
+func parseLimit(s string) (int32, error) {
+	v, err := strconv.Atoi(s)
+	if err != nil {
+		return 0, err
+	}
+	if v <= 0 {
+		v = 50
+	}
+	if v > 200 {
+		v = 200
+	}
+	return int32(v), nil
 }

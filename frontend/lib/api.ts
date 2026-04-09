@@ -297,7 +297,7 @@ export async function disconnectWhatsAppLink(): Promise<WhatsAppWriteEligibility
   return response.data;
 }
 
-export async function getLeads(params?: { stage?: string; dueOnly?: boolean }): Promise<LeadListResponse> {
+export async function getLeads(params?: { stage?: string; dueOnly?: boolean; limit?: number; cursor?: string }): Promise<LeadListResponse> {
   const response = await apiClient.get<LeadListResponse>('/leads', { params });
   return response.data;
 }

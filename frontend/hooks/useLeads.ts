@@ -18,7 +18,7 @@ import type {
   LeadStage,
 } from '@/types';
 
-export function useLeads(params?: { stage?: LeadStage; dueOnly?: boolean }) {
+export function useLeads(params?: { stage?: LeadStage; dueOnly?: boolean; limit?: number; cursor?: string }) {
   return useQuery({
     queryKey: ['leads', params ?? {}],
     queryFn: () => getLeads(params),
