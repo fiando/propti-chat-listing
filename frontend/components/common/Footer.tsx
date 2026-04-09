@@ -38,7 +38,7 @@ export function Footer() {
               <span className="text-2xl font-black tracking-tight text-white">Propti</span>
             </div>
             <p className="text-white/60 text-sm leading-relaxed mb-6">
-              Satu listing properti yang lebih rapi, lebih dipercaya, dan siap dibagikan ke semua channel.
+              Alat kerja sehari-hari untuk agen dan pemilik properti — pasang iklan rapi, catat calon pembeli, dan bagikan ke mana saja dari satu tempat.
             </p>
             <div className="flex items-center gap-3">
               {[Facebook, Instagram, Twitter].map((Icon, i) => (
