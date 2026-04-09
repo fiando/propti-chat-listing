@@ -30,16 +30,16 @@ export const metadata: Metadata = {
 
 const HERO_PROOF_POINTS = [
   {
-    title: 'Buat listing rapi dari teks WhatsApp',
-    desc: 'Paste teks iklan yang sudah kamu punya — AI langsung ekstrak semua detail dan buat halaman listing siap pakai.',
+    title: 'Buat iklan properti rapi dari teks WhatsApp',
+    desc: 'Paste teks iklan yang sudah kamu punya — AI langsung baca dan rapikan semua detail, lalu buat halaman iklan siap pakai.',
   },
   {
-    title: 'Kelola semua lead di satu pipeline',
-    desc: 'Lacak setiap calon pembeli dari lead masuk hingga deal. Tidak ada lagi yang terlewat hanya karena chat tenggelam.',
+    title: 'Catat semua calon pembeli di satu tempat',
+    desc: 'Lacak setiap orang yang tertarik dari pertama kontak hingga transaksi selesai. Tidak ada lagi yang terlewat hanya karena chat tenggelam.',
   },
   {
-    title: 'Bagikan ke semua channel dari satu link',
-    desc: 'Satu link Propti jadi sumber utama listing-mu saat promosi di WhatsApp, Instagram, atau marketplace mana pun.',
+    title: 'Bagikan ke semua tempat dari satu link',
+    desc: 'Satu link Propti jadi sumber utama iklanmu saat promosi di WhatsApp, Instagram, atau situs jual beli mana pun.',
   },
 ];
 
@@ -78,36 +78,36 @@ const PRODUCT_PROOF = [
   {
     icon: <Users className="w-6 h-6 text-brand-primary" />,
     bg: 'bg-brand-light',
-    title: 'Pipeline lead dari masuk sampai deal',
-    desc: 'Setiap calon pembeli masuk sebagai lead dan bisa dipindah ke tahap berikutnya: tertarik, viewing, negosiasi, deal — semua dalam satu tampilan Kanban.',
-    tag: 'Kelola lead',
+    title: 'Catat calon pembeli dari pertama kontak hingga deal',
+    desc: 'Setiap orang yang tertarik bisa dicatat dan dipindah ke tahap berikutnya: tertarik, survei, negosiasi, deal selesai — semua terlihat jelas dalam satu tampilan.',
+    tag: 'Kelola calon pembeli',
   },
   {
     icon: <ShieldIcon className="w-6 h-6 text-blue-600" />,
     bg: 'bg-blue-50',
-    title: 'Halaman listing yang terasa lebih meyakinkan',
-    desc: 'Listing aktif melewati moderasi dasar dan menampilkan detail penting dalam format yang lebih konsisten untuk calon pembeli.',
+    title: 'Halaman iklan yang terasa lebih meyakinkan',
+    desc: 'Iklan aktif melewati pemeriksaan dasar dan menampilkan detail penting dalam format yang lebih konsisten untuk calon pembeli.',
     tag: 'Lebih dipercaya',
   },
   {
     icon: <TrendingUp className="w-6 h-6 text-brand-primary" />,
     bg: 'bg-brand-light',
-    title: 'Analytics performa listing & leads',
-    desc: 'Pantau conversion rate, median response time, dan performa pipeline-mu. Data ini bantu kamu tahu mana yang perlu diperbaiki.',
-    tag: 'Analytics',
+    title: 'Statistik performa iklan & calon pembeli',
+    desc: 'Lihat berapa banyak calon pembeli yang akhirnya deal, seberapa cepat kamu merespons, dan mana iklan yang paling banyak diminati.',
+    tag: 'Statistik',
   },
 ];
 
 const WHATSAPP_PERKS = [
   {
     icon: MessageCircle,
-    title: 'Buat listing via teks WhatsApp',
-    desc: 'Kirim teks iklan ke nomor WhatsApp Propti — AI parse detail properti dan buat listing otomatis tanpa perlu buka website.',
+    title: 'Buat iklan via teks WhatsApp',
+    desc: 'Kirim teks iklan ke nomor WhatsApp Propti — AI otomatis baca dan rapikan detail properti, lalu buat iklan siap tayang tanpa perlu buka website.',
   },
   {
     icon: Mic,
-    title: 'Buat listing via voice note',
-    desc: 'Lebih cepat ngomong? Kirim pesan suara, audio ditranskripsi lalu diparse jadi listing rapi dalam hitungan detik.',
+    title: 'Buat iklan via pesan suara',
+    desc: 'Lebih cepat ngomong? Kirim pesan suara — Propti dengarkan, ubah jadi teks, dan rapikan jadi iklan properti dalam hitungan detik.',
   },
   {
     icon: Search,
@@ -214,13 +214,13 @@ export default async function HomePage() {
           </div>
 
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-white leading-tight mb-4 text-balance">
-            Kelola Lebih Banyak Listing.
+            Pasang Iklan Properti Lebih Rapi.
             <br />
-            <span className="text-brand-accent">Closing Lebih Cepat.</span>
+            <span className="text-brand-accent">Catat Semua Calon Pembeli dengan Mudah.</span>
           </h1>
 
           <p className="text-lg md:text-xl text-white/80 max-w-3xl mx-auto mb-10 text-balance">
-            Buat listing rapi dari teks WhatsApp, kelola pipeline lead-mu, dan bagikan ke semua channel dari satu tempat. Bukan marketplace — ini alat kerja harian agen dan pemilik properti.
+            Buat iklan properti rapi dari teks WhatsApp, catat semua calon pembeli di satu tempat, dan bagikan ke mana saja dari satu link. Bukan sekadar situs jual beli — ini alat kerja sehari-hari untuk agen dan pemilik properti.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
@@ -237,7 +237,7 @@ export default async function HomePage() {
               className="flex items-center justify-center gap-2 border-2 border-white/40 text-white font-bold px-8 py-4 rounded-2xl hover:bg-white/10 transition-all duration-200 text-lg"
             >
               <LayoutDashboard className="w-5 h-5" />
-              Lihat Agent Workspace
+              Lihat Dasbor Kerja Saya
             </Link>
           </div>
 
@@ -319,7 +319,7 @@ export default async function HomePage() {
                 <div className="w-6 h-6 bg-brand-gold rounded-full flex items-center justify-center">
                   <Sparkles className="w-3 h-3 text-white" />
                 </div>
-                <span className="text-sm font-semibold text-gray-600">Hasil AI Parse Otomatis</span>
+                <span className="text-sm font-semibold text-gray-600">Hasil Rapian AI Otomatis</span>
               </div>
               <div className="bg-white rounded-2xl p-4 shadow-sm border border-brand-accent/30 space-y-2">
                 {[
@@ -394,12 +394,12 @@ export default async function HomePage() {
         <div className="max-w-6xl mx-auto px-4">
           <div className="text-center mb-12">
             <span className="inline-block bg-brand-light text-brand-primary text-sm font-semibold px-4 py-1.5 rounded-full mb-4">
-              Agent Workspace
+              Dasbor Kerja Agen
             </span>
-            <h2 className="section-title">Bukan Sekadar Listing — Ini Alat Kerja Harian Agen</h2>
+            <h2 className="section-title">Bukan Sekadar Iklan — Ini Alat Kerja Harian Agen</h2>
             <p className="section-subtitle max-w-2xl mx-auto">
-              Propti dirancang agar agen properti bisa kerja lebih terstruktur: dari buat listing,
-              kelola lead, sampai closing — semua dari satu dashboard.
+              Propti dirancang agar agen properti bisa kerja lebih terstruktur: dari pasang iklan,
+              catat calon pembeli, sampai deal selesai — semua dari satu dasbor.
             </p>
           </div>
 
@@ -408,20 +408,20 @@ export default async function HomePage() {
               {
                 icon: <Users className="w-6 h-6 text-brand-primary" />,
                 bg: 'bg-brand-light',
-                title: 'Pipeline Lead Kanban',
-                desc: 'Pindahkan lead dari "baru" → "tertarik" → "viewing" → "deal" dengan drag satu klik.',
+                title: 'Kelola Calon Pembeli dengan Mudah',
+                desc: 'Geser calon pembeli dari "baru" → "tertarik" → "survei" → "deal selesai" dengan satu klik.',
               },
               {
                 icon: <BarChart3 className="w-6 h-6 text-brand-secondary" />,
                 bg: 'bg-brand-light',
-                title: 'Analytics Konversi',
-                desc: 'Pantau conversion rate, median response time, dan berapa persen lead yang berujung deal.',
+                title: 'Statistik Penjualan',
+                desc: 'Lihat berapa persen calon pembeli yang akhirnya beli, seberapa cepat kamu merespons, dan performa iklan secara keseluruhan.',
               },
               {
                 icon: <MessageCircle className="w-6 h-6 text-[#25D366]" />,
                 bg: 'bg-[#25D366]/10',
-                title: 'Lead Masuk via WhatsApp',
-                desc: 'Setiap calon pembeli yang kontak via WhatsApp bisa langsung masuk ke pipeline tanpa input manual.',
+                title: 'Calon Pembeli Masuk via WhatsApp',
+                desc: 'Setiap orang yang menghubungi via WhatsApp bisa langsung dicatat sebagai calon pembeli tanpa perlu input manual.',
               },
               {
                 icon: <Calculator className="w-6 h-6 text-brand-primary" />,
@@ -443,10 +443,10 @@ export default async function HomePage() {
           <div className="bg-gradient-to-r from-brand-primary/5 to-brand-secondary/5 border border-brand-primary/10 rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-center gap-6">
             <div className="flex-1">
               <h3 className="text-xl font-bold text-gray-900 mb-2">
-                Sudah punya listing? Coba Agent Workspace-nya gratis
+                Sudah punya iklan properti? Coba fitur kerja hariannya gratis
               </h3>
               <p className="text-gray-500 text-sm leading-relaxed">
-                Semua fitur pipeline lead, analytics, dan manajemen listing tersedia mulai dari paket gratis. Tidak perlu kartu kredit.
+                Semua fitur pencatatan calon pembeli, statistik, dan pengelolaan iklan tersedia mulai dari paket gratis. Tidak perlu kartu kredit.
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 flex-shrink-0">
@@ -455,7 +455,7 @@ export default async function HomePage() {
                 className="flex items-center justify-center gap-2 bg-brand-primary text-white font-bold px-6 py-3 rounded-xl hover:bg-brand-secondary transition-colors text-sm shadow-lg"
               >
                 <LayoutDashboard className="w-4 h-4" />
-                Buka Agent Workspace
+                Buka Dasbor Kerja Saya
               </Link>
               <Link
                 href="/listings/create"
@@ -666,7 +666,7 @@ export default async function HomePage() {
             Mulai kerja lebih terstruktur hari ini
           </h2>
           <p className="text-white/80 text-lg mb-8 max-w-2xl mx-auto">
-            Buat listing rapi dari teks WhatsApp, kelola pipeline lead-mu, dan closing lebih banyak properti di Jogja dan sekitarnya.
+            Buat iklan properti rapi dari teks WhatsApp, catat semua calon pembeli di satu tempat, dan raih lebih banyak transaksi di seluruh Indonesia.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
@@ -681,7 +681,7 @@ export default async function HomePage() {
               className="flex items-center justify-center gap-2 border-2 border-white/40 text-white font-bold px-8 py-4 rounded-2xl hover:bg-white/10 transition-all text-lg"
             >
               <LayoutDashboard className="w-5 h-5" />
-              Lihat Agent Workspace
+              Lihat Dasbor Kerja Saya
             </Link>
           </div>
           <p className="text-white/50 text-sm mt-6">

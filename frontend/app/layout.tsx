@@ -6,11 +6,11 @@ import { Providers } from './providers';
 export const metadata: Metadata = {
   applicationName: 'Propti',
   title: {
-    default: 'Propti — Jual Beli Properti Semudah Chat WhatsApp',
+    default: 'Propti — Alat Kerja Properti untuk Agen & Pemilik di Indonesia',
     template: '%s | Propti',
   },
   description:
-    'Platform properti Indonesia berbasis AI. Paste teks iklan dari WhatsApp, AI kami rapikan jadi listing rapi, lengkap, dan siap tayang — dalam hitungan detik.',
+    'Pasang iklan properti rapi dari teks WhatsApp, catat semua calon pembeli di satu tempat, dan bagikan ke mana saja dari satu link.',
   keywords: [
     'properti Indonesia',
     'jual rumah',
@@ -28,9 +28,9 @@ export const metadata: Metadata = {
     locale: 'id_ID',
     url: 'https://propti.id',
     siteName: 'Propti',
-    title: 'Propti — Jual Beli Properti Semudah Chat WhatsApp',
+    title: 'Propti — Alat Kerja Properti untuk Agen & Pemilik di Indonesia',
     description:
-      'Paste iklan dari WhatsApp, AI kami ubah jadi listing properti rapi dan siap tayang. Gratis untuk 3 iklan pertama.',
+      'Pasang iklan properti rapi dari teks WhatsApp, catat semua calon pembeli di satu tempat, dan bagikan ke mana saja dari satu link.',
     images: [
       {
         url: '/og-image.jpg',
@@ -42,9 +42,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Propti — Jual Beli Properti Semudah Chat WhatsApp',
+    title: 'Propti — Alat Kerja Properti untuk Agen & Pemilik di Indonesia',
     description:
-      'Paste iklan dari WhatsApp, AI kami ubah jadi listing properti rapi dan siap tayang.',
+      'Pasang iklan properti rapi dari teks WhatsApp, catat semua calon pembeli di satu tempat, dan bagikan ke mana saja.',
     images: ['/og-image.jpg'],
   },
   icons: {
