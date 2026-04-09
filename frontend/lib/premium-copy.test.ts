@@ -18,7 +18,7 @@ test('premium modal copy reflects tiered caps and durations', () => {
   assert.match(premiumModal, /Maksimal 15 foto per iklan/i);
   assert.match(premiumModal, /Maksimal 20 listing aktif/i);
   assert.match(premiumModal, /Maksimal 8 foto per iklan/i);
-  assert.match(premiumModal, /Maksimal 6 listing aktif/i);
+  assert.match(premiumModal, /Maksimal 8 listing aktif/i);
   assert.match(premiumModal, /Maksimal 20 foto per iklan/i);
   assert.match(premiumModal, /Maksimal 50 listing aktif/i);
   assert.match(premiumModal, /Iklan tayang hingga 90 hari/i);
@@ -53,7 +53,7 @@ test('premium and homepage copy avoid statistics or insight claims', () => {
 });
 
 test('homepage copy avoids internal MVP wording and speaks to end users', () => {
-  assert.match(homePage, /Satu Listing Properti/i);
+  assert.match(homePage, /Kelola Lebih Banyak Listing/i);
   assert.match(homePage, /lebih rapi/i);
   assert.doesNotMatch(homePage, /MVP fokus ke hal yang paling penting/i);
   assert.doesNotMatch(homePage, /MVP focus/i);

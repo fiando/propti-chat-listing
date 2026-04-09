@@ -1,5 +1,5 @@
 export const FREE_TIER_LISTING_LIMIT = 3;
-export const BASIC_TIER_LISTING_LIMIT = 6;
+export const BASIC_TIER_LISTING_LIMIT = 8;
 export const PREMIUM_TIER_LISTING_LIMIT = 20;
 export const PRO_TIER_LISTING_LIMIT = 50;
 export const LISTING_ACCESS_CHECK_PAGE_SIZE = 100;
@@ -109,8 +109,8 @@ export function getCreateListingErrorMessage(error: unknown): string {
   }
 
   if (
-    normalizedMessage.includes('basic tier allows at most 6 listing') ||
-    normalizedMessage.includes('basic tier allows at most 6 active listing')
+    normalizedMessage.includes('basic tier allows at most 8 listing') ||
+    normalizedMessage.includes('basic tier allows at most 8 active listing')
   ) {
     return BASIC_TIER_LISTING_LIMIT_MESSAGE;
   }

@@ -23,7 +23,7 @@ const TIER_CONFIG = {
     blurb: 'Untuk seller yang mulai serius beriklan.',
     features: [
       'Maksimal 8 foto per iklan',
-      'Maksimal 6 listing aktif',
+      'Maksimal 8 listing aktif',
       'WA baca + buat listing (tanpa edit/hapus)',
       'Voice note hingga 20 menit per bulan',
       'Iklan tayang hingga 90 hari',
