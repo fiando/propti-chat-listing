@@ -29,51 +29,51 @@ const TIER_CONFIG: Record<
     label: 'Basic',
     price: 'Rp 59.000',
     priceNum: '59rb',
-    blurb: 'Untuk seller yang mulai serius beriklan.',
+    blurb: 'Agen pemula aktif di lapangan.',
     highlight: false,
     features: [
-      'Maksimal 8 foto per iklan',
-      'Maksimal 6 listing aktif',
-      'Buat & cari listing via WhatsApp',
+      'Kelola 6 listing aktif sekaligus',
+      'Hingga 8 foto per listing',
+      'Buat & cari via WhatsApp',
       'Voice note hingga 20 menit per bulan',
-      'Iklan tayang hingga 90 hari',
+      'Listing tayang 90 hari',
     ],
   },
   premium: {
     label: 'Premium',
     price: 'Rp 129.000',
     priceNum: '129rb',
-    blurb: 'Untuk performa listing yang lebih agresif.',
+    blurb: 'Agen aktif dengan listing rutin.',
     highlight: true,
     features: [
-      'Maksimal 15 foto per iklan',
-      'Maksimal 20 listing aktif',
-      'Buat & cari listing via WhatsApp',
+      'Kelola 20 listing aktif sekaligus',
+      'Hingga 15 foto per listing',
+      'Buat & cari via WhatsApp',
       'Voice note hingga 60 menit per bulan',
-      'Iklan tayang hingga 90 hari',
+      'Listing tayang 90 hari',
     ],
   },
   pro: {
     label: 'Pro',
     price: 'Rp 199.000',
     priceNum: '199rb',
-    blurb: 'Untuk tim agen dengan volume listing tinggi.',
+    blurb: 'Tim agen profesional.',
     highlight: false,
     features: [
-      'Maksimal 20 foto per iklan',
-      'Maksimal 50 listing aktif',
-      'Buat & cari listing via WhatsApp',
+      'Kelola 50 listing aktif sekaligus',
+      'Hingga 20 foto per listing',
+      'Buat & cari via WhatsApp',
       'Voice note hingga 120 menit per bulan',
-      'Iklan tayang hingga 90 hari',
+      'Listing tayang 90 hari',
     ],
   },
 };
 
 const FREE_FEATURES = [
-  'Maksimal 3 foto per iklan',
-  'Maksimal 3 listing aktif',
-  'Iklan tayang 30 hari',
+  '1 listing aktif',
+  'Hingga 3 foto per listing',
   'Buat listing via WhatsApp',
+  'Listing tayang 30 hari',
 ];
 
 const PAID_TIERS: PaidTier[] = ['basic', 'premium', 'pro'];
@@ -126,9 +126,9 @@ export function UpgradePageClient({ currentTier, initialTier }: UpgradePageClien
           <Crown className="w-4 h-4" />
           Pilih Paket
         </div>
-        <h1 className="text-3xl font-black text-gray-900 mb-3">Upgrade Akun Propti Anda</h1>
+        <h1 className="text-3xl font-black text-gray-900 mb-3">Pilih Kapasitas Kerja Anda</h1>
         <p className="text-gray-500 max-w-xl mx-auto">
-          Pilih paket yang sesuai kebutuhan. Semua paket berbayar mendukung listing via WhatsApp dan voice note.
+          Semakin banyak listing aktif yang perlu kamu kelola, semakin tinggi paket yang kamu butuhkan. Semua paket berbayar mendukung WhatsApp dan voice note.
         </p>
       </div>
 
