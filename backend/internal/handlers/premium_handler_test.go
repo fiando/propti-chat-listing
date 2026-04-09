@@ -364,9 +364,9 @@ func TestPremiumHandlerUpgradeToPremiumCancelsMismatchedPendingTierAndCreatesNew
 	provider := &fakePaymentProvider{
 		createResult: &payments.CreatePaymentResult{
 			Provider:   payments.ProviderDOKU,
-			OrderID:    "PROPTI-PREM-NEW-BASIC",
-			PaymentID:  "tok-new-basic",
-			PaymentURL: "https://sandbox.doku.com/checkout-link-v2/tok-new-basic",
+			OrderID:    "PROPTI-PREM-NEW-PREMIUM",
+			PaymentID:  "tok-new-premium",
+			PaymentURL: "https://sandbox.doku.com/checkout-link-v2/tok-new-premium",
 		},
 	}
 
@@ -376,7 +376,7 @@ func TestPremiumHandlerUpgradeToPremiumCancelsMismatchedPendingTierAndCreatesNew
 		HTTPMethod: http.MethodPost,
 		Path:       "/premium/upgrade",
 		Headers:    authHeaderForPremiumTest(t, "user-1"),
-		Body:       `{"tier":"basic"}`,
+		Body:       `{"tier":"premium"}`,
 	})
 	if err != nil {
 		t.Fatalf("Handle returned error: %v", err)
@@ -389,7 +389,7 @@ func TestPremiumHandlerUpgradeToPremiumCancelsMismatchedPendingTierAndCreatesNew
 	if err := json.Unmarshal([]byte(resp.Body), &body); err != nil {
 		t.Fatalf("response is not valid json: %v", err)
 	}
-	if body.OrderID != "PROPTI-PREM-NEW-BASIC" {
+	if body.OrderID != "PROPTI-PREM-NEW-PREMIUM" {
 		t.Fatalf("expected a new order id for changed tier, got %q", body.OrderID)
 	}
 	if len(txStore.items) != 2 {
@@ -626,7 +626,7 @@ func TestPremiumHandlerRenewalAllowedWhenExpiringSoon(t *testing.T) {
 	}
 }
 
-func TestPremiumHandlerUpgradeSupportsBasicTierPricing(t *testing.T) {
+func TestPremiumHandlerUpgradeRejectsBasicTierSinceItWasRemoved(t *testing.T) {
 	t.Setenv("PUBLIC_API_BASE_URL", "https://api.propti.test")
 
 	userStore := &fakePremiumUserStore{
@@ -641,14 +641,7 @@ func TestPremiumHandlerUpgradeSupportsBasicTierPricing(t *testing.T) {
 			},
 		},
 	}
-	provider := &fakePaymentProvider{
-		createResult: &payments.CreatePaymentResult{
-			Provider:   payments.ProviderDOKU,
-			OrderID:    "PROPTI-PREM-BASIC-001",
-			PaymentID:  "tok-basic",
-			PaymentURL: "https://sandbox.doku.com/checkout-link-v2/tok-basic",
-		},
-	}
+	provider := &fakePaymentProvider{}
 	txStore := &fakePremiumTransactionStore{}
 	handler := NewPremiumHandler(userStore, txStore, &fakePremiumListingService{}, provider)
 
@@ -661,17 +654,10 @@ func TestPremiumHandlerUpgradeSupportsBasicTierPricing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Handle returned error: %v", err)
 	}
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("expected 200, got %d body=%s", resp.StatusCode, resp.Body)
+	if resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422 for removed basic tier, got %d body=%s", resp.StatusCode, resp.Body)
 	}
-	var body models.PaymentResponse
-	if err := json.Unmarshal([]byte(resp.Body), &body); err != nil {
-		t.Fatalf("response is not valid json: %v", err)
-	}
-	if body.Amount != 59000 {
-		t.Fatalf("expected amount 59000 for basic, got %f", body.Amount)
-	}
-	if len(txStore.items) != 1 || txStore.items[0].Metadata["tier"] != "basic" {
-		t.Fatalf("expected basic tier metadata in transaction, got %#v", txStore.items)
+	if len(txStore.items) != 0 {
+		t.Fatalf("expected no transaction to be stored for invalid tier, got %d", len(txStore.items))
 	}
 }

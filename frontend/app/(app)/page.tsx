@@ -173,43 +173,26 @@ const PRICING_PLANS = [
     blurb: 'Coba dulu, tanpa biaya.',
     highlight: false,
     features: [
-      '3 listing aktif',
-      'Hingga 3 foto per listing',
+      '5 listing aktif',
+      'Hingga 5 foto per listing',
       'Buat listing via WhatsApp',
-      'Listing tayang 30 hari',
+      'Listing tayang 60 hari',
     ],
     cta: 'Mulai Gratis',
     href: '/listings/create',
   },
   {
-    key: 'basic',
-    label: 'Basic',
-    price: 'Rp 59.000',
-    period: '/bulan',
-    blurb: 'Agen pemula aktif di lapangan.',
-    highlight: false,
-    features: [
-      'Kelola 8 listing aktif sekaligus',
-      'Hingga 8 foto per listing',
-      'Buat & cari via WhatsApp',
-      'Voice note 20 menit/bulan',
-      'Listing tayang 90 hari',
-    ],
-    cta: 'Pilih Basic',
-    href: '/profile?upgradeTier=basic#premium',
-  },
-  {
     key: 'premium',
     label: 'Premium',
-    price: 'Rp 129.000',
+    price: 'Rp 99.000',
     period: '/bulan',
     blurb: 'Agen aktif dengan listing rutin.',
     highlight: true,
     features: [
-      'Kelola 20 listing aktif sekaligus',
+      'Kelola 25 listing aktif sekaligus',
       'Hingga 15 foto per listing',
       'Buat & cari via WhatsApp',
-      'Voice note 60 menit/bulan',
+      'Voice note 90 menit/bulan',
       'Listing tayang 90 hari',
     ],
     cta: 'Pilih Premium',
@@ -218,15 +201,15 @@ const PRICING_PLANS = [
   {
     key: 'pro',
     label: 'Pro',
-    price: 'Rp 199.000',
+    price: 'Rp 179.000',
     period: '/bulan',
     blurb: 'Tim agen profesional.',
     highlight: false,
     features: [
-      'Kelola 50 listing aktif sekaligus',
+      'Kelola 100 listing aktif sekaligus',
       'Hingga 25 foto per listing',
       'Buat & cari via WhatsApp',
-      'Voice note 120 menit/bulan',
+      'Voice note 180 menit/bulan',
       'Listing tayang 90 hari',
     ],
     cta: 'Pilih Pro',
@@ -640,8 +623,9 @@ export default async function HomePage() {
             </span>
             <h2 className="section-title">Pilih Paket Sesuai Aktivitas Kerjamu</h2>
             <p className="section-subtitle max-w-2xl mx-auto">
-              Fitur pembeli seperti cari, simpan, dan alat bantu keputusan tetap bisa dipakai gratis. Paket
-              berbayar dipakai saat kamu aktif pasang dan kelola listing dalam jumlah lebih besar.
+              Fitur pembeli seperti cari, simpan, dan alat bantu keputusan tetap bisa dipakai gratis.
+              Mulai gratis, upgrade kapan saja saat kamu butuh lebih banyak listing aktif, lebih banyak
+              foto per iklan, fitur WhatsApp bot, dan pembuatan iklan via pesan suara.
             </p>
           </div>
 

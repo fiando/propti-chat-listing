@@ -77,10 +77,18 @@ test('premium modal clearly differentiates upgrade and downgrade actions', () =>
 });
 
 test('homepage pricing links point to profile page, not separate upgrade page', () => {
-  assert.match(homePage, /\/profile\?upgradeTier=basic#premium/);
   assert.match(homePage, /\/profile\?upgradeTier=premium#premium/);
   assert.match(homePage, /\/profile\?upgradeTier=pro#premium/);
+  assert.doesNotMatch(homePage, /\/profile\?upgradeTier=basic#premium/);
   assert.doesNotMatch(homePage, /\/upgrade\?tier=/);
+});
+
+test('homepage free tier advertises WhatsApp creation only, while paid tiers add search', () => {
+  assert.match(homePage, /key: 'free'[\s\S]*?Buat listing via WhatsApp[\s\S]*?cta: 'Mulai Gratis'/);
+  assert.doesNotMatch(homePage, /key: 'free'[\s\S]*?Buat & cari via WhatsApp[\s\S]*?cta: 'Mulai Gratis'/);
+  assert.match(homePage, /Buat & cari via WhatsApp/);
+  assert.match(homePage, /WhatsApp bot/i);
+  assert.doesNotMatch(homePage, /Semakin banyak listing yang perlu kamu kelola aktif sekaligus/i);
 });
 
 test('profile page auto-opens modal from upgradeTier query param', () => {

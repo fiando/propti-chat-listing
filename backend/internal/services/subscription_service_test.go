@@ -173,10 +173,10 @@ func TestTierEntitlementFor_KnownTiers(t *testing.T) {
 		waRead       bool
 		waCreate     bool
 	}{
-		{tier: models.SubscriptionFree, price: 0, activeCap: 3, photoCap: 3, voiceMinutes: 0, waRead: false, waCreate: true},
-		{tier: models.SubscriptionBasic, price: 59000, activeCap: 8, photoCap: 8, voiceMinutes: 20, waRead: true, waCreate: true},
-		{tier: models.SubscriptionPremium, price: 129000, activeCap: 20, photoCap: 15, voiceMinutes: 60, waRead: true, waCreate: true},
-		{tier: models.SubscriptionPro, price: 199000, activeCap: 50, photoCap: 25, voiceMinutes: 120, waRead: true, waCreate: true},
+		{tier: models.SubscriptionFree, price: 0, activeCap: 5, photoCap: 5, voiceMinutes: 0, waRead: false, waCreate: true},
+		{tier: models.SubscriptionBasic, price: 99000, activeCap: 25, photoCap: 15, voiceMinutes: 90, waRead: true, waCreate: true},
+		{tier: models.SubscriptionPremium, price: 99000, activeCap: 25, photoCap: 15, voiceMinutes: 90, waRead: true, waCreate: true},
+		{tier: models.SubscriptionPro, price: 179000, activeCap: 100, photoCap: 25, voiceMinutes: 180, waRead: true, waCreate: true},
 	}
 
 	for _, tc := range cases {
