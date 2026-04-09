@@ -10,6 +10,8 @@ import {
   Home,
   TrendingUp,
   ChevronRight,
+  Mic,
+  Search,
   Crown,
   Check,
 } from 'lucide-react';
@@ -90,6 +92,24 @@ const PRODUCT_PROOF = [
     title: 'Satu tempat untuk siap tayang dan siap share',
     desc: 'Mulai dari pasang listing, media, moderasi, sampai alur kontak calon pembeli dibuat ringkas agar satu link Propti bisa jadi sumber utama listingmu.',
     tag: 'Siap dibagikan',
+  },
+];
+
+const WHATSAPP_PERKS = [
+  {
+    icon: MessageCircle,
+    title: 'Buat listing via teks WhatsApp',
+    desc: 'Kirim teks iklan ke nomor WhatsApp Propti — AI parse detail properti dan buat listing otomatis tanpa perlu buka website.',
+  },
+  {
+    icon: Mic,
+    title: 'Buat listing via voice note',
+    desc: 'Lebih cepat ngomong? Kirim pesan suara, audio ditranskripsi lalu diparse jadi listing rapi dalam hitungan detik.',
+  },
+  {
+    icon: Search,
+    title: 'Cari properti via WhatsApp',
+    desc: 'Ketik atau rekam perintah cari ke Propti — hasilnya langsung muncul di chat tanpa perlu buka halaman web.',
   },
 ];
 
@@ -326,6 +346,44 @@ export default async function HomePage() {
               Paste listing saya
               <ArrowRight className="w-4 h-4" />
             </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="max-w-6xl mx-auto px-4 py-12 md:py-16">
+        <div className="bg-gradient-to-r from-[#25D366]/8 to-[#25D366]/3 border border-[#25D366]/20 rounded-3xl p-6 md:p-8">
+          <div className="flex flex-col md:flex-row md:items-center gap-6 md:gap-10">
+            <div className="md:w-64 flex-shrink-0">
+              <span className="inline-flex items-center gap-1.5 bg-[#25D366]/15 text-[#128C7E] text-xs font-semibold px-3 py-1 rounded-full mb-3">
+                <MessageCircle className="w-3 h-3" />
+                Fitur WhatsApp Listing
+              </span>
+              <h2 className="text-xl font-bold text-gray-900 mb-2 leading-snug">
+                Atau pasang listing langsung via WhatsApp
+              </h2>
+              <p className="text-sm text-gray-500 leading-relaxed">
+                Kirim pesan ke nomor Propti — tanpa buka website, tanpa isi form.
+              </p>
+              <Link
+                href="/profile"
+                className="inline-flex items-center gap-1.5 mt-4 text-sm font-semibold text-[#128C7E] hover:text-[#25D366] transition-colors"
+              >
+                Hubungkan WhatsApp saya
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+
+            <div className="flex-1 grid sm:grid-cols-3 gap-4">
+              {WHATSAPP_PERKS.map((perk) => (
+                <div key={perk.title} className="flex flex-col gap-2 bg-white/70 rounded-2xl p-4 border border-[#25D366]/10">
+                  <div className="w-8 h-8 bg-[#25D366]/15 rounded-xl flex items-center justify-center">
+                    <perk.icon className="w-4 h-4 text-[#128C7E]" />
+                  </div>
+                  <p className="text-sm font-semibold text-gray-800 leading-snug">{perk.title}</p>
+                  <p className="text-xs text-gray-500 leading-relaxed">{perk.desc}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
