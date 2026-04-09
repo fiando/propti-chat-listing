@@ -32,7 +32,7 @@ const TIER_CONFIG: Record<
     blurb: 'Agen pemula aktif di lapangan.',
     highlight: false,
     features: [
-      'Kelola 6 listing aktif sekaligus',
+      'Kelola 8 listing aktif sekaligus',
       'Hingga 8 foto per listing',
       'Buat & cari via WhatsApp',
       'Voice note hingga 20 menit per bulan',

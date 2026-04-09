@@ -141,7 +141,7 @@ const PRICING_PLANS = [
     blurb: 'Agen pemula aktif di lapangan.',
     highlight: false,
     features: [
-      'Kelola 6 listing aktif sekaligus',
+      'Kelola 8 listing aktif sekaligus',
       'Hingga 8 foto per listing',
       'Buat & cari via WhatsApp',
       'Voice note 20 menit/bulan',

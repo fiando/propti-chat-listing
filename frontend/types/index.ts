@@ -135,7 +135,7 @@ export const SubscriptionPlans: Record<SubscriptionTier, SubscriptionPlanEntitle
   basic: {
     tier: 'basic',
     priceIdr: 59000,
-    activeListingCap: 6,
+    activeListingCap: 8,
     photoCapPerListing: 8,
     waReadAllowed: true,
     waCreateAllowed: true,

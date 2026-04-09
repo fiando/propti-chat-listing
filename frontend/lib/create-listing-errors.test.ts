@@ -26,8 +26,8 @@ test('maps free tier listing limit errors to a clear blocking message', () => {
     /3 listing/i
   );
   assert.equal(
-    getCreateListingErrorMessage(new Error('basic tier allows at most 6 active listing(s)')),
-    'Paket Basic maksimal 6 listing aktif. Arsipkan salah satu listing untuk memasang iklan baru.'
+    getCreateListingErrorMessage(new Error('basic tier allows at most 8 active listing(s)')),
+    'Paket Basic maksimal 8 listing aktif. Arsipkan salah satu listing untuk memasang iklan baru.'
   );
   assert.equal(
     getCreateListingErrorMessage(new Error('premium tier allows at most 20 active listing(s)')),
@@ -197,12 +197,12 @@ test('blocks basic and pro users at their respective caps', () => {
     getCreateListingAccessState({
       isAuthenticated: true,
       tier: 'basic',
-      activeListingsCount: 6,
+      activeListingsCount: 8,
     }),
     {
       status: 'blocked',
-      activeListingsCount: 6,
-      message: 'Paket Basic maksimal 6 listing aktif. Arsipkan salah satu listing untuk memasang iklan baru.',
+      activeListingsCount: 8,
+      message: 'Paket Basic maksimal 8 listing aktif. Arsipkan salah satu listing untuk memasang iklan baru.',
     }
   );
 
