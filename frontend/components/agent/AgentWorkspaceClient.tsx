@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { BarChart3, Clock3, Filter, Plus, CheckCircle2, MessageCircle, ExternalLink } from 'lucide-react';
 import { useAddLeadNote, useCompleteFollowUpTask, useCreateLead, useLeadAnalytics, useLeads, useUpdateLeadStage } from '@/hooks/useLeads';
 import { useMyListings } from '@/hooks/useListings';
+import { normalizeContactPhone } from '@/lib/listing-contact';
 import type { Lead, LeadStage } from '@/types';
 
 const LEAD_SOURCES = [
@@ -20,7 +21,7 @@ const LEAD_SOURCES = [
 ];
 
 function waLink(phone: string): string {
-  return `https://wa.me/${phone.replace(/\D/g, '')}`;
+  return `https://wa.me/${normalizeContactPhone(phone)}`;
 }
 
 const STAGES: Array<{ key: LeadStage; label: string }> = [
@@ -65,7 +66,7 @@ export function AgentWorkspaceClient() {
     await createLeadMutation.mutateAsync({
       name: newLeadName.trim(),
       phone: newLeadPhone.trim() || undefined,
-      source: newLeadSource.trim() || 'manual',
+      source: newLeadSource,
       listingId: newLeadListingId.trim() || undefined,
     });
     setNewLeadName('');
@@ -95,18 +96,13 @@ export function AgentWorkspaceClient() {
         <div className="grid gap-2 md:grid-cols-4">
           <input value={newLeadName} onChange={(e) => setNewLeadName(e.target.value)} placeholder="Nama lead" className="input-field text-sm" />
           <input value={newLeadPhone} onChange={(e) => setNewLeadPhone(e.target.value)} placeholder="Nomor WhatsApp/Telepon" className="input-field text-sm" />
-          <div>
-            <input
-              list="lead-source-list"
-              value={newLeadSource}
-              onChange={(e) => setNewLeadSource(e.target.value)}
-              placeholder="Sumber (mis. whatsapp)"
-              className="input-field w-full text-sm"
-            />
-            <datalist id="lead-source-list">
-              {LEAD_SOURCES.map((s) => <option key={s} value={s} />)}
-            </datalist>
-          </div>
+          <select
+            value={newLeadSource}
+            onChange={(e) => setNewLeadSource(e.target.value)}
+            className="input-field text-sm"
+          >
+            {LEAD_SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
           <select
             value={newLeadListingId}
             onChange={(e) => setNewLeadListingId(e.target.value)}
