@@ -115,8 +115,6 @@ export interface SubscriptionPlanEntitlement {
   photoCapPerListing: number;
   waReadAllowed: boolean;
   waCreateAllowed: boolean;
-  waEditAllowed: boolean;
-  waDeleteAllowed: boolean;
   voiceMinutesPerMonth: number;
 }
 
@@ -128,8 +126,6 @@ export const SubscriptionPlans: Record<SubscriptionTier, SubscriptionPlanEntitle
     photoCapPerListing: 3,
     waReadAllowed: false,
     waCreateAllowed: true,
-    waEditAllowed: false,
-    waDeleteAllowed: false,
     voiceMinutesPerMonth: 0,
   },
   basic: {
@@ -139,8 +135,6 @@ export const SubscriptionPlans: Record<SubscriptionTier, SubscriptionPlanEntitle
     photoCapPerListing: 8,
     waReadAllowed: true,
     waCreateAllowed: true,
-    waEditAllowed: false,
-    waDeleteAllowed: false,
     voiceMinutesPerMonth: 20,
   },
   premium: {
@@ -150,19 +144,15 @@ export const SubscriptionPlans: Record<SubscriptionTier, SubscriptionPlanEntitle
     photoCapPerListing: 15,
     waReadAllowed: true,
     waCreateAllowed: true,
-    waEditAllowed: true,
-    waDeleteAllowed: true,
     voiceMinutesPerMonth: 60,
   },
   pro: {
     tier: 'pro',
     priceIdr: 199000,
     activeListingCap: 50,
-    photoCapPerListing: 20,
+    photoCapPerListing: 25,
     waReadAllowed: true,
     waCreateAllowed: true,
-    waEditAllowed: true,
-    waDeleteAllowed: true,
     voiceMinutesPerMonth: 120,
   },
 } as const;

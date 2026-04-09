@@ -61,7 +61,7 @@ const TIER_CONFIG: Record<
     highlight: false,
     features: [
       'Kelola 50 listing aktif sekaligus',
-      'Hingga 20 foto per listing',
+      'Hingga 25 foto per listing',
       'Buat & cari via WhatsApp',
       'Voice note hingga 120 menit per bulan',
       'Listing tayang 90 hari',
