@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { BarChart3, Clock3, Filter, Plus, CheckCircle2, MessageCircle, ExternalLink } from 'lucide-react';
 import { useAddLeadNote, useCompleteFollowUpTask, useCreateLead, useLeadAnalytics, useLeads, useUpdateLeadStage } from '@/hooks/useLeads';
 import { useMyListings } from '@/hooks/useListings';
+import { normalizeContactPhone } from '@/lib/listing-contact';
 import type { Lead, LeadStage } from '@/types';
 
 const LEAD_SOURCES = [
@@ -20,7 +21,7 @@ const LEAD_SOURCES = [
 ];
 
 function waLink(phone: string): string {
-  return `https://wa.me/${phone.replace(/\D/g, '')}`;
+  return `https://wa.me/${normalizeContactPhone(phone)}`;
 }
 
 const STAGES: Array<{ key: LeadStage; label: string }> = [
