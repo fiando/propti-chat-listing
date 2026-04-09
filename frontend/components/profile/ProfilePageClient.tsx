@@ -40,7 +40,7 @@ import {
   normalizeWhatsAppLinkPhone,
 } from '@/lib/whatsapp-linking';
 import { buildProfileUpdatePayload } from '@/lib/profile-update-payload';
-import type { UpdateProfileRequest, User as UserProfile, UserPreferences } from '@/types';
+import type { UpdateProfileRequest, User as UserProfile, UserPreferences, SubscriptionTier } from '@/types';
 
 type ProfilePageClientProps = {
   profile: UserProfile;
@@ -84,7 +84,7 @@ export function ProfilePageClient({ profile, sessionUser }: ProfilePageClientPro
   const currentPriceLabel =
     tier === 'basic' ? 'Rp 59rb/bulan' : tier === 'premium' ? 'Rp 129rb/bulan' : tier === 'pro' ? 'Rp 199rb/bulan' : 'Rp 0';
 
-  const TIER_ORDER: Record<string, number> = { free: 0, basic: 1, premium: 2, pro: 3 };
+  const TIER_ORDER: Record<SubscriptionTier, number> = { free: 0, basic: 1, premium: 2, pro: 3 };
 
   useEffect(() => {
     if (upgradeTierParam && ['basic', 'premium', 'pro'].includes(upgradeTierParam)) {
