@@ -83,26 +83,8 @@ Rules:
 - Set requiresManualReview to true if price, address, or property type cannot be determined
 - Return ONLY the JSON object, no markdown, no explanation`
 
-const moderationSystemPrompt = `You are a content moderation assistant for an Indonesian real estate platform.
-Analyze the listing content for the following violations:
-1. Spam, nonsensical, placeholder, or test content (e.g. "test", "aaa", "asdf", single random words)
-2. Title or description that is clearly not about a real property for sale or rent
-3. Illegal property (e.g. on protected land, without permits)
-4. Fraudulent claims or misleading pricing
-5. Inappropriate, offensive, or abusive language
-6. Content unrelated to real estate (e.g. selling vehicles, products, services)
-7. Price that is unrealistically low or high for the described property
-
-Respond ONLY with valid JSON:
-{
-  "approved": boolean,
-  "reason": "string - explanation if rejected, empty string if approved",
-  "flags": ["array of specific issues found"]
-}`
-
 const parserModel = "gpt-4o-mini"
 const searchIntentModel = "gpt-4.1-nano"
-const moderationModel = "gpt-4o-mini"
 const openAIModerationModel = "omni-moderation-latest"
 const openAIModerationBaseURL = "https://api.openai.com"
 const searchIntentMaxTokens = 250
@@ -219,52 +201,10 @@ func buildSearchIntentChatCompletionRequest(query string) openai.ChatCompletionR
 	}
 }
 
-// moderationResponse is the raw JSON structure returned by the moderation prompt.
-type moderationResponse struct {
-	Approved bool     `json:"approved"`
-	Reason   string   `json:"reason"`
-	Flags    []string `json:"flags"`
-}
-
 // ModerateContent checks a listing title + description for policy violations.
 func (s *AIService) ModerateContent(ctx context.Context, title, description string) (approved bool, reason string, flags []string, err error) {
 	input := fmt.Sprintf("Title: %s\n\nDescription: %s", title, description)
-
-	harmApproved, harmReason, harmFlags, err := s.moderateHarmfulText(ctx, input)
-	if err != nil {
-		return false, "", nil, err
-	}
-	if !harmApproved {
-		return false, harmReason, harmFlags, nil
-	}
-
-	if s.client == nil {
-		return false, "", nil, fmt.Errorf("openai chat client not configured")
-	}
-
-	resp, err := s.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
-		Model: moderationModel,
-		Messages: []openai.ChatCompletionMessage{
-			{Role: openai.ChatMessageRoleSystem, Content: moderationSystemPrompt},
-			{Role: openai.ChatMessageRoleUser, Content: input},
-		},
-		Temperature:    0.0,
-		ResponseFormat: &openai.ChatCompletionResponseFormat{Type: openai.ChatCompletionResponseFormatTypeJSONObject},
-	})
-	if err != nil {
-		return false, "", nil, fmt.Errorf("openai moderation request: %w", err)
-	}
-
-	if len(resp.Choices) == 0 {
-		return false, "", nil, fmt.Errorf("openai returned no choices")
-	}
-
-	content := strings.TrimSpace(resp.Choices[0].Message.Content)
-	var modResp moderationResponse
-	if err := json.Unmarshal([]byte(content), &modResp); err != nil {
-		return false, "", nil, fmt.Errorf("unmarshal moderation response: %w", err)
-	}
-	return modResp.Approved, modResp.Reason, modResp.Flags, nil
+	return s.moderateHarmfulText(ctx, input)
 }
 
 func (s *AIService) ModerateImages(ctx context.Context, images [][]byte) (approved bool, reason string, flags []string, err error) {
