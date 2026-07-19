@@ -6,7 +6,7 @@ Globals:
   Function:
     Runtime: provided.al2023
     Architectures:
-      - arm64
+      - !Ref FunctionArchitecture
     Timeout: 30
     MemorySize: 256
     Environment:
@@ -105,6 +105,10 @@ Parameters:
   TwilioVerifyServiceSID:
     Type: String
     Default: ""
+  FunctionArchitecture:
+    Type: String
+    Default: arm64
+    AllowedValues: [arm64, x86_64]
 
 Conditions:
   HasApiCustomDomain: !And

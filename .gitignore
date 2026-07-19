@@ -1,12 +1,15 @@
 # Dependencies
 frontend/node_modules/
+node_modules/
 backend/bin/
+backend/cmd/*/bootstrap
 
 # Build artifacts
 frontend/.next/
 frontend/out/
-frontend/tsconfig.tsbuildinfo
+frontend/tsbuildinfo
 .worktrees/
+backend/localserver
 
 # Environment files
 .env
@@ -21,7 +24,17 @@ backend/.env.local
 backend/.env.production
 backend/.env.development
 
+# Root package files (seed script tooling only)
+package.json
+package-lock.json
+
 # OS
 .DS_Store
 
 backend/listings
+
+# Playwright snapshots
+.playwright-mcp/
+
+# Kilo config (not for version control)
+.kilo/

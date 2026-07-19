@@ -40,6 +40,15 @@ type googleJWTPayload struct {
 // to create or update a user record — the JWT is not trusted for authorisation
 // beyond the initial login flow, which issues our own signed JWT.
 func verifyGoogleIDToken(ctx context.Context, idToken string) (*googleIDTokenClaims, error) {
+	if strings.HasPrefix(idToken, "mock-") {
+		return &googleIDTokenClaims{
+			Subject: "mock-google-id",
+			Email:   "demo@propti.app",
+			Name:    "Demo Landlord",
+			Picture: "https://api.dicebear.com/7.x/adventurer/svg?seed=demo",
+		}, nil
+	}
+
 	parts := strings.Split(idToken, ".")
 	if len(parts) != 3 {
 		return nil, fmt.Errorf("invalid JWT structure")

@@ -1,162 +1,269 @@
-# Propti - Jual Beli Properti Semudah Chat WhatsApp
+# Propti — AI-Powered Real Estate Workspace
 
-**Propti** is an Indonesian real estate platform that makes listing and finding properties as easy as sending a WhatsApp message. Users can paste their informal property listing text and AI automatically structures it into a professional listing.
+**Propti** is an Indonesian real estate platform that lets agents and property owners create professional listings from informal WhatsApp-style text, powered by AI. Search for properties with natural language, manage leads through a built-in CRM, and accept payments via DOKU — all in one workspace.
+
+[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+## Screenshots
+
+**Landing page** — Hero section, pricing tiers, feature highlights, and a call-to-action for agents and property owners.
+
+[![Landing page](docs/screenshots/01_landing_page.png)](docs/screenshots/01_landing_page.png)
+
+**Login page** — Google OAuth sign-in with a clean, focused layout. Demo mode auto-authenticates locally.
+
+[![Login page](docs/screenshots/02_login_page.png)](docs/screenshots/02_login_page.png)
+
+**Property search** — Browse all active listings with filters for type, location, and price range. AI-powered natural language search is one toggle away.
+
+[![Property search](docs/screenshots/03_search_listings.png)](docs/screenshots/03_search_listings.png)
+
+**Listing detail** — Full property view with image gallery, map, key specs, and seller contact reveal.
+
+[![Listing detail](docs/screenshots/04_listing_detail.png)](docs/screenshots/04_listing_detail.png)
+
+**Profile dashboard** — Subscription management, usage stats, WhatsApp linking, and account settings in one place.
+
+[![Profile dashboard](docs/screenshots/05_profile_dashboard.png)](docs/screenshots/05_profile_dashboard.png)
+
+**Saved listings** — Bookmarked properties for quick access, synced across sessions.
+
+[![Saved listings](docs/screenshots/06_saved_listings.png)](docs/screenshots/06_saved_listings.png)
+
+**Create listing** — Paste informal WhatsApp text or fill a manual form. AI extracts and structures all property details automatically.
+
+[![Create listing](docs/screenshots/07_create_listing.png)](docs/screenshots/07_create_listing.png)
 
 ## Features
 
-- 🤖 **AI Text Parsing** – Paste WhatsApp-style listing text, AI extracts all property details
-- 🏠 **Free Listing** – 1 listing/month with up to 3 photos (free tier)
-- 💎 **Premium Features** – Unlimited listings, featured placement, promotion
-- 📍 **Location Search** – Find properties by city, district, or nearby
-- 💳 **Midtrans Payments** – Support for all Indonesian payment methods
-- 🔒 **Google OAuth** – Simple sign-in with Google
-
-## Business Model
-
-| Feature | Free | Premium (Rp 49k/bln) |
-|---------|------|----------------------|
-| Listings/month | 1 | Unlimited |
-| Photos per listing | 3 | Unlimited |
-| Featured listing | – | Rp 50-100k / 7 hari |
-| Promotion listing | – | Rp 25-50k / 7 hari |
+- **AI-Powered Listing Creation** — Paste informal WhatsApp-style property text; AI extracts title, price, rooms, location, and amenities into a structured listing.
+- **Natural Language Search** — Search properties with queries like "rumah murah di Jakarta Selatan dekat sekolah" instead of filling complex filters.
+- **Subscription Tiers** — Free (5 active listings, 5 photos), Premium (25 listings, 15 photos, WhatsApp read), and Pro (100 listings, 25 photos, voice input).
+- **WhatsApp Bot** — Link your WhatsApp number to receive listing creation requests and lead inquiries directly in chat. Supports Twilio and Meta WhatsApp.
+- **CRM & Lead Management** — Track leads through stages (new → interested → viewing → negotiation → deal), schedule follow-ups, add notes, and view analytics.
+- **DOKU Payment Gateway** — Accept payments in IDR via virtual accounts and e-wallets. Feature listings and upgrade subscriptions through hosted checkout.
+- **Google OAuth** — Simple sign-in with a Google account. No password management needed.
+- **Location Autocomplete** — Province, city, and district suggestions with Google Maps integration.
 
 ## Architecture
 
 ```
-Frontend (Vercel)          Backend (AWS Lambda)
-Next.js 14              ←→  Go 1.24 + API Gateway
-Tailwind + Shadcn/UI        DynamoDB + S3
-NextAuth (Google OAuth)     OpenAI GPT-4 mini
-                            Midtrans (payment)
-                            Google Maps API
+┌──────────────────────────────────────────────────────────────┐
+│                        Client Browser                         │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │              Next.js 15 (App Router)                    │  │
+│  │  ┌──────────┐  ┌──────────┐  ┌────────────────────┐   │  │
+│  │  │ NextAuth │  │TanStack  │  │ React Hook Form    │   │  │
+│  │  │ (Google) │  │ Query    │  │ + Zod validation   │   │  │
+│  │  └──────────┘  └──────────┘  └────────────────────┘   │  │
+│  │  ┌──────────────────────────────────────────────────┐ │  │
+│  │  │          Tailwind CSS + Radix UI                 │ │  │
+│  │  └──────────────────────────────────────────────────┘ │  │
+│  └────────────────────────────────────────────────────────┘  │
+└──────────────────────────┬───────────────────────────────────┘
+                           │ HTTPS
+┌──────────────────────────▼───────────────────────────────────┐
+│                     AWS Cloud (ap-southeast-1)                │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │                   API Gateway (REST)                    │  │
+│  └──────┬──────────┬──────────┬──────────┬────────────────┘  │
+│         │          │          │          │                    │
+│  ┌──────▼──┐ ┌─────▼───┐ ┌───▼────┐ ┌──▼────────┐           │
+│  │ Go      │ │ Go      │ │ Go     │ │ Go        │           │
+│  │ Lambda  │ │ Lambda  │ │ Lambda │ │ Lambda    │           │
+│  │ Auth    │ │Listing  │ │Payment │ │ WhatsApp  │           │
+│  └────┬────┘ └────┬────┘ └───┬────┘ └────┬──────┘           │
+│       │           │          │            │                   │
+│  ┌────▼───────────▼──────────▼────────────▼──────┐           │
+│  │              Amazon DynamoDB                   │           │
+│  │  ┌──────────┐ ┌──────────┐ ┌───────────────┐ │           │
+│  │  │ Listings │ │  Users   │ │ Transactions  │ │           │
+│  │  ├──────────┤ ├──────────┤ ├───────────────┤ │           │
+│  │  │  Leads   │ │Moderation│ │Upload Sessions│ │           │
+│  │  ├──────────┤ ├──────────┤ ├───────────────┤ │           │
+│  │  │ WhatsApp │ │   OTP    │ │               │ │           │
+│  │  │ Sessions │ │Challenges│ │               │ │           │
+│  │  └──────────┘ └──────────┘ └───────────────┘ │           │
+│  └──────────────────────────────────────────────┘           │
+│  ┌──────────────┐                                           │
+│  │ Amazon S3    │  ← Listing images & thumbnails             │
+│  └──────────────┘                                           │
+└──────────────────────────────────────────────────────────────┘
+
+External Services
+  ├── OpenAI (GPT-4 mini)  →  AI text parsing & search intent
+  ├── Google Maps Platform →  Geocoding & location autocomplete
+  ├── DOKU                 →  Payment processing (IDR)
+  └── Twilio / Meta        →  WhatsApp messaging
 ```
+
+### Key Design Decisions
+
+- **Two-auth-layer**: NextAuth.js handles Google OAuth on the frontend, then exchanges the Google ID token for a backend-issued JWT. All API calls use the backend JWT.
+- **Single-table design**: DynamoDB tables use composite keys (`PK` + `SK`) with global secondary indexes for common access patterns.
+- **Demo mode**: Set `NEXT_PUBLIC_DEMO_MODE=true` to bypass Google OAuth locally. The backend accepts mock ID tokens prefixed with `mock-`.
+- **No ORM**: Direct DynamoDB SDK usage with handwritten repository patterns for full control over access patterns and index usage.
 
 ## Project Structure
 
 ```
 propti/
-├── backend/          # Go Lambda functions (AWS SAM)
-│   ├── cmd/          # Lambda entry points
-│   ├── internal/     # Models, services, handlers, repository
-│   └── template.yaml # AWS SAM infrastructure
-├── frontend/         # Next.js 14 application
-│   ├── app/          # App Router pages
-│   ├── components/   # React components
-│   ├── hooks/        # Custom React hooks
-│   └── lib/          # API client, utils
-└── docs/             # Documentation
+├── backend/                       # Go 1.24 Lambda functions (AWS SAM)
+│   ├── cmd/                       # Lambda + localserver entry points
+│   │   ├── auth/                  #   Auth Lambda
+│   │   ├── listings/              #   Listings Lambda
+│   │   ├── localserver/           #   Local dev server (native Go)
+│   │   ├── payment/               #   Payment webhook Lambda
+│   │   └── whatsapp/              #   WhatsApp webhook Lambda
+│   ├── internal/
+│   │   ├── data/                  #   Static data (Indonesia locations)
+│   │   ├── handlers/              #   HTTP handlers (auth, listings, search, leads, payments, WhatsApp)
+│   │   ├── models/                #   Domain types & DynamoDB marshalling
+│   │   ├── payments/              #   DOKU payment provider
+│   │   ├── repository/            #   DynamoDB CRUD operations
+│   │   ├── services/              #   Business logic (AI, search, subscriptions, moderation, WhatsApp)
+│   │   └── utils/                 #   JWT, validation, response helpers
+│   ├── template.yaml              # AWS SAM infrastructure definition
+│   ├── .env.local.example         # Committed: local dev template
+│   ├── .env.development.example   # Committed: dev env template
+│   └── .env.production.example    # Committed: production env template
+├── frontend/                      # Next.js 15 application (Vercel)
+│   ├── app/                       # App Router pages & layouts
+│   │   ├── (auth)/                #   Login & callback routes
+│   │   └── (app)/                 #   Authenticated routes (listings, search, profile, saved, etc.)
+│   ├── components/                # React components (auth, ui, layout, listings)
+│   ├── hooks/                     # Custom React hooks
+│   ├── lib/                       # API client, auth, utils
+│   ├── styles/                    # Global styles
+│   ├── types/                     # TypeScript type definitions
+│   ├── .env.local.example         # Committed: local dev template
+│   ├── .env.development.example   # Committed: dev env template
+│   └── .env.production.example    # Committed: production env template
+├── scripts/
+│   ├── dev-local.mjs              # Local dev orchestrator
+│   ├── dev-local.test.mjs         # Orchestrator tests
+│   └── seed-local.mjs             # Seed script for local dummy data
+├── docs/
+│   ├── screenshots/               # Application screenshots
+│   ├── LOCAL_SETUP.md             # Detailed local development guide
+│   ├── DEPLOYMENT.md              # Deployment reference
+│   └── BRAND_GUIDELINES.md        # Brand design system
+├── docker-compose.yml             # Local infrastructure (DynamoDB + MinIO)
+└── README.md
 ```
 
-## Quick Start
+## Local Development
 
-See [docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md) for setup instructions.
-See [docs/BRAND_GUIDELINES.md](docs/BRAND_GUIDELINES.md) for the Propti brand system.
+### Prerequisites
 
-### Local stack
+- Go 1.24+
+- Node.js 20+
+- Docker (or Podman with `podman-docker`)
+
+### Quick Start
+
 ```bash
+git clone https://github.com/fiando/propti-chat-listing.git
+cd propti-chat-listing
+
+# Install dependencies
 cd frontend && npm install
 cd ../backend && go mod download
 cd ..
+
+# Create env files from committed templates
 cp frontend/.env.local.example frontend/.env.local
 cp backend/.env.local.example backend/.env.local
+
+# Add NEXT_PUBLIC_DEMO_MODE=true to frontend/.env.local to enable demo login
+echo "NEXT_PUBLIC_DEMO_MODE=true" >> frontend/.env.local
+
+# Start local infrastructure
+docker compose up -d
+
+# Seed with dummy data
+node scripts/seed-local.mjs
+
+# Start both services
 ./scripts/dev-local.mjs
 ```
 
-The frontend runs at `http://localhost:3000` and the backend API runs at `http://localhost:3001`.
-`./scripts/dev-local.mjs` now auto-detects Podman and sets `DOCKER_HOST` to the Podman socket for AWS SAM when Docker is unavailable.
+- Frontend: `http://localhost:3000`
+- Backend API: `http://localhost:3001`
+- DynamoDB Local: `http://localhost:8000`
+- MinIO Console: `http://localhost:9001` (login: `minioadmin` / `minioadmin`)
 
-To reuse `backend/.env.development` instead, run `./scripts/dev-local.mjs --backend-env-file backend/.env.development`.
+### Environment Files
 
-## Deployment
+Committed example files serve as the source of truth for required variables:
 
-### Frontend (Vercel)
+| File                                | Purpose                      |
+| ----------------------------------- | ---------------------------- |
+| `frontend/.env.local.example`       | Local development template   |
+| `frontend/.env.development.example` | Development/staging template |
+| `frontend/.env.production.example`  | Production template          |
+| `backend/.env.local.example`        | Local development template   |
+| `backend/.env.development.example`  | Development/staging template |
+| `backend/.env.production.example`   | Production template          |
 
-Preferred path: push frontend changes to `main`. GitHub Actions runs `Deploy Frontend` automatically for `frontend/**` changes.
+Copy these to their non-example counterparts (e.g., `.env.local`) and fill in real values. The actual env files (`.env.local`, `.env.development`, `.env.production`) are git-ignored and should never be committed.
 
-Required production secrets:
-- `NEXTAUTH_URL`
-- `NEXTAUTH_SECRET`
-- `GOOGLE_CLIENT_ID`
-- `GOOGLE_CLIENT_SECRET`
-- `NEXT_PUBLIC_API_URL`
-- `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`
-- `VERCEL_TOKEN`
-- `VERCEL_ORG_ID`
-- `VERCEL_PROJECT_ID`
+### Demo Mode
 
-Env-file workflow:
-- committed templates: `frontend/.env.production.example`, `frontend/.env.development.example`
-- local ignored files: `frontend/.env.production`, `frontend/.env.development`
+When `NEXT_PUBLIC_DEMO_MODE=true` is set in `frontend/.env.local`:
 
-Helpful checks:
+- The login page auto-authenticates as `demo@propti.app` without Google OAuth.
+- The backend accepts mock ID tokens prefixed with `mock-` for local development.
+- Use the seed script (`node scripts/seed-local.mjs`) to populate DynamoDB Local with dummy data.
+
+### Docker Compose Services
+
+| Service        | Port                       | Purpose                                        |
+| -------------- | -------------------------- | ---------------------------------------------- |
+| DynamoDB Local | 8000                       | Local NoSQL database (persistent volume)       |
+| MinIO          | 9000 (API), 9001 (Console) | S3-compatible object storage                   |
+| MinIO Setup    | —                          | Auto-creates `propti-media-development` bucket |
+
+### Running Tests
 
 ```bash
-gh run list --workflow deploy-frontend.yml --limit 5
-gh secret list --env production
-cd frontend && npm run test:deploy-config
+# Backend tests
+cd backend && go test ./...
+
+# Frontend tests
 cd frontend && npm run lint
-cd frontend && npm run build
+
+# Orchestrator tests
+node --test scripts/dev-local.test.mjs
 ```
-
-If `gh secret list --env production` returns `no secrets found`, re-add the listed frontend production secrets before rerunning the workflow.
-
-### Backend (AWS SAM)
-
-Preferred path: push backend changes to `main`. GitHub Actions runs `Deploy Backend` automatically for `backend/**` changes.
-
-Required production secrets:
-- `AWS_ROLE_ARN`
-- `JWT_SECRET`
-- `OPENAI_API_KEY`
-- `GOOGLE_MAPS_API_KEY`
-- `DOKU_CLIENT_ID`
-- `DOKU_SECRET_KEY`
-
-Env-file workflow:
-- committed templates: `backend/.env.production.example`, `backend/.env.development.example`
-- local ignored files: `backend/.env.production`, `backend/.env.development`
-
-Notes:
-- The production stack reuses previously stored secret parameter values when they are omitted from repeated `sam deploy` runs.
-- `CAPABILITY_NAMED_IAM` is required because the SAM template creates a named IAM role.
-- The backend custom domain remains `https://api.propti.id`. If DNS needs to be re-pointed, use the stack output `ApiCustomDomainRegionalName`.
-- GitHub Actions is the deployment mechanism for production; `workflow_dispatch` is available for manual reruns without needing to push another commit.
-
-See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the full deployment guide.
-
-## WhatsApp Template Decision Policy
-
-Backend service policy now enforces:
-- In-window: free-form messages only (no templates).
-- Out-of-window: utility templates only for critical transactional flows.
-- Authentication templates: disabled by default and gated behind explicit feature flag.
-- Decision outputs include go/no-go plus cost, conversion, and retention impact hooks for operational review.
-
-## WhatsApp Funnel Metrics & Observability
-
-The backend now emits structured WhatsApp metrics (with subscription tier context: `free`/`basic`/`premium`/`pro`) for retention and USP analysis:
-- `whatsapp_chat_first_completion`
-- `whatsapp_zero_context_switch_completion`
-- `whatsapp_voice_usage`
-- `whatsapp_voice_quota_pressure`
-- `whatsapp_upgrade_intent`
-- `whatsapp_upgrade_conversion_hint`
-
-Current sink logs these events through structured backend logs from the WhatsApp Lambda (`cmd/whatsapp`), so they can be forwarded to centralized observability tooling.
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | Next.js 14, TypeScript, Tailwind CSS, Shadcn/UI |
-| Backend | Go 1.24, AWS Lambda, API Gateway |
-| Database | Amazon DynamoDB |
-| Storage | Amazon S3 |
-| AI | OpenAI GPT-4 mini |
-| Auth | Google OAuth 2.0 + JWT |
-| Payments | Midtrans Snap |
-| Maps | Google Maps Platform |
-| Hosting | Vercel (frontend) + AWS (backend) |
+| Layer              | Technology                                                  |
+| ------------------ | ----------------------------------------------------------- |
+| **Frontend**       | Next.js 15, TypeScript, Tailwind CSS, Radix UI              |
+| **State & Data**   | TanStack Query, Zustand                                     |
+| **Forms**          | React Hook Form, Zod                                        |
+| **Auth**           | NextAuth.js (Google OAuth), backend JWT                     |
+| **Backend**        | Go 1.24, AWS Lambda, API Gateway                            |
+| **Database**       | Amazon DynamoDB (8 tables, single-table design)             |
+| **Storage**        | Amazon S3 (listing images & thumbnails)                     |
+| **AI**             | OpenAI GPT-4 mini (text parsing, search intent, moderation) |
+| **Payments**       | DOKU (hosted checkout, VA, e-wallet)                        |
+| **Messaging**      | Twilio WhatsApp, Meta WhatsApp Cloud API                    |
+| **Maps**           | Google Maps Platform (geocoding, place autocomplete)        |
+| **Hosting**        | Vercel (frontend), AWS (backend)                            |
+| **CI/CD**          | GitHub Actions (auto-deploy on push to `main`)              |
+| **Infrastructure** | AWS SAM (serverless), Docker Compose (local)                |
+
+## Deployment
+
+Deployment is automated via GitHub Actions on push to `main`.
+
+- **Frontend** → Vercel
+- **Backend** → AWS SAM
+
+Required GitHub production secrets are listed in the committed env example files. For detailed deployment instructions and troubleshooting, see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## License
 

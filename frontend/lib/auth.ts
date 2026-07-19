@@ -1,5 +1,6 @@
 import type { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
+import CredentialsProvider from 'next-auth/providers/credentials';
 
 import {
   exchangeGoogleIdTokenForBackendSession,
@@ -42,10 +43,54 @@ export const authOptions: NextAuthOptions = {
         },
       },
     }),
+    CredentialsProvider({
+      name: 'Bypass Login',
+      credentials: {
+        email: { label: "Email", type: "text" },
+        password: { label: "Password", type: "password" }
+      },
+      async authorize(credentials) {
+        try {
+          const res = await fetch(`${apiBaseUrl}/auth/google`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              idToken: 'mock-google-id-token',
+            }),
+          });
+          const data = await res.json();
+          if (res.ok && data && data.accessToken) {
+            return {
+              id: data.user.userId,
+              name: data.user.name,
+              email: data.user.email,
+              image: data.user.profilePicture,
+              accessToken: data.accessToken,
+              backendUser: data.user,
+            };
+          }
+          return null;
+        } catch (e) {
+          console.error('Demo credentials authorization error:', e);
+          return null;
+        }
+      }
+    }),
   ],
   callbacks: {
-    async jwt({ token, account, profile }) {
+    async jwt({ token, user, account, profile }) {
       const nextToken = token as typeof token & TokenWithBackendAuth;
+
+      if (account && account.provider === 'credentials' && user) {
+        const credUser = user as any;
+        nextToken.backendAccessToken = credUser.accessToken;
+        nextToken.backendAccessTokenExpiresAt = getJwtExpiryTimestamp(credUser.accessToken);
+        nextToken.backendUser = credUser.backendUser;
+        nextToken.accessToken = credUser.accessToken;
+        nextToken.sub = credUser.backendUser.userId;
+        nextToken.error = undefined;
+        return nextToken;
+      }
 
       if (account && profile) {
         nextToken.googleAccessToken = account.access_token;

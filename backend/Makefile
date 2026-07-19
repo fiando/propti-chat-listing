@@ -7,12 +7,14 @@ AWS_REGION?=ap-southeast-1
 API_CUSTOM_DOMAIN_NAME?=api.propti.id
 API_CUSTOM_DOMAIN_CERTIFICATE_ARN?=arn:aws:acm:ap-southeast-1:260317865867:certificate/a6625ab7-0527-4dbf-aa1e-f22a39a33e98
 
+GOARCH?=arm64
+
 build:
 	@mkdir -p $(BINARY_DIR)
 	@for func in $(FUNCTIONS); do \
 		echo "Building $$func..."; \
 		mkdir -p $(BINARY_DIR)/$$func; \
-		GOOS=linux GOARCH=arm64 go build -tags lambda.norpc -o $(BINARY_DIR)/$$func/bootstrap ./cmd/$$func/; \
+		GOOS=linux GOARCH=$(GOARCH) go build -tags lambda.norpc -o $(BINARY_DIR)/$$func/bootstrap ./cmd/$$func/; \
 	done
 	@echo "Build complete."
 

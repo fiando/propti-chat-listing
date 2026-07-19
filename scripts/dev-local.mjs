@@ -40,20 +40,21 @@ export function buildDevLocalPlan(rootDir = process.cwd(), options = {}) {
     backend: {
       cwd: path.join(projectRoot, 'backend'),
       envFile: backendEnvFile,
-      buildCommand: {
-        command: 'make',
-        args: ['build'],
-      },
+      buildCommand: null, // go run compiles on the fly
       startCommand: {
-        command: 'sam',
-        args: ['local', 'start-api', '--host', 'localhost', '--port', '3001', '--env-vars', backendEnvFile],
+        command: 'go',
+        args: ['run', './cmd/localserver'],
       },
     },
     frontend: {
       cwd: path.join(projectRoot, 'frontend'),
+      buildCommand: {
+        command: 'npm',
+        args: ['run', 'build'],
+      },
       startCommand: {
         command: 'npm',
-        args: ['run', 'dev', '--', '--hostname', '0.0.0.0', '--port', '3000'],
+        args: ['run', 'start', '--', '--hostname', '0.0.0.0', '--port', '3000'],
       },
     },
   };
@@ -714,22 +715,41 @@ async function main() {
     await bootstrapLocalDynamoDB(plan.backend.cwd, backendEnvVars);
   }
 
-  console.log('Building backend Lambda binaries...');
-  await runCommand(plan.backend.cwd, plan.backend.buildCommand.command, plan.backend.buildCommand.args);
+  if (plan.backend.buildCommand) {
+    console.log('Building backend Lambda binaries...');
+    await runCommand(plan.backend.cwd, plan.backend.buildCommand.command, plan.backend.buildCommand.args);
+  }
 
-  const samEnvOverrides = createSamEnvOverridesFile(plan.backend.envFile);
-  const backendStartCommand = {
-    command: plan.backend.startCommand.command,
-    args: [...plan.backend.startCommand.args.slice(0, -1), samEnvOverrides.tempFile],
-  };
+  let backend;
+  if (plan.backend.buildCommand === null) {
+    // Native go run mode — no Docker/SAM needed. Pass .env vars directly.
+    console.log('Starting backend on http://localhost:3001 (native go run, no Docker required)');
+    backend = startLongRunningCommand(
+      plan.backend.cwd,
+      plan.backend.startCommand.command,
+      plan.backend.startCommand.args,
+      { PORT: '3001', ...backendEnvVars },
+    );
+  } else {
+    // SAM local mode
+    const samEnvOverrides = createSamEnvOverridesFile(plan.backend.envFile);
+    const backendStartCommand = {
+      command: plan.backend.startCommand.command,
+      args: [...plan.backend.startCommand.args.slice(0, -1), samEnvOverrides.tempFile],
+    };
+    console.log('Starting backend on http://localhost:3001');
+    backend = startLongRunningCommand(
+      plan.backend.cwd,
+      backendStartCommand.command,
+      backendStartCommand.args,
+      containerRuntime.envOverrides,
+    );
+  }
 
-  console.log('Starting backend on http://localhost:3001');
-  const backend = startLongRunningCommand(
-    plan.backend.cwd,
-    backendStartCommand.command,
-    backendStartCommand.args,
-    containerRuntime.envOverrides,
-  );
+  if (plan.frontend.buildCommand) {
+    console.log('Building frontend production bundle (this may take a minute)...');
+    await runCommand(plan.frontend.cwd, plan.frontend.buildCommand.command, plan.frontend.buildCommand.args, frontendEnvOverrides);
+  }
 
   console.log('Starting frontend on http://localhost:3000');
   if (Object.keys(frontendEnvOverrides).length > 0) {
@@ -755,7 +775,9 @@ async function main() {
       terminateChild(child);
     }
 
-    fs.rmSync(samEnvOverrides.tempDir, { recursive: true, force: true });
+    if (typeof samEnvOverrides !== 'undefined' && samEnvOverrides?.tempDir) {
+      fs.rmSync(samEnvOverrides.tempDir, { recursive: true, force: true });
+    }
 
     setTimeout(() => {
       process.exit(exitCode);

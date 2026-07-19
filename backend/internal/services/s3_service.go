@@ -44,10 +44,22 @@ func NewS3Service(ctx context.Context, bucketName string) (*S3Service, error) {
 		return nil, fmt.Errorf("load aws config: %w", err)
 	}
 
-	client := s3.NewFromConfig(cfg)
+	s3Options := []func(*s3.Options){}
+	s3Endpoint := os.Getenv("AWS_ENDPOINT_URL_S3")
+	if s3Endpoint != "" {
+		s3Options = append(s3Options, func(o *s3.Options) {
+			o.BaseEndpoint = aws.String(s3Endpoint)
+			o.UsePathStyle = true
+		})
+	}
+	client := s3.NewFromConfig(cfg, s3Options...)
 	publicBaseURL := strings.TrimRight(os.Getenv("PUBLIC_MEDIA_BASE_URL"), "/")
 	if publicBaseURL == "" {
-		publicBaseURL = fmt.Sprintf("https://%s.s3.%s.amazonaws.com", bucketName, cfg.Region)
+		if s3Endpoint != "" {
+			publicBaseURL = fmt.Sprintf("%s/%s", s3Endpoint, bucketName)
+		} else {
+			publicBaseURL = fmt.Sprintf("https://%s.s3.%s.amazonaws.com", bucketName, cfg.Region)
+		}
 	}
 
 	return &S3Service{

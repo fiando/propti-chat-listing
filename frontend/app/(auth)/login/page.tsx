@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { GoogleLoginButton } from '@/components/auth/GoogleLoginButton';
+import { DemoAutoLogin } from '@/components/auth/DemoAutoLogin';
 import { ProptiLogo } from '@/components/common/ProptiLogo';
 import { Home, Shield, Zap } from 'lucide-react';
 import Link from 'next/link';
@@ -74,6 +75,9 @@ export default async function LoginPage({
                 Sesi akunmu belum bisa dipulihkan otomatis. Silakan masuk lagi untuk melanjutkan.
               </div>
             ) : null}
+
+            {/* Silent demo auto-login (invisible, fires when NEXT_PUBLIC_DEMO_MODE=true) */}
+            <DemoAutoLogin callbackUrl={callbackUrl} />
 
             {/* Login button */}
             <GoogleLoginButton callbackUrl={callbackUrl} />

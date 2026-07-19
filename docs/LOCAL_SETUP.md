@@ -4,163 +4,126 @@
 
 - Go 1.24+
 - Node.js 20+
-- AWS CLI configured
-- AWS SAM CLI
-- Docker (for SAM local)
+- Docker (or Podman with `podman-docker`)
 
-## 1. Clone & Configure
+## 1. Clone & Install Dependencies
 
 ```bash
-git clone https://github.com/fiando/propti.git
-cd propti
+git clone https://github.com/fiando/propti-chat-listing.git
+cd propti-chat-listing
+cd frontend && npm install
+cd ../backend && go mod download
+cd ..
 ```
 
-## 2. Backend Setup
+## 2. Environment Variables
 
-### Environment Variables
-
-Create `backend/.env.local` from the committed example:
+Create local env files from the committed example templates:
 
 ```bash
+cp frontend/.env.local.example frontend/.env.local
 cp backend/.env.local.example backend/.env.local
 ```
 
-Required local defaults:
-```
-JWT_SECRET=your-jwt-secret-min-32-chars
-OPENAI_API_KEY=sk-...
-AWS_REGION=ap-southeast-1
-DYNAMODB_ENDPOINT_URL=http://localhost:8000
-GOOGLE_MAPS_API_KEY=AIza...
-PUBLIC_API_BASE_URL=http://localhost:3001
-```
-
-The API will be available at `http://localhost:3001`.
-
-### Running Tests
+Enable demo mode to bypass Google OAuth locally:
 
 ```bash
-cd backend
-go test ./...
+echo "NEXT_PUBLIC_DEMO_MODE=true" >> frontend/.env.local
 ```
 
-## 3. Frontend Setup
+Env file workflow:
+- **Committed** examples (source of truth for required variables):
+  - `frontend/.env.local.example`, `frontend/.env.development.example`, `frontend/.env.production.example`
+  - `backend/.env.local.example`, `backend/.env.development.example`, `backend/.env.production.example`
+- **Git-ignored** local files: `.env.local`, `.env.development`, `.env.production`
 
-### Environment Variables
+## 3. Start Local Infrastructure
 
 ```bash
-cd frontend
-cp .env.local.example .env.local
+docker compose up -d
 ```
 
-Edit `frontend/.env.local`:
-```
-NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=your-nextauth-secret
-GOOGLE_CLIENT_ID=xxx.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-NEXT_PUBLIC_API_URL=http://localhost:3001
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=AIza...
-```
+This starts:
+| Service | Port | Purpose |
+|---|---|---|
+| DynamoDB Local | 8000 | Local NoSQL database with persistent volume |
+| MinIO | 9000 (API), 9001 (Console) | S3-compatible object storage |
+| MinIO Setup | — | Creates `propti-media-development` bucket |
 
-## 4. Install Dependencies
+MinIO credentials: `minioadmin` / `minioadmin`
+
+## 4. Seed Dummy Data
 
 ```bash
-cd frontend && npm install
-cd ../backend && go mod download
+node scripts/seed-local.mjs
 ```
 
-## 5. Run the Local Stack
+Populates DynamoDB Local with:
+- Demo user (`demo@propti.app`)
+- 8 sample property listings (sell/rent, various cities)
+- 3 saved listings
+- 3 CRM leads
 
-If you use Podman instead of Docker, start the compatibility service first:
-
-```bash
-podman system service --time=0 tcp:127.0.0.1:2375 &
-export DOCKER_HOST=tcp://127.0.0.1:2375
-```
+## 5. Run the App
 
 ```bash
 ./scripts/dev-local.mjs
 ```
 
-The frontend will be available at `http://localhost:3000` and the API will be available at `http://localhost:3001`.
-
-For Google sign-in, use `localhost` consistently in the browser and env files. Do not mix `localhost` and `127.0.0.1`, or NextAuth's state cookie validation will fail on the callback.
+- **Frontend**: `http://localhost:3000`
+- **Backend API**: `http://localhost:3001`
 
 The script:
-- validates `frontend/.env.local` and `backend/.env.local`
-- bootstraps local DynamoDB tables when `DYNAMODB_ENDPOINT_URL` points to `localhost` or `127.0.0.1`
-- builds the backend Lambda binaries with `make build`
-- starts AWS SAM on port `3001`
-- starts Next.js on port `3000`
-- stops both processes together on `Ctrl+C`
+- Validates `frontend/.env.local` and `backend/.env.local` exist
+- Bootstraps DynamoDB Local tables if they don't exist
+- Starts the Go backend natively on port 3001 (no Docker/SAM needed)
+- Builds and starts Next.js on port 3000
+- Stops both processes together on `Ctrl+C`
 
-If you want to reuse `backend/.env.development` instead of `backend/.env.local`, run:
+For the backend URL, use `localhost` consistently in the browser and env files. Do not mix `localhost` and `127.0.0.1`, or NextAuth's state cookie validation will fail on the callback.
+
+To reuse `backend/.env.development` instead of `backend/.env.local`:
 
 ```bash
 ./scripts/dev-local.mjs --backend-env-file backend/.env.development
 ```
 
-The launcher will convert the dotenv file into the JSON override format that your local SAM CLI expects.
+## 6. Demo Mode
 
-### Calling the local API
+When `NEXT_PUBLIC_DEMO_MODE=true` in `frontend/.env.local`:
 
-Use the paths defined in `backend/template.yaml` directly. With `sam local start-api`, local routes do **not** include a deployed stage prefix such as `/dev`.
+- The login page auto-authenticates as `demo@propti.app` without Google OAuth
+- The backend accepts mock ID tokens prefixed with `mock-`
+- All features are accessible without real Google credentials
 
-Examples:
-
-```bash
-curl http://127.0.0.1:3001/
-curl http://127.0.0.1:3001/listings
-curl -X POST http://127.0.0.1:3001/auth/google
-```
-
-If you call the wrong path or HTTP method, SAM returns:
-
-```json
-{"message":"Missing Authentication Token"}
-```
-
-## 6. AWS Services Setup (Local Dev)
-
-### DynamoDB Local
+## 7. Running Tests
 
 ```bash
-docker run -p 8000:8000 amazon/dynamodb-local
+# Backend tests
+cd backend && go test ./...
+
+# Frontend lint & build check
+cd frontend && npm run lint
+
+# Orchestrator tests
+node --test scripts/dev-local.test.mjs
 ```
 
-Once DynamoDB Local is running, `./scripts/dev-local.mjs` creates the required local tables automatically.
-
-### S3 Local (MinIO)
-
-```bash
-docker run -p 9000:9000 minio/minio server /data
-```
-
-## 7. Google OAuth Setup
+## 8. Google OAuth Setup (for real auth, skip if using demo mode)
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select existing
-3. Enable Google+ API
-4. Create OAuth 2.0 credentials
-5. Add `http://localhost:3000` to authorized origins
-6. Add `http://localhost:3000/api/auth/callback/google` to redirect URIs
-7. Copy Client ID and Client Secret to `frontend/.env.local`
+2. Create a project and enable the Google+ API
+3. Create OAuth 2.0 credentials
+4. Add `http://localhost:3000` to authorized origins
+5. Add `http://localhost:3000/api/auth/callback/google` to redirect URIs
+6. Copy Client ID and Secret to `frontend/.env.local`
 
-## 8. Midtrans Sandbox Setup
+## 9. API Endpoints
 
-1. Create account at [sandbox.midtrans.com](https://sandbox.midtrans.com)
-2. Get your Server Key from Settings > Access Keys
-3. Set `MIDTRANS_IS_PRODUCTION=false` for sandbox
-
-## 9. OpenAI Setup
-
-1. Get API key from [platform.openai.com](https://platform.openai.com)
-2. Add to `OPENAI_API_KEY` in backend env
-
-## Development Workflow
+When running locally, use paths matching `backend/template.yaml` directly (no stage prefix):
 
 ```bash
-# One terminal for both services
-./scripts/dev-local.mjs
+curl http://localhost:3001/
+curl http://localhost:3001/listings
+curl -X POST http://localhost:3001/auth/google
 ```
