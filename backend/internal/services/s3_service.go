@@ -73,6 +73,9 @@ func (s *S3Service) GetPresignedUploadURL(ctx context.Context, key, contentType 
 }
 
 func (s *S3Service) GetSignedDownloadURL(ctx context.Context, key string) (string, error) {
+	if strings.HasPrefix(key, "http://") || strings.HasPrefix(key, "https://") {
+		return key, nil
+	}
 	req, err := s.presignClient.PresignGetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(s.bucketName),
 		Key:    aws.String(key),
