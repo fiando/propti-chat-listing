@@ -115,7 +115,7 @@ func (s *ListingService) CreateListing(ctx context.Context, userID string, req *
 		return nil, utils.ErrUnauthorized
 	}
 
-	isPremium := IsPremiumEntitled(user, time.Now())
+	isPremium := IsPremiumEntitled(user, s.now())
 	count, err := s.listingRepo.CountActiveByUserID(ctx, userID)
 	if err != nil {
 		utils.LogError("count active listings", err, "userId", userID)
@@ -250,7 +250,7 @@ func (s *ListingService) UpdateListing(ctx context.Context, userID, listingID st
 	}
 
 	user, _ := s.userRepo.GetByID(ctx, userID)
-	isPremium := user != nil && IsPremiumEntitled(user, time.Now())
+	isPremium := user != nil && IsPremiumEntitled(user, s.now())
 	now := s.now()
 	expired := listing.ExpiresAt != nil && !listing.ExpiresAt.After(now)
 	listing, err = s.normalizeListingStateIfNeeded(ctx, listing)
